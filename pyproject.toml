@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gladoss"
+version = "alpha"
+authors = [
+  { name="Xander Wilcke", email="w.x.wilcke@vu.nl" },
+]
+description = "Online Anomaly Detection on Distributed RDF Streams"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENCE"]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = [
+  "pyRDF >= 2.3.0",
+  ]
+keywords = ["rdf", "knowledge graphs", "anomaly detection", "rdf streams"]
+
+[project.urls]
+"Repository" = "https://gitlab.com/wxwilcke/gladoss"
+"Documentation" = "https://wxwilcke.gitlab.io/gladoss"
