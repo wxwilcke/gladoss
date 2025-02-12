@@ -2,20 +2,18 @@
 
 """
 Dummy RESTful API for debugging purposes
-
-Run as
- fastapi dev repo/gladoss/adaptors/dummy-device.py
 """
 
 import argparse
+from datetime import datetime
 import logging
 import json
-from time import sleep
+from time import sleep, time
 from threading import Thread
 from queue import Queue
 from random import randrange
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status, HTTPException
 import uvicorn
 
 app = FastAPI()
@@ -23,20 +21,30 @@ logger = logging.getLogger(__name__)
 
 
 @app.get("/")
-def read_root():
-    return {"Hello": "World"}
+def publish(response: Response) -> dict[str, str]:
+    """ Return published items on request if available. Use long polling to
+    return update as soon as it becomes available.
 
+    :return: a published item via a RESTful api
+    """
+    global cache
 
-@app.get("/stream/")
-def publish() -> dict[str, str]:
-    global cache, item_prev
-    if not cache.empty():
-        item_cur = cache.get()  # dict[str, str]
-        item_prev = item_cur
-    else:
-        item_cur = item_prev
+    if depleted:
+        response.status_code = status.HTTP_204_NO_CONTENT
+        return {"detail": "out of items"}
 
-    return item_cur
+    t0 = time()
+    while time() - t0 < timeout:
+        if not cache.empty():
+            item_cur = cache.get()  # dict[str, str]
+
+            return item_cur
+
+        sleep(1)
+
+    logging.debug(f"Request timeout after {timeout} seconds")
+    raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                        detail="Request timeout")
 
 
 def cycleItems(data: list[dict[str, str]], flags: argparse.Namespace):
@@ -46,20 +54,25 @@ def cycleItems(data: list[dict[str, str]], flags: argparse.Namespace):
     :param data: list with items to publish
     :param flags: user-provided parameters
     """
-    global cache
+    global cache, depleted
     for i, item in enumerate(data):
-        logger.info(f"Publishing item {i+1} / {len(data)}: {item}")
+        if flags.realtime:
+            # add or replace with current time
+            item["timestamp"] = datetime.now().isoformat()
 
+        logger.info(f"Publishing item {i+1} / {len(data)}: {item}")
         if not cache.full():
             cache.put(item)
         else:
-            logger.debug(f"Cache is full")
+            logger.debug("Cache is full")
 
-        delay = getDelay(flags.interval)
-        logger.debug(f"Waiting for {delay} seconds")
-        sleep(delay)
+        if i < len(data) - 1:
+            delay = getDelay(flags.interval)
+            logger.debug(f"Waiting for {delay} seconds")
+            sleep(delay)
 
-    logger.info("No further publications")
+    logger.info("Out of items")
+    depleted = True
 
 
 def getDelay(interval: range) -> int:
@@ -118,21 +131,22 @@ def main(flags: argparse.Namespace):
 
     :param flags: user-provided parameters
     """
-    global cache, item_prev
+    global cache, depleted, timeout
 
     data = load_json(flags.input)  # list[dict[str, str]]
-    item_prev = {"", ""}
     cache = Queue(maxsize=flags.cachesize)
+    timeout = flags.timeout
+    depleted = False
 
     logger.info(f"Loaded {len(data)} items")
     if len(data) > 0:
-        logger.debug(f"Item shape: {data[0].keys()}")
+        logger.debug(f"Item shape: {list(data[0].keys())}")
 
     # start item cycler on a separate threat
     cycler = Thread(target=cycleItems, args=[data, flags])
     cycler.start()
 
-    uvicorn.run(app)
+    uvicorn.run(app, port=flags.port)
 
     cycler.join()
 
@@ -144,13 +158,20 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--cachesize", help="Cache size in number of "
                         + "publications (default 1)", default=1, type=int)
-    parser.add_argument("--verbose", "-v", help="Show debug messages in "
-                        + "console.", action='count', default=0)
     parser.add_argument("--interval", help="Publishing interval in seconds "
                         + "(default 1:10). Takes a random value from the range"
                         + " 'from:to' (or shorthand ':to' when 'from' is 1) or"
                         + " 'int' if a fixed interval is desired.",
                         default=range(1, 10), type=integerRangeArg)
+    parser.add_argument("--port", help="Bind socket to this port (default "
+                        + "8000)", default=8000, type=int)
+    parser.add_argument("--realtime", help="Use actual time of publication "
+                        + " when publishing items.", default=False,
+                        action="store_true")
+    parser.add_argument("--timeout", help="Number of seconds until an open "
+                        "connection timeouts.", default=30, type=int)
+    parser.add_argument("--verbose", "-v", help="Show debug messages in "
+                        + "console.", action='count', default=0)
 
     flags = parser.parse_args()
 
