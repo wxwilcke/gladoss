@@ -23,8 +23,12 @@ classifiers = [
 ]
 dependencies = [
   "pyRDF >= 2.3.0",
+  "requests"
   ]
 keywords = ["rdf", "knowledge graphs", "anomaly detection", "rdf streams"]
+
+[project.optional-dependencies]
+demo = ["fastapi[standard]"]
 
 [project.urls]
 "Repository" = "https://gitlab.com/wxwilcke/gladoss"
