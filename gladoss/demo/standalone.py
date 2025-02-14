@@ -16,7 +16,11 @@ LAND = "\u2227"  # unicode logical conjunction
 
 
 def main(flags: argparse.Namespace):
-    logging.info(f"Listening to {flags.address}")
+    """ Call the appropriate adaptor and print any received message to stdout.
+
+    :param flags: User-provided parameters
+    """
+    logging.info("Listening for messages")
     adaptor = DummyAdaptor(address=flags.address,
                            continuous=flags.continuous,
                            num_retries=flags.retries,
@@ -24,14 +28,13 @@ def main(flags: argparse.Namespace):
                            request_delay=flags.request_delay)
 
     for fact_lst in adaptor.listen():
-        print(f" {LAND} ".join(fact_lst))
+        print(f" {LAND} ".join([str(fact) for fact in fact_lst]))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--address", help="HTTP address to listen to",
-                        default="http://127.0.0.1:8000", type=str,
-                        required=True)
+                        default="http://127.0.0.1:8000", type=str)
     parser.add_argument("--continuous", help="Keep listening for changes in "
                         + "the response, irrespective of response status",
                         default=False, action="store_true")
@@ -57,6 +60,7 @@ if __name__ == "__main__":
         log_level = logging.WARNING
 
     logging.basicConfig(level=log_level,
-                        format='[%(asctime)s] [%(levelname)s] - %(message)s')
+                        format='[%(asctime)s] [%(levelname)s] %(filename)s '
+                               '- %(message)s')
 
     main(flags)

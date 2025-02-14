@@ -185,6 +185,7 @@ if __name__ == "__main__":
         log_level = logging.WARNING
 
     logging.basicConfig(level=log_level,
-                        format='[%(asctime)s] [%(levelname)s] - %(message)s')
+                        format='[%(asctime)s] [%(levelname)s] %(filename)s '
+                               '- %(message)s')
 
     main(flags)

@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 URI_CHARSET = r"[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]"
 URI = rf"<?{URI_CHARSET}+>?"
 RESOURCE = rf"(?:{URI})|(?:'.*'(?:(?:@[a-z]{{2}})|(?:\^\^{URI}))?)"
-STATEMENT = re.compile(rf"\((?P<head>{URI}),"
-                       rf"\s*(?P<relation>{URI}),"
+STATEMENT = re.compile(rf"\((?P<head>{URI})"
+                       rf"\s*(?P<relation>{URI})"
                        rf"\s*(?P<tail>{RESOURCE})\)")
 LITERAL = re.compile(r"(?P<value>'.*')(?:"
                      r"(?:@(?P<lang>[a-z]{{2}}))|"
@@ -24,14 +24,15 @@ LITERAL = re.compile(r"(?P<value>'.*')(?:"
 class DummyAdaptor(Adaptor):
     """ Adaptor to dummy device for debugging purposes
 
-        Expects data in the form {"data": "(s, p, o) [...]"},
+        Expects data in the form {"data": "(s p o) [...]"},
         with
         - s, p, o as 'ex:u' or '<http://www.example.org/u>'
         - or o as 'v', 'v@lang', or 'v^^dt'
         - and dt as 'ex:u' or '<http://www.example.org/u>'
     """
 
-    def translate(self: Self, data: dict[str, str]) -> list[Statement]:
+    def translate(self: Self, data: dict[str, str], **kwargs)\
+            -> list[Statement]:
         """ Translate dummy data to RDF.
 
         :param data: data received from API
@@ -47,6 +48,7 @@ class DummyAdaptor(Adaptor):
         graph = data["data"]
         try:
             for match in re.finditer(STATEMENT, graph):
+                logging.debug(match.groupdict())
                 fact = self.process_fact(match)
                 out.append(fact)
         except Exception:
