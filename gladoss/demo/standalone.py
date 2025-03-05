@@ -12,7 +12,7 @@ from gladoss.adaptors.dummy import DummyAdaptor
 
 logger = logging.getLogger(__name__)
 
-LAND = "\u2227"  # unicode logical conjunction
+LAND = "\N{LOGICAL AND}"
 
 
 def main(flags: argparse.Namespace):

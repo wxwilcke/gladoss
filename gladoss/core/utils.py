@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 from queue import Queue
+import sys
 from typing import Optional
+
+import numpy as np
+import scipy as sp
 from rdf import Statement, IRIRef, RDF
 
 
@@ -50,3 +54,15 @@ def find_typed_instances(g: set[Statement]) -> set[tuple[IRIRef, IRIRef]]:
 
     return out
 
+
+def init_rng(seed: Optional[int | float] = None) -> np.random.Generator:
+    """ Initiate random state by specified seed. Use in
+        scipy instances S with S.random_state = rng.
+
+    :param seed: a positive value
+    :return: a RNG instance
+    """
+    if seed is None:
+        seed = np.random.randint(-sys.maxsize//2, sys.maxsize//2)
+
+    return np.random.Generator(np.random.PCG64(np.array([seed])))

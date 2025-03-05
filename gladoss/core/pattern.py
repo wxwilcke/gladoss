@@ -1,15 +1,21 @@
 #! /usr/bin/env python
 
-from collections import Counter
 from __future__ import annotations
+from collections import Counter
+import logging
 from queue import Queue
 import sys
 from typing import Any, Dict, Iterator, List, Optional, Set, Union
-from uuid import uuid4
+
+import numpy as np
+import scipy as sp
 
 from gladoss.core.utils import find_root, find_typed_instances
 from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal
+
+
+logger = logging.getLogger(__name__)
 
 
 class IRIRefWrapper(IRIRef):
@@ -54,11 +60,12 @@ class IRIRefWrapper(IRIRef):
 
 
 class Distribution():
-    def __init__(self, decay: int = -1) -> None:
+    def __init__(self, rng: np.random.Generator, decay: int = -1) -> None:
         """ Distribution over samples.
 
         :param decay: time until seen sample is forgotten
         """
+        self._rng = rng
         self.samples = Counter()
         self.decay = decay
         self._t = 0
@@ -108,6 +115,12 @@ class Distribution():
             # clean up decay tracker
             del self._decay_tracker[self._t]
 
+    def fit(self) -> None:
+        pass
+
+    def __repr__(self) -> str:
+        return ", ".join(s for s in self.samples.elements())
+
     def __hash__(self) -> int:
         return hash(repr(self))
 
@@ -119,20 +132,21 @@ class Distribution():
 
 
 class ContinuousDistribution(Distribution):
-    _N = f"\N{MATHEMATICAL BOLD SCRIPT CAPITAL N}"
+    _N = "\N{MATHEMATICAL BOLD SCRIPT CAPITAL N}"
 
-    def __init__(self, decay: int = -1, resolution: int = -1)\
-            -> None:
+    def __init__(self, rng: np.random.Generator, decay: int = -1,
+                 resolution: int = -1) -> None:
         """ Continuous distribution over Real numbers.
 
         :param decay: time until seen sample is forgotten
         :param resolution: number of significant figures
         """
-        super().__init__(decay)
+        super().__init__(rng, decay)
         self.resolution = resolution
 
-        self.mu = 0.
-        self.sigma = 0.
+        self.shape = tuple()
+        self.loc = 0.  # mu
+        self.scale = 0.  # sigma
 
     def addSample(self, sample: float) -> None:
         """ Add a single sample to the distribution.
@@ -154,21 +168,75 @@ class ContinuousDistribution(Distribution):
 
         return float(f"%.{self.resolution}g" % sample)
 
-    def fit(self) -> None:
+    def fit(self, num_samples: int = 100) -> None:
+        """ Compute distribution parameters for a randomly selected
+            subset of observed samples. Note that the results are
+            estimated using Maximum Likelihood Estimation.
+
+        :param num_samples: size of subset to compute estimate on.
+        """
         # fit Gaussian
+        # (alt: test which dist?: https://stackoverflow.com/questions/6620471/fitting-empirical-distribution-to-theoretical-ones-with-scipy-python)
         # branch off when multiple modes are found (using GMM)
 
-        # FIXME: placeholder
-        self.mu = self.samples.most_common(1)[0][1]
-        self.sigma = self.mu/6
+        if self.samples.total() < num_samples:
+            logger.warning("Number of observed samples is less than "
+                           "specified sample size. This can reduce "
+                           "the precision of the fitted distribution.")
 
-    def p_value(self, sample: float) -> float:
-        # FIXME: placeholder
-        return 0.23
+            if self.samples.total() <= 1:
+                logger.info("To few samples observed to fit distribution")
+                return
+
+        # random sample (with repetition) to fit distribution to
+        subsample = self._rng.choice(list(self.samples.elements()),
+                                     size=num_samples)
+
+        try:
+            # fit distribution
+            params = sp.stats.norm.fit(subsample)
+            
+            # split parameter components
+            self.shape = params[:-2]
+            self.loc = params[-2]
+            self.scale = params[-1]
+        except Exception:
+            return
+
+
+    def prob(self, sample: float) -> float:
+        """ Return the probability P of observing the given sample s
+            given distribution parameters theta: P(s|theta). Since 
+            we cannot compute a point on a continuous distribution,
+            we just check for left or right-tailed probabilities.
+
+        :param sample: a real number to compute the probability for
+        :return: the left or right-tailed probability
+        """
+        # TODO: include window?
+        p_left_tail = sp.stats.norm.cdf(sample, loc=self.loc, scale=self.scale)
+        if sample < self.loc:
+            return p_left_tail
+        elif sample > self.loc:
+            return 1 - p_left_tail  # right tail
+        else:
+            return 0.5
+
+    def loglikelihood(self) -> float:
+        """ Return log likelihood L of the distribution parameters theta
+            given the observed samples S: L(theta|S)
+
+        :return: a goodness of fit measurement
+        """
+        return float(
+            np.sum(np.log(sp.stats.norm.pdf(list(self.samples.elements()),
+                                                 self.loc,
+                                                 self.scale))))
+        
 
     def __str__(self) -> str:
-        return f"{ContinuousDistribution._N}({self.mu}, "\
-               + f"{self.sigma}\N{SUPERSCRIPT TWO})"
+        return f"{ContinuousDistribution._N}({self.loc}, "\
+               + f"{self.scale}\N{SUPERSCRIPT TWO})"
 
     def __repr__(self) -> str:
         return self.__str__() + f" [decay: {self.decay}, "\
@@ -177,24 +245,43 @@ class ContinuousDistribution(Distribution):
 
 
 class DiscreteDistribution(Distribution):
-    def __init__(self, decay: int = -1) -> None:
+    def __init__(self, rng: np.random.Generator, window: int = 10,
+                 decay: int = -1) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
         """
-        super().__init__(decay)
+        super().__init__(rng, decay)
 
     def fit(self) -> None:
+        # FIXME: check if needed (why not on the fly?)
         # fit multinomial distribution (k >=2, n >= 1)
 
         # FIXME: Placeholder
-        self.n = self.samples.total()
+        self.n = self.window
         self.k = self.samples
         self.p = [k/self.n for k in self.k]
 
-    def p_value(self, sample: float) -> float:
-        # FIXME: placeholder
-        return 0.32
+    def prob(self, sample: float) -> float:
+        """ Compute probability P of observing sample s given
+            distribution parameters theta and past W observed
+            samples, with W the window size.
+
+        :param sample: [TODO:description]
+        :return: [TODO:description]
+        """
+        if sample not in self.samples.keys():
+            logger.info("Provides sample is out-of-distribution")
+            return 0.
+        if self.samples.total() < self.window:
+            logger.info("Window size exceeds number of observed samples")
+
+        observed_samples = ... # + sample
+        observed_samples_prob = ...
+        p = sp.stats.multinomial.pmf(x=observed_samples,
+                                     n=self.window + 1,
+                                     p=observed_samples_prob)
+        return p
 
 
 class AssertionPattern():
