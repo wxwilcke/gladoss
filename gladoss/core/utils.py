@@ -40,7 +40,7 @@ def find_root(g: set[Statement], type: Optional[IRIRef] = None)\
     return root
 
 
-def find_typed_instances(g: set[Statement]) -> set[tuple[IRIRef, IRIRef]]:
+def find_typed_instances(g: set[Statement]) -> set[IRIRef]:
     """ Return the nodes who have an associated type, together with their type.
 
     :param g: a set of assertions that form a graph
@@ -50,9 +50,19 @@ def find_typed_instances(g: set[Statement]) -> set[tuple[IRIRef, IRIRef]]:
     rdf_type = RDF + "type"
     for a in g:
         if a.predicate == rdf_type:
-            out.add((a.object, a.object))
+            out.add(a.object)
 
     return out
+
+def trim_graph(g: set[Statement]) -> set[Statement]:
+    # remove all ontological info (which is static and doesn't add more info)
+    # except for type relations
+    pass
+
+def create_graph_proxy(g: set[Statement]):
+    proxy = list()
+    for a in g:
+        pass
 
 
 def init_rng(seed: Optional[int | float] = None) -> np.random.Generator:

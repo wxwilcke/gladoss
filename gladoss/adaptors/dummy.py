@@ -32,29 +32,32 @@ class DummyAdaptor(Adaptor):
     """
 
     def translate(self: Self, data: dict[str, str], **kwargs)\
-            -> list[Statement]:
+            -> tuple[list[Statement], list[IRIRef]]:
         """ Translate dummy data to RDF.
 
         :param data: data received from API
-        :return: A list of RDF statements
+        :return: A list of RDF statements and anchors
         :raises SyntaxWarning: warn if translation fails
         """
-        out = list()
+        graph = list()
+        anchors = list()
 
         if "data" not in data.keys() or len(data["data"]) <= 0:
             logging.debug("Missing content in data package")
-            return out
+            return (graph, anchors)
 
-        graph = data["data"]
+        graph_str = data["data"]
         try:
-            for match in re.finditer(STATEMENT, graph):
+            for match in re.finditer(STATEMENT, graph_str):
                 logging.debug(match.groupdict())
                 fact = self.process_fact(match)
-                out.append(fact)
+                graph.append(fact)
         except Exception:
-            raise SyntaxWarning(f"Unexpected data format: {graph}")
+            raise SyntaxWarning(f"Unexpected data format: {graph_str}")
 
-        return out
+        anchors.append([IRIRef('o')])
+
+        return (graph, anchors)
 
     def process_fact(self: Self, match: re.Match) -> Statement:
         """ Process single string-encoded fact and return a RDF statement.

@@ -6,9 +6,9 @@ import logging
 import json
 import sys
 from time import sleep
-from typing import Optional, Self
+from typing import Any, Optional, Self
 
-from rdf import Statement
+from rdf import Statement, IRIRef
 import requests
 
 logger = logging.getLogger(__name__)
@@ -20,23 +20,32 @@ class Adaptor(ABC):
         and to then convert these data to a corresponding RDF graph.
     """
 
-    def __init__(self: Self, address: str = "http://127.0.0.1:8000",
+    def __init__(self: Self, endpoint: str = "http://127.0.0.1:8000",
                  continuous: bool = False, num_retries: int = 3,
                  retry_delay: float = 30., request_delay: float = 0.5) -> None:
-        self.address = address
+        self.endpoint = endpoint
         self.continuous = continuous
         self.num_retries = num_retries
         self.retry_delay = retry_delay
         self.request_delay = request_delay
 
+        self.init_hook()
+
     @abstractmethod
-    def translate(self: Self, data: dict[str, str],
-                  **kwargs: Optional[str]) -> list[Statement]:
+    def init_hook(self: Self) -> None:
+        """ Execute additional commands on initialisation.
+        """
+        pass
+
+    @abstractmethod
+    def translate(self: Self, data: dict[str, Any],
+                  **kwargs: Optional[str]) -> tuple[list[Statement],
+                                                    list[IRIRef]]:
         """ Translate the received data to RDF.
 
         :param data: data received from API
         :param kwargs: optional keyword arguments
-        :return: a list with statements
+        :return: a list with statements and anchors
         """
         pass
 
@@ -59,19 +68,19 @@ class Adaptor(ABC):
 
     def poll(self: Self,
              session: requests.Session,
-             address: str) -> tuple[int, str]:
+             endpoint: str) -> tuple[int, str]:
         """ Poll server exactly once.
 
         :param session: Open session with server
-        :param address: HTTP address to listen to
+        :param endpoint: HTTP endpoint to listen to
         :return: A tuple with the response HTTP status and the content
         """
-        response = session.get(address)
+        response = session.get(endpoint)
 
         return response.status_code, response.text
 
     def listen(self) -> Iterable[list[Statement]]:
-        """ Listen at the provided address for changes in the message,
+        """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates
             or retries when receiving a 204 or 408 HTTP status.
 
@@ -82,7 +91,7 @@ class Adaptor(ABC):
         while True:
             logging.debug("Polling server")
             try:
-                status_code, data_raw = self.poll(session, self.address)
+                status_code, data_raw = self.poll(session, self.endpoint)
             except requests.exceptions.RequestException:
                 logging.debug("Connection Error")
                 print("Cannot establish connection to server")

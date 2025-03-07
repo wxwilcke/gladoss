@@ -60,13 +60,16 @@ class IRIRefWrapper(IRIRef):
 
 
 class Distribution():
-    def __init__(self, rng: np.random.Generator, decay: int = -1) -> None:
+    def __init__(self, rng: np.random.Generator,
+                 sample_size: int = -1,
+                 decay: int = -1) -> None:
         """ Distribution over samples.
 
         :param decay: time until seen sample is forgotten
         """
         self._rng = rng
         self.samples = Counter()
+        self.sample_size = sample_size
         self.decay = decay
         self._t = 0
         self._decay_tracker = dict()
@@ -213,14 +216,14 @@ class ContinuousDistribution(Distribution):
         :param sample: a real number to compute the probability for
         :return: the left or right-tailed probability
         """
-        # TODO: include window?
-        p_left_tail = sp.stats.norm.cdf(sample, loc=self.loc, scale=self.scale)
+        # TODO: include sample_size?
+        p_ltail = 2 * sp.stats.norm.cdf(sample, loc=self.loc, scale=self.scale)
         if sample < self.loc:
-            return p_left_tail
+            return p_ltail
         elif sample > self.loc:
-            return 1 - p_left_tail  # right tail
+            return 1 - p_ltail  # right tail
         else:
-            return 0.5
+            return 1.0
 
     def loglikelihood(self) -> float:
         """ Return log likelihood L of the distribution parameters theta
@@ -245,27 +248,27 @@ class ContinuousDistribution(Distribution):
 
 
 class DiscreteDistribution(Distribution):
-    def __init__(self, rng: np.random.Generator, window: int = 10,
+    def __init__(self, rng: np.random.Generator, sample_size: int = 10,
                  decay: int = -1) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
         """
-        super().__init__(rng, decay)
+        super().__init__(rng, sample_size, decay)
 
     def fit(self) -> None:
         # FIXME: check if needed (why not on the fly?)
         # fit multinomial distribution (k >=2, n >= 1)
 
         # FIXME: Placeholder
-        self.n = self.window
+        self.n = self.sample_size
         self.k = self.samples
         self.p = [k/self.n for k in self.k]
 
     def prob(self, sample: float) -> float:
         """ Compute probability P of observing sample s given
             distribution parameters theta and past W observed
-            samples, with W the window size.
+            samples, with W the sample_size size.
 
         :param sample: [TODO:description]
         :return: [TODO:description]
@@ -273,13 +276,13 @@ class DiscreteDistribution(Distribution):
         if sample not in self.samples.keys():
             logger.info("Provides sample is out-of-distribution")
             return 0.
-        if self.samples.total() < self.window:
-            logger.info("Window size exceeds number of observed samples")
+        if self.samples.total() < self.sample_size:
+            logger.info("sample_size size exceeds number of observed samples")
 
         observed_samples = ... # + sample
         observed_samples_prob = ...
         p = sp.stats.multinomial.pmf(x=observed_samples,
-                                     n=self.window + 1,
+                                     n=self.sample_size + 1,
                                      p=observed_samples_prob)
         return p
 
@@ -347,6 +350,7 @@ class AssertionPattern():
                                 str(self.relation),
                                 str(self.tail)]) + ")"
 
+
 class GraphPattern():
     """ GraphPattern class
 
@@ -372,8 +376,7 @@ class GraphPattern():
         """
         return len(self.pattern)
 
-
-    def update(self, set[Statements]) -> None:
+    def update(self, g: set[Statement]) -> None:
         pass
 
     def depth(self) -> int:
