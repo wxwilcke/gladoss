@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+import concurrent.futures
 import logging
 import json
 import sys
@@ -9,6 +10,7 @@ from time import sleep
 from typing import Any, Optional, Self
 
 from rdf import Statement, IRIRef
+from rdf.terms import Resource
 import requests
 
 logger = logging.getLogger(__name__)
@@ -38,9 +40,21 @@ class Adaptor(ABC):
         pass
 
     @abstractmethod
+    def get_anchors(self: Self, data: dict[str, Any],
+                    **kwargs: Optional[str]) -> list[Resource]:
+        pass
+
+    @abstractmethod
+    def set_headers(self: Self, **kwargs: Optional[str]) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def set_payload(self: Self, **kwargs: Optional[str]) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
     def translate(self: Self, data: dict[str, Any],
-                  **kwargs: Optional[str]) -> tuple[list[Statement],
-                                                    list[IRIRef]]:
+                  **kwargs: Optional[str]) -> list[Statement]:
         """ Translate the received data to RDF.
 
         :param data: data received from API
@@ -68,18 +82,20 @@ class Adaptor(ABC):
 
     def poll(self: Self,
              session: requests.Session,
-             endpoint: str) -> tuple[int, str]:
+             endpoint: str,
+             headers: dict,
+             data: dict) -> tuple[int, str]:
         """ Poll server exactly once.
 
         :param session: Open session with server
         :param endpoint: HTTP endpoint to listen to
         :return: A tuple with the response HTTP status and the content
         """
-        response = session.get(endpoint)
+        response = session.post(endpoint, headers=headers, json=data)
 
         return response.status_code, response.text
 
-    def listen(self) -> Iterable[list[Statement]]:
+    def listen(self) -> Iterable[tuple[list[Statement], list[Resource]]]:
         """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates
             or retries when receiving a 204 or 408 HTTP status.
@@ -87,11 +103,17 @@ class Adaptor(ABC):
         :return: A received item as a dictionary.
         """
         retries = 0
+
+        package_headers = self.set_headers()
+        package_data = self.set_payload()
         session = requests.Session()
         while True:
             logging.debug("Polling server")
             try:
-                status_code, data_raw = self.poll(session, self.endpoint)
+                status_code, data_raw = self.poll(session,
+                                                  self.endpoint,
+                                                  package_headers,
+                                                  package_data)
             except requests.exceptions.RequestException:
                 logging.debug("Connection Error")
                 print("Cannot establish connection to server")
@@ -100,9 +122,12 @@ class Adaptor(ABC):
             logger.debug(f"Responded HTTP status: {status_code}")
             if status_code == 200:  # OK
                 try:
-                    data = json.loads(data_raw)  # dict[str, str]
+                    data = json.loads(data_raw)  # dict[str, Any]
 
-                    yield self.translate(data)
+                    message = self.translate(data)
+                    anchors = self.get_anchors(data)
+
+                    yield (message, anchors)
                 except json.JSONDecodeError:
                     logger.exception("JSONDecodeError on {data_raw}")
 

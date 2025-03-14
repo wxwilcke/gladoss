@@ -12,7 +12,7 @@ import scipy as sp
 
 from gladoss.core.utils import find_root, find_typed_instances
 from rdf.graph import Statement
-from rdf.terms import IRIRef, Literal
+from rdf.terms import IRIRef, Literal, Resource
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class IRIRefWrapper(IRIRef):
     def __repr__(self) -> str:
         s = super().__str__()
         if self.parent is not None:
-            s += f" [{str(self.parent)}]" 
+            s += f" [{str(self.parent)}]"
 
         return s
 
@@ -55,7 +55,7 @@ class IRIRefWrapper(IRIRef):
 
     def __lt__(self, other: IRIRefWrapper) -> bool:
         return (self.parent is not None and self.parent < other.parent)\
-                or ((self.parent is None or self.parent == other.parent)\
+                or ((self.parent is None or self.parent == other.parent)
                     and self.value < other.value)
 
 
@@ -359,11 +359,9 @@ class GraphPattern():
     """
 
     def __init__(self, assertionPatterns: set[AssertionPattern],
-                 root: IRIRef,
-                 root_type: Optional[IRIRef] = None) -> None:
+                 anchors: set[Resource]) -> None:
         self.pattern = assertionPatterns
-        self._root = root
-        self._root_type = root_type
+        self.anchors = anchors
 
         # TODO: deal with changes in distribution
         #       assign index to assertions?
@@ -401,14 +399,12 @@ class GraphPattern():
 
     def match(self, assertions: set[Statement] = set()) -> bool:
         """ Check if set of statements (ie, a graph) matches
-            this pattern. Currently only checks on root node
-            and root node type.
+            this pattern, by validating the location of the
+            anchors.
 
         :param assertions: a connected set of statements (a graph)
         :return: True if a match is found else False
         """
-        # check if root IRI is the same (and optionally if they share the type)
-        return self._root == find_root(assertions, type=self._root_type)
 
     def __repr__(self) -> str:
         """ Return an internal string representation

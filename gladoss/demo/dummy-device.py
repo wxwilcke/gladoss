@@ -12,12 +12,37 @@ from time import sleep, time
 from threading import Thread
 from queue import Queue
 from random import randrange
+from typing import Any
 
 from fastapi import FastAPI, Response, status, HTTPException
 import uvicorn
 
 app = FastAPI()
 logger = logging.getLogger(__name__)
+
+
+@app.post("/")
+def answer(data: dict[str, Any], response: Response) -> dict[str, Any]:
+    global cache
+
+    if depleted:
+        response.status_code = status.HTTP_204_NO_CONTENT
+        return {"detail": "out of items"}
+
+    t0 = time()
+    while time() - t0 < timeout:
+        if not cache.empty():
+            item_cur = cache.get()  # dict[str, str]
+
+            item_cur['metadata'] = data
+
+            return item_cur
+
+        sleep(1)
+
+    logging.debug(f"Request timeout after {timeout} seconds")
+    raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                        detail="Request timeout")
 
 
 @app.get("/")
@@ -47,7 +72,7 @@ def publish(response: Response) -> dict[str, str]:
                         detail="Request timeout")
 
 
-def cycleItems(data: list[dict[str, str]], flags: argparse.Namespace):
+def cycleItems(data: list[list[dict[str, str]]], flags: argparse.Namespace):
     """ Cycle through items, publishing each one after a random or fixed delay.
     Queue items if a cachesize > 1 is specified.
 
@@ -55,21 +80,38 @@ def cycleItems(data: list[dict[str, str]], flags: argparse.Namespace):
     :param flags: user-provided parameters
     """
     global cache, depleted
-    for i, item in enumerate(data):
-        if flags.realtime:
-            # add or replace with current time
-            item["timestamp"] = datetime.now().isoformat()
 
-        logger.info(f"Publishing item {i+1} / {len(data)}: {item}")
-        if not cache.full():
-            cache.put(item)
-        else:
-            logger.debug("Cache is full")
+    index = [0] * len(data)
+    empty = [False] * len(data)
+    while True:
+        if all(empty):
+            break
 
-        if i < len(data) - 1:
-            delay = getDelay(flags.interval)
-            logger.debug(f"Waiting for {delay} seconds")
-            sleep(delay)
+        for i in range(len(data)):
+            j = index[i]
+            if len(data[i]) <= j:
+                empty[i] = True
+
+                continue
+
+            item = data[i][j]
+
+            if flags.realtime:
+                # add or replace with current time
+                item["timestamp"] = datetime.now().isoformat()
+
+            logger.info(f"Publishing item {i+1}.{j+1}: {item}")
+            if not cache.full():
+                cache.put(item)
+            else:
+                logger.debug("Cache is full")
+
+            index[i] = j + 1
+
+            if i < len(data[i]) - 1:
+                delay = getDelay(flags.interval)
+                logger.debug(f"Waiting for {delay} seconds")
+                sleep(delay)
 
     logger.info("Out of items")
     depleted = True
@@ -139,8 +181,6 @@ def main(flags: argparse.Namespace):
     depleted = False
 
     logger.info(f"Loaded {len(data)} items")
-    if len(data) > 0:
-        logger.debug(f"Item shape: {list(data[0].keys())}")
 
     # start item cycler on a separate threat
     cycler = Thread(target=cycleItems, args=[data, flags])

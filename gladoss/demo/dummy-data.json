@@ -1,7 +1,804 @@
 [
-    {"name": "g", "timestamp": "2025-02-07T13:53:33", "data": "(s p o) (o q '33')"},
-    {"name": "g", "timestamp": "2025-02-07T13:53:40", "data": "(s p o) (o q '40')"},
-    {"name": "g", "timestamp": "2025-02-07T13:53:51", "data": "(s p o) (o q '51')"},
-    {"name": "g", "timestamp": "2025-02-07T13:54:00", "data": "(s p o) (o q '00')"},
-    {"name": "g", "timestamp": "2025-02-07T13:54:21", "data": "(s p o) (o q '21')"}
+    [
+        {
+            "data": "<http://example.org/demo/Uc51nx6jxx0f4ykruumq3> rdf:type saref:Observation .\n  <http://example.org/demo/Uc51nx6jxx0f4ykruumq3> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uc51nx6jxx0f4ykruumq3> saref:hasTimestamp \"2024-12-31T10:59:01.872627\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uc51nx6jxx0f4ykruumq3> saref:hasResult <http://example.org/demo/Uw4slgijladxh2jkkr7n8> .\n  <http://example.org/demo/Uw4slgijladxh2jkkr7n8> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uw4slgijladxh2jkkr7n8> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uw4slgijladxh2jkkr7n8> saref:hasValue \"-0.30438005548894687\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uw4slgijladxh2jkkr7n8> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Upt4op1768jqal7f8ly5k> rdf:type saref:Observation .\n  <http://example.org/demo/Upt4op1768jqal7f8ly5k> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Upt4op1768jqal7f8ly5k> saref:hasTimestamp \"2025-01-02T12:07:00.231203\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Upt4op1768jqal7f8ly5k> saref:hasResult <http://example.org/demo/Ufca43nr40eyp17ctqzsb> .\n  <http://example.org/demo/Ufca43nr40eyp17ctqzsb> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ufca43nr40eyp17ctqzsb> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ufca43nr40eyp17ctqzsb> saref:hasValue \"19.272700060195152\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ufca43nr40eyp17ctqzsb> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uu6voutrxtmp6bi2k4auf> rdf:type saref:Observation .\n  <http://example.org/demo/Uu6voutrxtmp6bi2k4auf> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uu6voutrxtmp6bi2k4auf> saref:hasTimestamp \"2025-01-03T04:54:04.373777\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uu6voutrxtmp6bi2k4auf> saref:hasResult <http://example.org/demo/Uq7tevjgi9g84efx70rxu> .\n  <http://example.org/demo/Uq7tevjgi9g84efx70rxu> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uq7tevjgi9g84efx70rxu> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uq7tevjgi9g84efx70rxu> saref:hasValue \"20.134542588024438\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uq7tevjgi9g84efx70rxu> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ufii0gef02b8ae1rtimxi> rdf:type saref:Observation .\n  <http://example.org/demo/Ufii0gef02b8ae1rtimxi> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ufii0gef02b8ae1rtimxi> saref:hasTimestamp \"2025-01-04T12:21:16.668903\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ufii0gef02b8ae1rtimxi> saref:hasResult <http://example.org/demo/U456p6cdbej91ia6b8ii6> .\n  <http://example.org/demo/U456p6cdbej91ia6b8ii6> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U456p6cdbej91ia6b8ii6> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U456p6cdbej91ia6b8ii6> saref:hasValue \"24.0537023287561\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U456p6cdbej91ia6b8ii6> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U7205fg9x56bawb7ziz0d> rdf:type saref:Observation .\n  <http://example.org/demo/U7205fg9x56bawb7ziz0d> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U7205fg9x56bawb7ziz0d> saref:hasTimestamp \"2025-01-04T14:42:41.152651\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U7205fg9x56bawb7ziz0d> saref:hasResult <http://example.org/demo/Uwj0cd4xg03qyqc5clhs8> .\n  <http://example.org/demo/Uwj0cd4xg03qyqc5clhs8> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uwj0cd4xg03qyqc5clhs8> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uwj0cd4xg03qyqc5clhs8> saref:hasValue \"39.76539873648088\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uwj0cd4xg03qyqc5clhs8> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U41k3bz4g45qdr13kmtsh> rdf:type saref:Observation .\n  <http://example.org/demo/U41k3bz4g45qdr13kmtsh> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U41k3bz4g45qdr13kmtsh> saref:hasTimestamp \"2025-01-05T14:45:32.480806\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U41k3bz4g45qdr13kmtsh> saref:hasResult <http://example.org/demo/Uadihf3oaoeum95x1vphr> .\n  <http://example.org/demo/Uadihf3oaoeum95x1vphr> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uadihf3oaoeum95x1vphr> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uadihf3oaoeum95x1vphr> saref:hasValue \"1.000453575429276\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uadihf3oaoeum95x1vphr> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U2612yeu2jrzzhuy2rfze> rdf:type saref:Observation .\n  <http://example.org/demo/U2612yeu2jrzzhuy2rfze> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U2612yeu2jrzzhuy2rfze> saref:hasTimestamp \"2025-01-05T17:15:15.752605\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U2612yeu2jrzzhuy2rfze> saref:hasResult <http://example.org/demo/U157aiw0gtnp4n8qdnxmd> .\n  <http://example.org/demo/U157aiw0gtnp4n8qdnxmd> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U157aiw0gtnp4n8qdnxmd> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U157aiw0gtnp4n8qdnxmd> saref:hasValue \"8.39003771478647\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U157aiw0gtnp4n8qdnxmd> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Usokwvbk2axhv44eg9i4m> rdf:type saref:Observation .\n  <http://example.org/demo/Usokwvbk2axhv44eg9i4m> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Usokwvbk2axhv44eg9i4m> saref:hasTimestamp \"2025-01-06T16:37:40.284265\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Usokwvbk2axhv44eg9i4m> saref:hasResult <http://example.org/demo/Ujipgja752en533w15r0h> .\n  <http://example.org/demo/Ujipgja752en533w15r0h> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ujipgja752en533w15r0h> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ujipgja752en533w15r0h> saref:hasValue \"15.866282199784356\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ujipgja752en533w15r0h> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Un7avg56f5bcfqphcbelh> rdf:type saref:Observation .\n  <http://example.org/demo/Un7avg56f5bcfqphcbelh> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Un7avg56f5bcfqphcbelh> saref:hasTimestamp \"2025-01-07T20:41:03.104772\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Un7avg56f5bcfqphcbelh> saref:hasResult <http://example.org/demo/Ufd7qnutwbqpdg0p04vr0> .\n  <http://example.org/demo/Ufd7qnutwbqpdg0p04vr0> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ufd7qnutwbqpdg0p04vr0> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ufd7qnutwbqpdg0p04vr0> saref:hasValue \"8.339943454456716\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ufd7qnutwbqpdg0p04vr0> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uhjox7yahryoj4r3pebyf> rdf:type saref:Observation .\n  <http://example.org/demo/Uhjox7yahryoj4r3pebyf> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uhjox7yahryoj4r3pebyf> saref:hasTimestamp \"2025-01-07T23:40:33.788174\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uhjox7yahryoj4r3pebyf> saref:hasResult <http://example.org/demo/Ulhnbpryhi2dnvytlp9xh> .\n  <http://example.org/demo/Ulhnbpryhi2dnvytlp9xh> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ulhnbpryhi2dnvytlp9xh> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ulhnbpryhi2dnvytlp9xh> saref:hasValue \"22.122371545563084\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ulhnbpryhi2dnvytlp9xh> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U4zlaznm965do7cf9m2s8> rdf:type saref:Observation .\n  <http://example.org/demo/U4zlaznm965do7cf9m2s8> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U4zlaznm965do7cf9m2s8> saref:hasTimestamp \"2025-01-08T02:24:56.512717\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U4zlaznm965do7cf9m2s8> saref:hasResult <http://example.org/demo/Ury459k8xj1ipm1hdyz3j> .\n  <http://example.org/demo/Ury459k8xj1ipm1hdyz3j> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ury459k8xj1ipm1hdyz3j> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ury459k8xj1ipm1hdyz3j> saref:hasValue \"-6.342583931082196\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ury459k8xj1ipm1hdyz3j> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U7fe310h604cgdeeefezq> rdf:type saref:Observation .\n  <http://example.org/demo/U7fe310h604cgdeeefezq> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U7fe310h604cgdeeefezq> saref:hasTimestamp \"2025-01-08T07:48:23.030956\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U7fe310h604cgdeeefezq> saref:hasResult <http://example.org/demo/U6cltp58m0sxuayq58p3z> .\n  <http://example.org/demo/U6cltp58m0sxuayq58p3z> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U6cltp58m0sxuayq58p3z> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U6cltp58m0sxuayq58p3z> saref:hasValue \"4.540057982535252\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U6cltp58m0sxuayq58p3z> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U48j7ob9xgowywlbb5v4g> rdf:type saref:Observation .\n  <http://example.org/demo/U48j7ob9xgowywlbb5v4g> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U48j7ob9xgowywlbb5v4g> saref:hasTimestamp \"2025-01-08T15:24:01.319862\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U48j7ob9xgowywlbb5v4g> saref:hasResult <http://example.org/demo/Ugzmqmrc5p6iux3ayhdbw> .\n  <http://example.org/demo/Ugzmqmrc5p6iux3ayhdbw> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ugzmqmrc5p6iux3ayhdbw> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ugzmqmrc5p6iux3ayhdbw> saref:hasValue \"8.28442717838244\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ugzmqmrc5p6iux3ayhdbw> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uobm23fbsfmiuppvzvcf1> rdf:type saref:Observation .\n  <http://example.org/demo/Uobm23fbsfmiuppvzvcf1> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uobm23fbsfmiuppvzvcf1> saref:hasTimestamp \"2025-01-08T20:55:28.437966\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uobm23fbsfmiuppvzvcf1> saref:hasResult <http://example.org/demo/Uelf5qh2pprzvonjq9wqh> .\n  <http://example.org/demo/Uelf5qh2pprzvonjq9wqh> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uelf5qh2pprzvonjq9wqh> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uelf5qh2pprzvonjq9wqh> saref:hasValue \"20.573510710031627\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uelf5qh2pprzvonjq9wqh> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uj4kpubyt8g8bv6cclqrv> rdf:type saref:Observation .\n  <http://example.org/demo/Uj4kpubyt8g8bv6cclqrv> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uj4kpubyt8g8bv6cclqrv> saref:hasTimestamp \"2025-01-09T06:29:31.137268\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uj4kpubyt8g8bv6cclqrv> saref:hasResult <http://example.org/demo/Uama09jz2mxmn5y083u8t> .\n  <http://example.org/demo/Uama09jz2mxmn5y083u8t> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uama09jz2mxmn5y083u8t> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uama09jz2mxmn5y083u8t> saref:hasValue \"-7.3294583304732015\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uama09jz2mxmn5y083u8t> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U2p52iip9xtzo6ieqhi81> rdf:type saref:Observation .\n  <http://example.org/demo/U2p52iip9xtzo6ieqhi81> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U2p52iip9xtzo6ieqhi81> saref:hasTimestamp \"2025-01-09T13:15:13.017348\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U2p52iip9xtzo6ieqhi81> saref:hasResult <http://example.org/demo/U7h456waybkphu5s9rblu> .\n  <http://example.org/demo/U7h456waybkphu5s9rblu> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U7h456waybkphu5s9rblu> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U7h456waybkphu5s9rblu> saref:hasValue \"3.185233787588544\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U7h456waybkphu5s9rblu> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Udof2sj4is6smpmlrb0il> rdf:type saref:Observation .\n  <http://example.org/demo/Udof2sj4is6smpmlrb0il> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Udof2sj4is6smpmlrb0il> saref:hasTimestamp \"2025-01-09T14:38:42.399417\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Udof2sj4is6smpmlrb0il> saref:hasResult <http://example.org/demo/Ua9gyoxo10pq4rslz8xqk> .\n  <http://example.org/demo/Ua9gyoxo10pq4rslz8xqk> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ua9gyoxo10pq4rslz8xqk> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ua9gyoxo10pq4rslz8xqk> saref:hasValue \"4.683431626230663\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ua9gyoxo10pq4rslz8xqk> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uacyzua56vt73zkyyjf77> rdf:type saref:Observation .\n  <http://example.org/demo/Uacyzua56vt73zkyyjf77> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uacyzua56vt73zkyyjf77> saref:hasTimestamp \"2025-01-09T22:40:25.863760\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uacyzua56vt73zkyyjf77> saref:hasResult <http://example.org/demo/Uz583ewan1evv5d516er3> .\n  <http://example.org/demo/Uz583ewan1evv5d516er3> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uz583ewan1evv5d516er3> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uz583ewan1evv5d516er3> saref:hasValue \"15.136683673197512\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uz583ewan1evv5d516er3> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ubbgrg7ge6gdaenjum2yl> rdf:type saref:Observation .\n  <http://example.org/demo/Ubbgrg7ge6gdaenjum2yl> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ubbgrg7ge6gdaenjum2yl> saref:hasTimestamp \"2025-01-09T23:39:12.812136\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ubbgrg7ge6gdaenjum2yl> saref:hasResult <http://example.org/demo/Uv41egsl5e1oi5efsr2u4> .\n  <http://example.org/demo/Uv41egsl5e1oi5efsr2u4> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uv41egsl5e1oi5efsr2u4> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uv41egsl5e1oi5efsr2u4> saref:hasValue \"8.030950382515854\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uv41egsl5e1oi5efsr2u4> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uyf1se0yv8zb4i3diq4pv> rdf:type saref:Observation .\n  <http://example.org/demo/Uyf1se0yv8zb4i3diq4pv> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uyf1se0yv8zb4i3diq4pv> saref:hasTimestamp \"2025-01-10T06:11:13.595274\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uyf1se0yv8zb4i3diq4pv> saref:hasResult <http://example.org/demo/Uc3if1z7lyhsu461fjtnh> .\n  <http://example.org/demo/Uc3if1z7lyhsu461fjtnh> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uc3if1z7lyhsu461fjtnh> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uc3if1z7lyhsu461fjtnh> saref:hasValue \"9.140143422116662\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uc3if1z7lyhsu461fjtnh> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Umepeynqumlw0067ofspu> rdf:type saref:Observation .\n  <http://example.org/demo/Umepeynqumlw0067ofspu> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Umepeynqumlw0067ofspu> saref:hasTimestamp \"2025-01-10T13:21:17.284343\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Umepeynqumlw0067ofspu> saref:hasResult <http://example.org/demo/Uuqur7o2muw0lckbdsw3y> .\n  <http://example.org/demo/Uuqur7o2muw0lckbdsw3y> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uuqur7o2muw0lckbdsw3y> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uuqur7o2muw0lckbdsw3y> saref:hasValue \"26.387943492575253\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uuqur7o2muw0lckbdsw3y> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Upc1mib14yd5v1c61tmzd> rdf:type saref:Observation .\n  <http://example.org/demo/Upc1mib14yd5v1c61tmzd> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Upc1mib14yd5v1c61tmzd> saref:hasTimestamp \"2025-01-10T17:58:48.029906\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Upc1mib14yd5v1c61tmzd> saref:hasResult <http://example.org/demo/U3kgvhrq2j7gcxsssqv9r> .\n  <http://example.org/demo/U3kgvhrq2j7gcxsssqv9r> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U3kgvhrq2j7gcxsssqv9r> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U3kgvhrq2j7gcxsssqv9r> saref:hasValue \"-2.247884325980948\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U3kgvhrq2j7gcxsssqv9r> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uv97v0741q0uh3qt3gebd> rdf:type saref:Observation .\n  <http://example.org/demo/Uv97v0741q0uh3qt3gebd> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uv97v0741q0uh3qt3gebd> saref:hasTimestamp \"2025-01-10T23:24:18.096738\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uv97v0741q0uh3qt3gebd> saref:hasResult <http://example.org/demo/Uywjxejtp1s6w6ficm382> .\n  <http://example.org/demo/Uywjxejtp1s6w6ficm382> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uywjxejtp1s6w6ficm382> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uywjxejtp1s6w6ficm382> saref:hasValue \"49.61284592048529\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uywjxejtp1s6w6ficm382> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uubno30vr8km6c1e8lchp> rdf:type saref:Observation .\n  <http://example.org/demo/Uubno30vr8km6c1e8lchp> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uubno30vr8km6c1e8lchp> saref:hasTimestamp \"2025-01-11T08:34:08.843202\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uubno30vr8km6c1e8lchp> saref:hasResult <http://example.org/demo/Ukpmmkfkua0txmo5nbuze> .\n  <http://example.org/demo/Ukpmmkfkua0txmo5nbuze> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ukpmmkfkua0txmo5nbuze> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ukpmmkfkua0txmo5nbuze> saref:hasValue \"7.163142886623138\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ukpmmkfkua0txmo5nbuze> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U0oys3hww3qtv885x5l1f> rdf:type saref:Observation .\n  <http://example.org/demo/U0oys3hww3qtv885x5l1f> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U0oys3hww3qtv885x5l1f> saref:hasTimestamp \"2025-01-11T09:22:47.250531\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U0oys3hww3qtv885x5l1f> saref:hasResult <http://example.org/demo/U98hh1sgy7kn8awueibfs> .\n  <http://example.org/demo/U98hh1sgy7kn8awueibfs> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U98hh1sgy7kn8awueibfs> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U98hh1sgy7kn8awueibfs> saref:hasValue \"29.293004973210028\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U98hh1sgy7kn8awueibfs> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uqckou4z3gayh7hfrieoe> rdf:type saref:Observation .\n  <http://example.org/demo/Uqckou4z3gayh7hfrieoe> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uqckou4z3gayh7hfrieoe> saref:hasTimestamp \"2025-01-11T16:41:16.997282\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uqckou4z3gayh7hfrieoe> saref:hasResult <http://example.org/demo/Ud8kkhejimebepeey15t7> .\n  <http://example.org/demo/Ud8kkhejimebepeey15t7> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ud8kkhejimebepeey15t7> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ud8kkhejimebepeey15t7> saref:hasValue \"14.562660419521645\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ud8kkhejimebepeey15t7> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Um2me4sywfq46tlbu6eyq> rdf:type saref:Observation .\n  <http://example.org/demo/Um2me4sywfq46tlbu6eyq> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Um2me4sywfq46tlbu6eyq> saref:hasTimestamp \"2025-01-11T21:39:26.385092\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Um2me4sywfq46tlbu6eyq> saref:hasResult <http://example.org/demo/Ux9701cjc2bdzewhjdqg7> .\n  <http://example.org/demo/Ux9701cjc2bdzewhjdqg7> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ux9701cjc2bdzewhjdqg7> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ux9701cjc2bdzewhjdqg7> saref:hasValue \"11.471954015588594\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ux9701cjc2bdzewhjdqg7> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U13zxnmn4eowf0ppi3nh8> rdf:type saref:Observation .\n  <http://example.org/demo/U13zxnmn4eowf0ppi3nh8> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U13zxnmn4eowf0ppi3nh8> saref:hasTimestamp \"2025-01-11T22:10:46.201817\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U13zxnmn4eowf0ppi3nh8> saref:hasResult <http://example.org/demo/Uvlhu7yez3pr61telkza4> .\n  <http://example.org/demo/Uvlhu7yez3pr61telkza4> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uvlhu7yez3pr61telkza4> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uvlhu7yez3pr61telkza4> saref:hasValue \"3.665353054899329\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uvlhu7yez3pr61telkza4> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U8vnbygv6qx23t9weupdy> rdf:type saref:Observation .\n  <http://example.org/demo/U8vnbygv6qx23t9weupdy> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U8vnbygv6qx23t9weupdy> saref:hasTimestamp \"2025-01-12T08:36:35.134403\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U8vnbygv6qx23t9weupdy> saref:hasResult <http://example.org/demo/Uqw71xcbpbu3haey4eqlr> .\n  <http://example.org/demo/Uqw71xcbpbu3haey4eqlr> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uqw71xcbpbu3haey4eqlr> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uqw71xcbpbu3haey4eqlr> saref:hasValue \"23.423468192213228\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uqw71xcbpbu3haey4eqlr> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U7egv2wexdoqn1j6v9ydu> rdf:type saref:Observation .\n  <http://example.org/demo/U7egv2wexdoqn1j6v9ydu> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U7egv2wexdoqn1j6v9ydu> saref:hasTimestamp \"2025-01-12T11:39:04.257209\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U7egv2wexdoqn1j6v9ydu> saref:hasResult <http://example.org/demo/Usaughsg70pgmiojlpfw0> .\n  <http://example.org/demo/Usaughsg70pgmiojlpfw0> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Usaughsg70pgmiojlpfw0> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Usaughsg70pgmiojlpfw0> saref:hasValue \"-5.10710516938223\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Usaughsg70pgmiojlpfw0> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ucz16sejgezu1940i0o3c> rdf:type saref:Observation .\n  <http://example.org/demo/Ucz16sejgezu1940i0o3c> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ucz16sejgezu1940i0o3c> saref:hasTimestamp \"2025-01-12T16:26:41.677386\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ucz16sejgezu1940i0o3c> saref:hasResult <http://example.org/demo/U3bc7o1j39ub1nx9z0vws> .\n  <http://example.org/demo/U3bc7o1j39ub1nx9z0vws> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U3bc7o1j39ub1nx9z0vws> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U3bc7o1j39ub1nx9z0vws> saref:hasValue \"-2.5940385384295865\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U3bc7o1j39ub1nx9z0vws> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ukl6rldqdssxvnjsme79z> rdf:type saref:Observation .\n  <http://example.org/demo/Ukl6rldqdssxvnjsme79z> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ukl6rldqdssxvnjsme79z> saref:hasTimestamp \"2025-01-14T00:15:58.072275\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ukl6rldqdssxvnjsme79z> saref:hasResult <http://example.org/demo/Ujsvnxcy83rf51qa80fhl> .\n  <http://example.org/demo/Ujsvnxcy83rf51qa80fhl> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ujsvnxcy83rf51qa80fhl> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ujsvnxcy83rf51qa80fhl> saref:hasValue \"-7.489195198205106\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ujsvnxcy83rf51qa80fhl> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Unatg1ucw4j404fsu4a10> rdf:type saref:Observation .\n  <http://example.org/demo/Unatg1ucw4j404fsu4a10> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Unatg1ucw4j404fsu4a10> saref:hasTimestamp \"2025-01-14T08:40:05.073968\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Unatg1ucw4j404fsu4a10> saref:hasResult <http://example.org/demo/Ueuv1vi5hexdp5yw72kz5> .\n  <http://example.org/demo/Ueuv1vi5hexdp5yw72kz5> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ueuv1vi5hexdp5yw72kz5> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ueuv1vi5hexdp5yw72kz5> saref:hasValue \"35.88502634382131\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ueuv1vi5hexdp5yw72kz5> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U34sngf5i4vgzv1s3n8d4> rdf:type saref:Observation .\n  <http://example.org/demo/U34sngf5i4vgzv1s3n8d4> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U34sngf5i4vgzv1s3n8d4> saref:hasTimestamp \"2025-01-14T21:38:23.246684\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U34sngf5i4vgzv1s3n8d4> saref:hasResult <http://example.org/demo/Ukph1eivkzxxsdwggy01v> .\n  <http://example.org/demo/Ukph1eivkzxxsdwggy01v> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ukph1eivkzxxsdwggy01v> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ukph1eivkzxxsdwggy01v> saref:hasValue \"36.9300986117519\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ukph1eivkzxxsdwggy01v> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Up6azrxfybnaybpxqajds> rdf:type saref:Observation .\n  <http://example.org/demo/Up6azrxfybnaybpxqajds> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Up6azrxfybnaybpxqajds> saref:hasTimestamp \"2025-01-14T22:23:52.109206\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Up6azrxfybnaybpxqajds> saref:hasResult <http://example.org/demo/Ua8wdvk06ditxk0ozfdia> .\n  <http://example.org/demo/Ua8wdvk06ditxk0ozfdia> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ua8wdvk06ditxk0ozfdia> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ua8wdvk06ditxk0ozfdia> saref:hasValue \"16.44230578454407\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ua8wdvk06ditxk0ozfdia> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uhpq8h3rihw30cjv4jp7w> rdf:type saref:Observation .\n  <http://example.org/demo/Uhpq8h3rihw30cjv4jp7w> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uhpq8h3rihw30cjv4jp7w> saref:hasTimestamp \"2025-01-14T23:09:54.280311\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uhpq8h3rihw30cjv4jp7w> saref:hasResult <http://example.org/demo/U6a1r0txsko8h1hxz8jt5> .\n  <http://example.org/demo/U6a1r0txsko8h1hxz8jt5> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U6a1r0txsko8h1hxz8jt5> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U6a1r0txsko8h1hxz8jt5> saref:hasValue \"30.862336422130767\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U6a1r0txsko8h1hxz8jt5> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uy57nqc6u06okj99ciji6> rdf:type saref:Observation .\n  <http://example.org/demo/Uy57nqc6u06okj99ciji6> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uy57nqc6u06okj99ciji6> saref:hasTimestamp \"2025-01-15T01:00:06.067408\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uy57nqc6u06okj99ciji6> saref:hasResult <http://example.org/demo/U792519gsp798d02rkvca> .\n  <http://example.org/demo/U792519gsp798d02rkvca> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U792519gsp798d02rkvca> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U792519gsp798d02rkvca> saref:hasValue \"11.471789531190563\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U792519gsp798d02rkvca> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uxou86zd909h829rrgl37> rdf:type saref:Observation .\n  <http://example.org/demo/Uxou86zd909h829rrgl37> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uxou86zd909h829rrgl37> saref:hasTimestamp \"2025-01-15T05:34:45.509214\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uxou86zd909h829rrgl37> saref:hasResult <http://example.org/demo/Uzoqb98nook9bqq8omuf7> .\n  <http://example.org/demo/Uzoqb98nook9bqq8omuf7> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uzoqb98nook9bqq8omuf7> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uzoqb98nook9bqq8omuf7> saref:hasValue \"13.187863158467028\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uzoqb98nook9bqq8omuf7> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uqai0o7qcyzyg64jrgoo0> rdf:type saref:Observation .\n  <http://example.org/demo/Uqai0o7qcyzyg64jrgoo0> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uqai0o7qcyzyg64jrgoo0> saref:hasTimestamp \"2025-01-15T07:00:20.991918\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uqai0o7qcyzyg64jrgoo0> saref:hasResult <http://example.org/demo/U6w44v5d3jrjyp1z1iinh> .\n  <http://example.org/demo/U6w44v5d3jrjyp1z1iinh> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U6w44v5d3jrjyp1z1iinh> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U6w44v5d3jrjyp1z1iinh> saref:hasValue \"0.3411937927719748\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U6w44v5d3jrjyp1z1iinh> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ussg37iafievbny5zxqfm> rdf:type saref:Observation .\n  <http://example.org/demo/Ussg37iafievbny5zxqfm> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ussg37iafievbny5zxqfm> saref:hasTimestamp \"2025-01-15T10:35:41.149093\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ussg37iafievbny5zxqfm> saref:hasResult <http://example.org/demo/Uh8zheonxvbb6ibarx0t2> .\n  <http://example.org/demo/Uh8zheonxvbb6ibarx0t2> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uh8zheonxvbb6ibarx0t2> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uh8zheonxvbb6ibarx0t2> saref:hasValue \"18.79402477509178\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uh8zheonxvbb6ibarx0t2> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ulbo9ydhsd5uc1d6myauu> rdf:type saref:Observation .\n  <http://example.org/demo/Ulbo9ydhsd5uc1d6myauu> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ulbo9ydhsd5uc1d6myauu> saref:hasTimestamp \"2025-01-15T21:12:47.768331\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ulbo9ydhsd5uc1d6myauu> saref:hasResult <http://example.org/demo/Ueswkkys2bxesdmsfhxsu> .\n  <http://example.org/demo/Ueswkkys2bxesdmsfhxsu> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ueswkkys2bxesdmsfhxsu> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ueswkkys2bxesdmsfhxsu> saref:hasValue \"25.673500400394936\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ueswkkys2bxesdmsfhxsu> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U6a6att86mm54byzj00vt> rdf:type saref:Observation .\n  <http://example.org/demo/U6a6att86mm54byzj00vt> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U6a6att86mm54byzj00vt> saref:hasTimestamp \"2025-01-15T21:15:14.417153\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U6a6att86mm54byzj00vt> saref:hasResult <http://example.org/demo/Ullprkfj5u1eijs8s8bb4> .\n  <http://example.org/demo/Ullprkfj5u1eijs8s8bb4> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ullprkfj5u1eijs8s8bb4> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ullprkfj5u1eijs8s8bb4> saref:hasValue \"10.158755468447431\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ullprkfj5u1eijs8s8bb4> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Un52y0eqr5tco2xppijft> rdf:type saref:Observation .\n  <http://example.org/demo/Un52y0eqr5tco2xppijft> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Un52y0eqr5tco2xppijft> saref:hasTimestamp \"2025-01-15T21:15:52.141865\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Un52y0eqr5tco2xppijft> saref:hasResult <http://example.org/demo/Udyen2dy9rj5uw17govht> .\n  <http://example.org/demo/Udyen2dy9rj5uw17govht> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Udyen2dy9rj5uw17govht> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Udyen2dy9rj5uw17govht> saref:hasValue \"3.9686882236799725\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Udyen2dy9rj5uw17govht> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uubyzvuvb9hs1nj1yjt9e> rdf:type saref:Observation .\n  <http://example.org/demo/Uubyzvuvb9hs1nj1yjt9e> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uubyzvuvb9hs1nj1yjt9e> saref:hasTimestamp \"2025-01-16T03:18:57.987653\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uubyzvuvb9hs1nj1yjt9e> saref:hasResult <http://example.org/demo/U7mh6o9wspgcffqhzb4ls> .\n  <http://example.org/demo/U7mh6o9wspgcffqhzb4ls> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U7mh6o9wspgcffqhzb4ls> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U7mh6o9wspgcffqhzb4ls> saref:hasValue \"-11.656575622588562\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U7mh6o9wspgcffqhzb4ls> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ubrenmwxn0ogewox4uk7i> rdf:type saref:Observation .\n  <http://example.org/demo/Ubrenmwxn0ogewox4uk7i> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ubrenmwxn0ogewox4uk7i> saref:hasTimestamp \"2025-01-16T11:34:27.866621\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ubrenmwxn0ogewox4uk7i> saref:hasResult <http://example.org/demo/U5tczb4ekesvgdutk3twt> .\n  <http://example.org/demo/U5tczb4ekesvgdutk3twt> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U5tczb4ekesvgdutk3twt> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U5tczb4ekesvgdutk3twt> saref:hasValue \"22.69401889774433\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U5tczb4ekesvgdutk3twt> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ui88ozlotn3txacn9uomv> rdf:type saref:Observation .\n  <http://example.org/demo/Ui88ozlotn3txacn9uomv> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ui88ozlotn3txacn9uomv> saref:hasTimestamp \"2025-01-16T12:31:59.114174\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ui88ozlotn3txacn9uomv> saref:hasResult <http://example.org/demo/Uuwfe5n36jfj8gyx7f4ce> .\n  <http://example.org/demo/Uuwfe5n36jfj8gyx7f4ce> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uuwfe5n36jfj8gyx7f4ce> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uuwfe5n36jfj8gyx7f4ce> saref:hasValue \"36.22107565272087\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uuwfe5n36jfj8gyx7f4ce> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uz1q8uj5f8edi6uagl0e8> rdf:type saref:Observation .\n  <http://example.org/demo/Uz1q8uj5f8edi6uagl0e8> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uz1q8uj5f8edi6uagl0e8> saref:hasTimestamp \"2025-01-16T16:49:57.300021\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uz1q8uj5f8edi6uagl0e8> saref:hasResult <http://example.org/demo/Ubsixz8vyrbafgbsgo6z5> .\n  <http://example.org/demo/Ubsixz8vyrbafgbsgo6z5> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ubsixz8vyrbafgbsgo6z5> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ubsixz8vyrbafgbsgo6z5> saref:hasValue \"33.498174210012664\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ubsixz8vyrbafgbsgo6z5> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uyvkis50xrdpyelze6eyz> rdf:type saref:Observation .\n  <http://example.org/demo/Uyvkis50xrdpyelze6eyz> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uyvkis50xrdpyelze6eyz> saref:hasTimestamp \"2025-01-16T20:28:45.959862\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uyvkis50xrdpyelze6eyz> saref:hasResult <http://example.org/demo/Uyhgnqb1sytrft4v6i9dp> .\n  <http://example.org/demo/Uyhgnqb1sytrft4v6i9dp> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uyhgnqb1sytrft4v6i9dp> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uyhgnqb1sytrft4v6i9dp> saref:hasValue \"25.614730492907658\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uyhgnqb1sytrft4v6i9dp> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U9mcmpudg7fom5p6bp0lb> rdf:type saref:Observation .\n  <http://example.org/demo/U9mcmpudg7fom5p6bp0lb> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U9mcmpudg7fom5p6bp0lb> saref:hasTimestamp \"2025-01-16T22:59:01.762220\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U9mcmpudg7fom5p6bp0lb> saref:hasResult <http://example.org/demo/U54abfqq2devs6jspu450> .\n  <http://example.org/demo/U54abfqq2devs6jspu450> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U54abfqq2devs6jspu450> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U54abfqq2devs6jspu450> saref:hasValue \"20.481337530353265\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U54abfqq2devs6jspu450> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uno6o5lqtmhb8vnwxn07n> rdf:type saref:Observation .\n  <http://example.org/demo/Uno6o5lqtmhb8vnwxn07n> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uno6o5lqtmhb8vnwxn07n> saref:hasTimestamp \"2025-01-17T02:20:18.625658\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uno6o5lqtmhb8vnwxn07n> saref:hasResult <http://example.org/demo/Ujdpruy2tqtrz8bhvlea6> .\n  <http://example.org/demo/Ujdpruy2tqtrz8bhvlea6> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ujdpruy2tqtrz8bhvlea6> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ujdpruy2tqtrz8bhvlea6> saref:hasValue \"13.7307502010936\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ujdpruy2tqtrz8bhvlea6> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ud1ytu3h1u9w1795jirq2> rdf:type saref:Observation .\n  <http://example.org/demo/Ud1ytu3h1u9w1795jirq2> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ud1ytu3h1u9w1795jirq2> saref:hasTimestamp \"2025-01-17T02:44:49.422030\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ud1ytu3h1u9w1795jirq2> saref:hasResult <http://example.org/demo/Ul745sywhrm445e2do6va> .\n  <http://example.org/demo/Ul745sywhrm445e2do6va> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ul745sywhrm445e2do6va> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ul745sywhrm445e2do6va> saref:hasValue \"14.127354558574693\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ul745sywhrm445e2do6va> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ut9uhv721q58kced1m7os> rdf:type saref:Observation .\n  <http://example.org/demo/Ut9uhv721q58kced1m7os> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ut9uhv721q58kced1m7os> saref:hasTimestamp \"2025-01-17T07:43:36.928821\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ut9uhv721q58kced1m7os> saref:hasResult <http://example.org/demo/Uzhj9m42f6831ci8zu7ka> .\n  <http://example.org/demo/Uzhj9m42f6831ci8zu7ka> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uzhj9m42f6831ci8zu7ka> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uzhj9m42f6831ci8zu7ka> saref:hasValue \"26.59943536425834\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uzhj9m42f6831ci8zu7ka> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uxlbjmwrfwwcg11obgaxp> rdf:type saref:Observation .\n  <http://example.org/demo/Uxlbjmwrfwwcg11obgaxp> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uxlbjmwrfwwcg11obgaxp> saref:hasTimestamp \"2025-01-17T15:55:02.495551\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uxlbjmwrfwwcg11obgaxp> saref:hasResult <http://example.org/demo/U2y7sk6k71nv8ao66nd99> .\n  <http://example.org/demo/U2y7sk6k71nv8ao66nd99> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U2y7sk6k71nv8ao66nd99> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U2y7sk6k71nv8ao66nd99> saref:hasValue \"32.711876907089206\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U2y7sk6k71nv8ao66nd99> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Umvqlrvykccmmsropbkji> rdf:type saref:Observation .\n  <http://example.org/demo/Umvqlrvykccmmsropbkji> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Umvqlrvykccmmsropbkji> saref:hasTimestamp \"2025-01-17T22:38:08.872013\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Umvqlrvykccmmsropbkji> saref:hasResult <http://example.org/demo/U3druayng6gwti2cq3lel> .\n  <http://example.org/demo/U3druayng6gwti2cq3lel> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U3druayng6gwti2cq3lel> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U3druayng6gwti2cq3lel> saref:hasValue \"24.452370109077073\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U3druayng6gwti2cq3lel> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ujv3nn0s3hbsyek5zejnm> rdf:type saref:Observation .\n  <http://example.org/demo/Ujv3nn0s3hbsyek5zejnm> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ujv3nn0s3hbsyek5zejnm> saref:hasTimestamp \"2025-01-18T02:33:31.394854\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ujv3nn0s3hbsyek5zejnm> saref:hasResult <http://example.org/demo/Ufe7qsxif8kvlb7z81pli> .\n  <http://example.org/demo/Ufe7qsxif8kvlb7z81pli> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ufe7qsxif8kvlb7z81pli> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ufe7qsxif8kvlb7z81pli> saref:hasValue \"13.692179900831924\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ufe7qsxif8kvlb7z81pli> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ujs62ew6zffxr11fp9y7h> rdf:type saref:Observation .\n  <http://example.org/demo/Ujs62ew6zffxr11fp9y7h> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ujs62ew6zffxr11fp9y7h> saref:hasTimestamp \"2025-01-18T03:27:31.616271\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ujs62ew6zffxr11fp9y7h> saref:hasResult <http://example.org/demo/Umyj9fn0kmatx8i10g523> .\n  <http://example.org/demo/Umyj9fn0kmatx8i10g523> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Umyj9fn0kmatx8i10g523> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Umyj9fn0kmatx8i10g523> saref:hasValue \"23.822853845474306\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Umyj9fn0kmatx8i10g523> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U99piu1ikpip62wxaybfi> rdf:type saref:Observation .\n  <http://example.org/demo/U99piu1ikpip62wxaybfi> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U99piu1ikpip62wxaybfi> saref:hasTimestamp \"2025-01-18T13:36:28.698045\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U99piu1ikpip62wxaybfi> saref:hasResult <http://example.org/demo/U1rc7izhbl5tu04g6gsuz> .\n  <http://example.org/demo/U1rc7izhbl5tu04g6gsuz> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U1rc7izhbl5tu04g6gsuz> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U1rc7izhbl5tu04g6gsuz> saref:hasValue \"29.129053712784163\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U1rc7izhbl5tu04g6gsuz> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U88o6vuq5plch6127jckq> rdf:type saref:Observation .\n  <http://example.org/demo/U88o6vuq5plch6127jckq> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U88o6vuq5plch6127jckq> saref:hasTimestamp \"2025-01-18T16:00:02.085537\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U88o6vuq5plch6127jckq> saref:hasResult <http://example.org/demo/Uxiq5fkp507b438knpb3f> .\n  <http://example.org/demo/Uxiq5fkp507b438knpb3f> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uxiq5fkp507b438knpb3f> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uxiq5fkp507b438knpb3f> saref:hasValue \"2.6700808817803328\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uxiq5fkp507b438knpb3f> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U0fwx51zju85nkg03ohbd> rdf:type saref:Observation .\n  <http://example.org/demo/U0fwx51zju85nkg03ohbd> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U0fwx51zju85nkg03ohbd> saref:hasTimestamp \"2025-01-18T16:51:40.871828\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U0fwx51zju85nkg03ohbd> saref:hasResult <http://example.org/demo/Uc8dp3umz0qfqbxcfpj5y> .\n  <http://example.org/demo/Uc8dp3umz0qfqbxcfpj5y> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uc8dp3umz0qfqbxcfpj5y> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uc8dp3umz0qfqbxcfpj5y> saref:hasValue \"14.562501567434609\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uc8dp3umz0qfqbxcfpj5y> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Us4ybsn06bjcfsq750rwh> rdf:type saref:Observation .\n  <http://example.org/demo/Us4ybsn06bjcfsq750rwh> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Us4ybsn06bjcfsq750rwh> saref:hasTimestamp \"2025-01-19T00:44:25.993637\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Us4ybsn06bjcfsq750rwh> saref:hasResult <http://example.org/demo/U50qnkk9tkeffhldi3ntn> .\n  <http://example.org/demo/U50qnkk9tkeffhldi3ntn> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U50qnkk9tkeffhldi3ntn> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U50qnkk9tkeffhldi3ntn> saref:hasValue \"3.499425159741987\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U50qnkk9tkeffhldi3ntn> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U6uwkecder64bdkkmagk3> rdf:type saref:Observation .\n  <http://example.org/demo/U6uwkecder64bdkkmagk3> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U6uwkecder64bdkkmagk3> saref:hasTimestamp \"2025-01-19T01:09:06.533851\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U6uwkecder64bdkkmagk3> saref:hasResult <http://example.org/demo/Ucfj63fhdedl5xk5ntmou> .\n  <http://example.org/demo/Ucfj63fhdedl5xk5ntmou> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ucfj63fhdedl5xk5ntmou> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ucfj63fhdedl5xk5ntmou> saref:hasValue \"6.209755262706896\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ucfj63fhdedl5xk5ntmou> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Urkgpabkf0vpzedke5f2n> rdf:type saref:Observation .\n  <http://example.org/demo/Urkgpabkf0vpzedke5f2n> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Urkgpabkf0vpzedke5f2n> saref:hasTimestamp \"2025-01-19T03:58:31.952070\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Urkgpabkf0vpzedke5f2n> saref:hasResult <http://example.org/demo/Uz5yrn6zl2efxby3mbpfu> .\n  <http://example.org/demo/Uz5yrn6zl2efxby3mbpfu> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uz5yrn6zl2efxby3mbpfu> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uz5yrn6zl2efxby3mbpfu> saref:hasValue \"7.214636328618586\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uz5yrn6zl2efxby3mbpfu> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U9xums9pl5y2ut6ghckxd> rdf:type saref:Observation .\n  <http://example.org/demo/U9xums9pl5y2ut6ghckxd> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U9xums9pl5y2ut6ghckxd> saref:hasTimestamp \"2025-01-19T04:49:40.499210\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U9xums9pl5y2ut6ghckxd> saref:hasResult <http://example.org/demo/Usd2wv55873kyzti2cx2m> .\n  <http://example.org/demo/Usd2wv55873kyzti2cx2m> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Usd2wv55873kyzti2cx2m> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Usd2wv55873kyzti2cx2m> saref:hasValue \"2.5161659195627433\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Usd2wv55873kyzti2cx2m> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U4u6dpn16s154gtbwpc6z> rdf:type saref:Observation .\n  <http://example.org/demo/U4u6dpn16s154gtbwpc6z> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U4u6dpn16s154gtbwpc6z> saref:hasTimestamp \"2025-01-19T05:54:24.315477\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U4u6dpn16s154gtbwpc6z> saref:hasResult <http://example.org/demo/Upokoom4bufnniomliujt> .\n  <http://example.org/demo/Upokoom4bufnniomliujt> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Upokoom4bufnniomliujt> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Upokoom4bufnniomliujt> saref:hasValue \"-4.307959589299887\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Upokoom4bufnniomliujt> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uaqchwhstf0svernojtrn> rdf:type saref:Observation .\n  <http://example.org/demo/Uaqchwhstf0svernojtrn> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uaqchwhstf0svernojtrn> saref:hasTimestamp \"2025-01-19T06:41:24.002174\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uaqchwhstf0svernojtrn> saref:hasResult <http://example.org/demo/Uc9zp8yywk2mlclvqget3> .\n  <http://example.org/demo/Uc9zp8yywk2mlclvqget3> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uc9zp8yywk2mlclvqget3> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uc9zp8yywk2mlclvqget3> saref:hasValue \"-3.7353391450912596\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uc9zp8yywk2mlclvqget3> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U1wvnwmbiumgbbtb832ur> rdf:type saref:Observation .\n  <http://example.org/demo/U1wvnwmbiumgbbtb832ur> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U1wvnwmbiumgbbtb832ur> saref:hasTimestamp \"2025-01-19T07:58:56.124584\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U1wvnwmbiumgbbtb832ur> saref:hasResult <http://example.org/demo/Uwu7q3q07wm1pvm6iyau5> .\n  <http://example.org/demo/Uwu7q3q07wm1pvm6iyau5> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uwu7q3q07wm1pvm6iyau5> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uwu7q3q07wm1pvm6iyau5> saref:hasValue \"5.759376671047413\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uwu7q3q07wm1pvm6iyau5> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uf4t1igsuz9gkcwqtfuvd> rdf:type saref:Observation .\n  <http://example.org/demo/Uf4t1igsuz9gkcwqtfuvd> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uf4t1igsuz9gkcwqtfuvd> saref:hasTimestamp \"2025-01-19T21:00:42.695035\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uf4t1igsuz9gkcwqtfuvd> saref:hasResult <http://example.org/demo/Uprej6luovwablq1l70da> .\n  <http://example.org/demo/Uprej6luovwablq1l70da> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uprej6luovwablq1l70da> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uprej6luovwablq1l70da> saref:hasValue \"19.20520558087776\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uprej6luovwablq1l70da> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ux0eyxq1vq5z17gtj6k4v> rdf:type saref:Observation .\n  <http://example.org/demo/Ux0eyxq1vq5z17gtj6k4v> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ux0eyxq1vq5z17gtj6k4v> saref:hasTimestamp \"2025-01-19T22:07:50.902074\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ux0eyxq1vq5z17gtj6k4v> saref:hasResult <http://example.org/demo/Uwt4el1wf51lkoa9rn7bl> .\n  <http://example.org/demo/Uwt4el1wf51lkoa9rn7bl> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uwt4el1wf51lkoa9rn7bl> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uwt4el1wf51lkoa9rn7bl> saref:hasValue \"19.887577846877655\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uwt4el1wf51lkoa9rn7bl> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Umw43w14j16j1dmdtn1gq> rdf:type saref:Observation .\n  <http://example.org/demo/Umw43w14j16j1dmdtn1gq> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Umw43w14j16j1dmdtn1gq> saref:hasTimestamp \"2025-01-20T03:19:28.271508\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Umw43w14j16j1dmdtn1gq> saref:hasResult <http://example.org/demo/Uqkc8ma9i5vg8q2zyudhk> .\n  <http://example.org/demo/Uqkc8ma9i5vg8q2zyudhk> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uqkc8ma9i5vg8q2zyudhk> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uqkc8ma9i5vg8q2zyudhk> saref:hasValue \"18.69166027246118\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uqkc8ma9i5vg8q2zyudhk> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ugxjbn6mogfd2ce2rhk6j> rdf:type saref:Observation .\n  <http://example.org/demo/Ugxjbn6mogfd2ce2rhk6j> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ugxjbn6mogfd2ce2rhk6j> saref:hasTimestamp \"2025-01-20T03:22:08.441318\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ugxjbn6mogfd2ce2rhk6j> saref:hasResult <http://example.org/demo/Ul6nqrmhd41gebe4j202b> .\n  <http://example.org/demo/Ul6nqrmhd41gebe4j202b> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ul6nqrmhd41gebe4j202b> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ul6nqrmhd41gebe4j202b> saref:hasValue \"24.870086564858475\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ul6nqrmhd41gebe4j202b> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U10iyrc4qr1w14vy61khj> rdf:type saref:Observation .\n  <http://example.org/demo/U10iyrc4qr1w14vy61khj> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U10iyrc4qr1w14vy61khj> saref:hasTimestamp \"2025-01-20T08:13:37.732331\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U10iyrc4qr1w14vy61khj> saref:hasResult <http://example.org/demo/U638iowepxo7e1xo6c951> .\n  <http://example.org/demo/U638iowepxo7e1xo6c951> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U638iowepxo7e1xo6c951> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U638iowepxo7e1xo6c951> saref:hasValue \"25.173281456019975\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U638iowepxo7e1xo6c951> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Udotlhpd57gaj32o11mfm> rdf:type saref:Observation .\n  <http://example.org/demo/Udotlhpd57gaj32o11mfm> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Udotlhpd57gaj32o11mfm> saref:hasTimestamp \"2025-01-20T15:18:50.028671\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Udotlhpd57gaj32o11mfm> saref:hasResult <http://example.org/demo/Up55ew0noc8o46o7eerqf> .\n  <http://example.org/demo/Up55ew0noc8o46o7eerqf> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Up55ew0noc8o46o7eerqf> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Up55ew0noc8o46o7eerqf> saref:hasValue \"-15.16648471815569\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Up55ew0noc8o46o7eerqf> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ujcidc59k4q5p0n7j0ifa> rdf:type saref:Observation .\n  <http://example.org/demo/Ujcidc59k4q5p0n7j0ifa> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ujcidc59k4q5p0n7j0ifa> saref:hasTimestamp \"2025-01-21T00:12:54.497175\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ujcidc59k4q5p0n7j0ifa> saref:hasResult <http://example.org/demo/U172wd6bsh89rpde1rg7i> .\n  <http://example.org/demo/U172wd6bsh89rpde1rg7i> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U172wd6bsh89rpde1rg7i> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U172wd6bsh89rpde1rg7i> saref:hasValue \"18.31561862014461\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U172wd6bsh89rpde1rg7i> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Usiaweqvaco3gam0ed8o4> rdf:type saref:Observation .\n  <http://example.org/demo/Usiaweqvaco3gam0ed8o4> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Usiaweqvaco3gam0ed8o4> saref:hasTimestamp \"2025-01-21T02:49:37.139032\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Usiaweqvaco3gam0ed8o4> saref:hasResult <http://example.org/demo/Uwidbylrxjskzb4mqd7rs> .\n  <http://example.org/demo/Uwidbylrxjskzb4mqd7rs> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uwidbylrxjskzb4mqd7rs> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uwidbylrxjskzb4mqd7rs> saref:hasValue \"10.000662441738243\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uwidbylrxjskzb4mqd7rs> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uwd9okqudao5y85ytxxu9> rdf:type saref:Observation .\n  <http://example.org/demo/Uwd9okqudao5y85ytxxu9> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uwd9okqudao5y85ytxxu9> saref:hasTimestamp \"2025-01-21T06:01:33.534349\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uwd9okqudao5y85ytxxu9> saref:hasResult <http://example.org/demo/Usgof3p54or8bhk23lu67> .\n  <http://example.org/demo/Usgof3p54or8bhk23lu67> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Usgof3p54or8bhk23lu67> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Usgof3p54or8bhk23lu67> saref:hasValue \"21.012668773407338\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Usgof3p54or8bhk23lu67> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Up72brq1wrnmm3re8uivm> rdf:type saref:Observation .\n  <http://example.org/demo/Up72brq1wrnmm3re8uivm> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Up72brq1wrnmm3re8uivm> saref:hasTimestamp \"2025-01-21T18:57:52.176077\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Up72brq1wrnmm3re8uivm> saref:hasResult <http://example.org/demo/Udsigtd906x2djh5ezrmq> .\n  <http://example.org/demo/Udsigtd906x2djh5ezrmq> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Udsigtd906x2djh5ezrmq> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Udsigtd906x2djh5ezrmq> saref:hasValue \"7.2728117026149794\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Udsigtd906x2djh5ezrmq> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uqsy9c8x968pv75ddgun6> rdf:type saref:Observation .\n  <http://example.org/demo/Uqsy9c8x968pv75ddgun6> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uqsy9c8x968pv75ddgun6> saref:hasTimestamp \"2025-01-22T07:06:17.564810\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uqsy9c8x968pv75ddgun6> saref:hasResult <http://example.org/demo/U5vscpucr2x27erm7eram> .\n  <http://example.org/demo/U5vscpucr2x27erm7eram> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U5vscpucr2x27erm7eram> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U5vscpucr2x27erm7eram> saref:hasValue \"-4.537471229629151\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U5vscpucr2x27erm7eram> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uuefhzgwt3wlde5mpzk8b> rdf:type saref:Observation .\n  <http://example.org/demo/Uuefhzgwt3wlde5mpzk8b> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uuefhzgwt3wlde5mpzk8b> saref:hasTimestamp \"2025-01-22T20:08:43.690044\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uuefhzgwt3wlde5mpzk8b> saref:hasResult <http://example.org/demo/U9lggpcwdrernydfehpp9> .\n  <http://example.org/demo/U9lggpcwdrernydfehpp9> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U9lggpcwdrernydfehpp9> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U9lggpcwdrernydfehpp9> saref:hasValue \"9.829381757517462\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U9lggpcwdrernydfehpp9> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U85czg2v27a9r0aqk0a0n> rdf:type saref:Observation .\n  <http://example.org/demo/U85czg2v27a9r0aqk0a0n> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U85czg2v27a9r0aqk0a0n> saref:hasTimestamp \"2025-01-22T22:04:33.001453\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U85czg2v27a9r0aqk0a0n> saref:hasResult <http://example.org/demo/U02sltixcctsnix476e0s> .\n  <http://example.org/demo/U02sltixcctsnix476e0s> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U02sltixcctsnix476e0s> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U02sltixcctsnix476e0s> saref:hasValue \"28.819940525438113\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U02sltixcctsnix476e0s> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ula2flf97kuy7gdilmm8r> rdf:type saref:Observation .\n  <http://example.org/demo/Ula2flf97kuy7gdilmm8r> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ula2flf97kuy7gdilmm8r> saref:hasTimestamp \"2025-01-23T03:34:54.021299\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ula2flf97kuy7gdilmm8r> saref:hasResult <http://example.org/demo/Ucw2vaqv3i79367mgp0jp> .\n  <http://example.org/demo/Ucw2vaqv3i79367mgp0jp> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ucw2vaqv3i79367mgp0jp> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ucw2vaqv3i79367mgp0jp> saref:hasValue \"27.614742753813516\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ucw2vaqv3i79367mgp0jp> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uhlhv365ye74hbbzm7dwe> rdf:type saref:Observation .\n  <http://example.org/demo/Uhlhv365ye74hbbzm7dwe> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uhlhv365ye74hbbzm7dwe> saref:hasTimestamp \"2025-01-23T13:05:12.275339\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uhlhv365ye74hbbzm7dwe> saref:hasResult <http://example.org/demo/U5r8sivjrgeod47h1gbee> .\n  <http://example.org/demo/U5r8sivjrgeod47h1gbee> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U5r8sivjrgeod47h1gbee> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U5r8sivjrgeod47h1gbee> saref:hasValue \"40.24196991527893\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U5r8sivjrgeod47h1gbee> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uqstcpaumz12sk4sjxwgi> rdf:type saref:Observation .\n  <http://example.org/demo/Uqstcpaumz12sk4sjxwgi> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uqstcpaumz12sk4sjxwgi> saref:hasTimestamp \"2025-01-23T21:50:04.800308\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uqstcpaumz12sk4sjxwgi> saref:hasResult <http://example.org/demo/Umwqhcorhrxlx45xfhrh6> .\n  <http://example.org/demo/Umwqhcorhrxlx45xfhrh6> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Umwqhcorhrxlx45xfhrh6> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Umwqhcorhrxlx45xfhrh6> saref:hasValue \"10.902587461230388\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Umwqhcorhrxlx45xfhrh6> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uxspyyucqq60i5nqdvhl8> rdf:type saref:Observation .\n  <http://example.org/demo/Uxspyyucqq60i5nqdvhl8> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uxspyyucqq60i5nqdvhl8> saref:hasTimestamp \"2025-01-24T02:34:46.912313\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uxspyyucqq60i5nqdvhl8> saref:hasResult <http://example.org/demo/Uo1omzihcj1eo3fd2y3fn> .\n  <http://example.org/demo/Uo1omzihcj1eo3fd2y3fn> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uo1omzihcj1eo3fd2y3fn> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uo1omzihcj1eo3fd2y3fn> saref:hasValue \"-12.278537408224938\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uo1omzihcj1eo3fd2y3fn> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ui8784x819kl5iteih5z8> rdf:type saref:Observation .\n  <http://example.org/demo/Ui8784x819kl5iteih5z8> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ui8784x819kl5iteih5z8> saref:hasTimestamp \"2025-01-24T07:22:26.227645\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ui8784x819kl5iteih5z8> saref:hasResult <http://example.org/demo/Uc7my4bnf2tp0row14i8m> .\n  <http://example.org/demo/Uc7my4bnf2tp0row14i8m> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uc7my4bnf2tp0row14i8m> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uc7my4bnf2tp0row14i8m> saref:hasValue \"23.69115997433568\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uc7my4bnf2tp0row14i8m> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U9vo8xgf771swne8xia61> rdf:type saref:Observation .\n  <http://example.org/demo/U9vo8xgf771swne8xia61> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U9vo8xgf771swne8xia61> saref:hasTimestamp \"2025-01-24T10:55:46.390400\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U9vo8xgf771swne8xia61> saref:hasResult <http://example.org/demo/Uma1mmczn00hozq0px5ag> .\n  <http://example.org/demo/Uma1mmczn00hozq0px5ag> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uma1mmczn00hozq0px5ag> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uma1mmczn00hozq0px5ag> saref:hasValue \"1.4957980702211966\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uma1mmczn00hozq0px5ag> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uy9jj89bfwwgy11pydk7i> rdf:type saref:Observation .\n  <http://example.org/demo/Uy9jj89bfwwgy11pydk7i> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uy9jj89bfwwgy11pydk7i> saref:hasTimestamp \"2025-01-25T02:47:30.846587\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uy9jj89bfwwgy11pydk7i> saref:hasResult <http://example.org/demo/Uqtd4wnhpfdz1legx3bik> .\n  <http://example.org/demo/Uqtd4wnhpfdz1legx3bik> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uqtd4wnhpfdz1legx3bik> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uqtd4wnhpfdz1legx3bik> saref:hasValue \"12.592283823148001\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uqtd4wnhpfdz1legx3bik> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ulx66fybccx7lm3q1vtz9> rdf:type saref:Observation .\n  <http://example.org/demo/Ulx66fybccx7lm3q1vtz9> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ulx66fybccx7lm3q1vtz9> saref:hasTimestamp \"2025-01-25T04:47:45.855546\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ulx66fybccx7lm3q1vtz9> saref:hasResult <http://example.org/demo/Uyiirr6jpmqq6n250mbpv> .\n  <http://example.org/demo/Uyiirr6jpmqq6n250mbpv> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uyiirr6jpmqq6n250mbpv> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uyiirr6jpmqq6n250mbpv> saref:hasValue \"26.249807799072954\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uyiirr6jpmqq6n250mbpv> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U4skitpsw987uoykau907> rdf:type saref:Observation .\n  <http://example.org/demo/U4skitpsw987uoykau907> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U4skitpsw987uoykau907> saref:hasTimestamp \"2025-01-25T15:06:23.398053\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U4skitpsw987uoykau907> saref:hasResult <http://example.org/demo/Ugip6jglxtb6nbil89uvr> .\n  <http://example.org/demo/Ugip6jglxtb6nbil89uvr> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ugip6jglxtb6nbil89uvr> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ugip6jglxtb6nbil89uvr> saref:hasValue \"5.660022661729679\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ugip6jglxtb6nbil89uvr> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U2i1ed1uf1x87xreuejoz> rdf:type saref:Observation .\n  <http://example.org/demo/U2i1ed1uf1x87xreuejoz> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U2i1ed1uf1x87xreuejoz> saref:hasTimestamp \"2025-01-25T23:26:11.685905\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U2i1ed1uf1x87xreuejoz> saref:hasResult <http://example.org/demo/Und05864zjbwzrrqa0ax1> .\n  <http://example.org/demo/Und05864zjbwzrrqa0ax1> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Und05864zjbwzrrqa0ax1> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Und05864zjbwzrrqa0ax1> saref:hasValue \"10.500536995979799\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Und05864zjbwzrrqa0ax1> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U7mgb1i7353j20k280sav> rdf:type saref:Observation .\n  <http://example.org/demo/U7mgb1i7353j20k280sav> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U7mgb1i7353j20k280sav> saref:hasTimestamp \"2025-01-26T20:38:39.892297\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U7mgb1i7353j20k280sav> saref:hasResult <http://example.org/demo/Uchucrth3wmw2a8n7cxx9> .\n  <http://example.org/demo/Uchucrth3wmw2a8n7cxx9> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uchucrth3wmw2a8n7cxx9> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uchucrth3wmw2a8n7cxx9> saref:hasValue \"38.76892291264643\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uchucrth3wmw2a8n7cxx9> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ugc1jt50zeezzvflt5nv3> rdf:type saref:Observation .\n  <http://example.org/demo/Ugc1jt50zeezzvflt5nv3> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ugc1jt50zeezzvflt5nv3> saref:hasTimestamp \"2025-01-27T03:33:40.201266\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ugc1jt50zeezzvflt5nv3> saref:hasResult <http://example.org/demo/Uwi5mxlbzm9kruj71dytt> .\n  <http://example.org/demo/Uwi5mxlbzm9kruj71dytt> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uwi5mxlbzm9kruj71dytt> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uwi5mxlbzm9kruj71dytt> saref:hasValue \"28.983832018719013\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uwi5mxlbzm9kruj71dytt> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uyvx890ykekxhzlhwrt3p> rdf:type saref:Observation .\n  <http://example.org/demo/Uyvx890ykekxhzlhwrt3p> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uyvx890ykekxhzlhwrt3p> saref:hasTimestamp \"2025-01-27T16:10:13.834589\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uyvx890ykekxhzlhwrt3p> saref:hasResult <http://example.org/demo/Ub9dh9blukpv4u13adbwv> .\n  <http://example.org/demo/Ub9dh9blukpv4u13adbwv> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ub9dh9blukpv4u13adbwv> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ub9dh9blukpv4u13adbwv> saref:hasValue \"-0.9226534370813848\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ub9dh9blukpv4u13adbwv> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uc8lusv2o3rhx2b1t7qwy> rdf:type saref:Observation .\n  <http://example.org/demo/Uc8lusv2o3rhx2b1t7qwy> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uc8lusv2o3rhx2b1t7qwy> saref:hasTimestamp \"2025-01-27T18:37:10.547264\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uc8lusv2o3rhx2b1t7qwy> saref:hasResult <http://example.org/demo/Uq5mdoqv0xnl09st7xdhh> .\n  <http://example.org/demo/Uq5mdoqv0xnl09st7xdhh> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uq5mdoqv0xnl09st7xdhh> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uq5mdoqv0xnl09st7xdhh> saref:hasValue \"15.672758043364432\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uq5mdoqv0xnl09st7xdhh> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uui870pvgynnr8o3uw4yq> rdf:type saref:Observation .\n  <http://example.org/demo/Uui870pvgynnr8o3uw4yq> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uui870pvgynnr8o3uw4yq> saref:hasTimestamp \"2025-01-27T21:14:21.231984\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uui870pvgynnr8o3uw4yq> saref:hasResult <http://example.org/demo/U7paewwoosdv6bsaiod2m> .\n  <http://example.org/demo/U7paewwoosdv6bsaiod2m> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U7paewwoosdv6bsaiod2m> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U7paewwoosdv6bsaiod2m> saref:hasValue \"-1.0543221390074997\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U7paewwoosdv6bsaiod2m> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U2hgdu75mu5qqmu9dfrlg> rdf:type saref:Observation .\n  <http://example.org/demo/U2hgdu75mu5qqmu9dfrlg> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U2hgdu75mu5qqmu9dfrlg> saref:hasTimestamp \"2025-01-28T06:43:34.349013\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U2hgdu75mu5qqmu9dfrlg> saref:hasResult <http://example.org/demo/Uddok3tm1izn7rmq2t2ry> .\n  <http://example.org/demo/Uddok3tm1izn7rmq2t2ry> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uddok3tm1izn7rmq2t2ry> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uddok3tm1izn7rmq2t2ry> saref:hasValue \"24.459331864396674\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uddok3tm1izn7rmq2t2ry> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ukwzuqo1dy8j0an0zydi2> rdf:type saref:Observation .\n  <http://example.org/demo/Ukwzuqo1dy8j0an0zydi2> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ukwzuqo1dy8j0an0zydi2> saref:hasTimestamp \"2025-01-28T10:26:24.196542\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ukwzuqo1dy8j0an0zydi2> saref:hasResult <http://example.org/demo/Uqgapk7sdazghs8mlwqam> .\n  <http://example.org/demo/Uqgapk7sdazghs8mlwqam> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uqgapk7sdazghs8mlwqam> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uqgapk7sdazghs8mlwqam> saref:hasValue \"23.537476322530765\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uqgapk7sdazghs8mlwqam> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uvot851q9w8wlcmyj61o1> rdf:type saref:Observation .\n  <http://example.org/demo/Uvot851q9w8wlcmyj61o1> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uvot851q9w8wlcmyj61o1> saref:hasTimestamp \"2025-01-28T15:53:33.054445\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uvot851q9w8wlcmyj61o1> saref:hasResult <http://example.org/demo/Ucfyonv2d8tyl9jkzf5qy> .\n  <http://example.org/demo/Ucfyonv2d8tyl9jkzf5qy> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Ucfyonv2d8tyl9jkzf5qy> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Ucfyonv2d8tyl9jkzf5qy> saref:hasValue \"5.371683629830644\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Ucfyonv2d8tyl9jkzf5qy> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Uyb8wjxy8rxxkv2bpsgvg> rdf:type saref:Observation .\n  <http://example.org/demo/Uyb8wjxy8rxxkv2bpsgvg> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Uyb8wjxy8rxxkv2bpsgvg> saref:hasTimestamp \"2025-01-30T13:20:45.137033\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Uyb8wjxy8rxxkv2bpsgvg> saref:hasResult <http://example.org/demo/U2fv8nsgawhe5n9pqt5ok> .\n  <http://example.org/demo/U2fv8nsgawhe5n9pqt5ok> rdf:type saref:PropertyValue .\n  <http://example.org/demo/U2fv8nsgawhe5n9pqt5ok> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/U2fv8nsgawhe5n9pqt5ok> saref:hasValue \"3.1285488323430126\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/U2fv8nsgawhe5n9pqt5ok> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/U8tfrvrlkhtvqsn1ejtfs> rdf:type saref:Observation .\n  <http://example.org/demo/U8tfrvrlkhtvqsn1ejtfs> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/U8tfrvrlkhtvqsn1ejtfs> saref:hasTimestamp \"2025-01-31T16:57:42.201403\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/U8tfrvrlkhtvqsn1ejtfs> saref:hasResult <http://example.org/demo/Uyy55zr59xygy7i1myqr9> .\n  <http://example.org/demo/Uyy55zr59xygy7i1myqr9> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uyy55zr59xygy7i1myqr9> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uyy55zr59xygy7i1myqr9> saref:hasValue \"30.06607677109318\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uyy55zr59xygy7i1myqr9> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        },
+        {
+            "data": "<http://example.org/demo/Ujgwam06u9hgbgczuht8e> rdf:type saref:Observation .\n  <http://example.org/demo/Ujgwam06u9hgbgczuht8e> saref:madeBy <http://example.org/demo/Ubo6ywhwih9mn31lupzbs> . \n  <http://example.org/demo/Ujgwam06u9hgbgczuht8e> saref:hasTimestamp \"2025-02-02T15:14:18.000442\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . \n  <http://example.org/demo/Ujgwam06u9hgbgczuht8e> saref:hasResult <http://example.org/demo/Uwcxezt0rn4mby6j9hphc> .\n  <http://example.org/demo/Uwcxezt0rn4mby6j9hphc> rdf:type saref:PropertyValue .\n  <http://example.org/demo/Uwcxezt0rn4mby6j9hphc> saref:isValueOfProperty <http://example.org/demo/Energy> .\n  <http://example.org/demo/Uwcxezt0rn4mby6j9hphc> saref:hasValue \"-4.985623493772174\"^^<http://www.w3.org/2001/XMLSchema#float> .\n  <http://example.org/demo/Uwcxezt0rn4mby6j9hphc> saref:isMeasuredIn \"kWh\"^^<http://www.w3.org/2001/XMLSchema#string> .",
+            "anchors": [
+                "<http://example.org/demo/Ubo6ywhwih9mn31lupzbs>",
+                "<http://example.org/demo/Energy>",
+                "\"kWh\"^^<http://www.w3.org/2001/XMLSchema#string>"
+            ]
+        }
+    ]
 ]

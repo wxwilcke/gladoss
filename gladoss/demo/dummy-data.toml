@@ -1,0 +1,28 @@
+# Configuration for dummy data generation
+#
+# type: IRIREF | string | float | int | dateTime
+# changes_every: [1, inf]
+
+[[data]]
+namespace = "http://example.org/demo/"
+pattern = """
+  ?obs rdf:type saref:Observation .
+  ?obs saref:madeBy ?device . 
+  ?obs saref:hasTimestamp ?timestamp . 
+  ?obs saref:hasResult ?result .
+  ?result rdf:type saref:PropertyValue .
+  ?result saref:isValueOfProperty ?prop .
+  ?result saref:hasValue ?value .
+  ?result saref:isMeasuredIn ?unit .
+  """
+dynamic = [
+    { name = "obs", type = "IRIRef", changes_every = 1 },
+    { name = "result", type = "IRIRef", changes_every = 1 },
+    { name = "timestamp", type = "dateTime", changes_every = 1, from = "2025-01-01T12:00:00", to = "2025-02-01T12:00:00"},
+    { name = "value", type = "float", changes_every = 1, from = -10.0, to = 40.0 }
+    ]
+static = [
+    { name = "device", type = "IRIRef" },
+    { name = "prop", type = "IRIRef", value = "Energy" },
+    { name = "unit", type = "string", value = "kWh" }
+    ]

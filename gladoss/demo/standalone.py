@@ -21,19 +21,20 @@ def main(flags: argparse.Namespace):
     :param flags: User-provided parameters
     """
     logging.info("Listening for messages")
-    adaptor = DummyAdaptor(address=flags.address,
+    adaptor = DummyAdaptor(endpoint=flags.endpoint,
                            continuous=flags.continuous,
                            num_retries=flags.retries,
                            retry_delay=flags.retry_delay,
                            request_delay=flags.request_delay)
 
-    for fact_lst in adaptor.listen():
+    for fact_lst, anchor_lst in adaptor.listen():
         print(f" {LAND} ".join([str(fact) for fact in fact_lst]))
+        logger.debug(f"Anchors: {anchor_lst}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--address", help="HTTP address to listen to",
+    parser.add_argument("--endpoint", help="HTTP address to listen to",
                         default="http://127.0.0.1:8000", type=str)
     parser.add_argument("--continuous", help="Keep listening for changes in "
                         + "the response, irrespective of response status",

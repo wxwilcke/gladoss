@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import logging
+import os
 import re
+import toml
 from typing import Any, Self
 
 import requests
@@ -22,21 +24,13 @@ LITERAL = re.compile(r"(?P<value>'.*')(?:"
                      r"(?:@(?P<lang>[a-z]{{2}}))|"
                      rf"(?:\^\^(?P<dtype>{URI})))?")
 
+FILE_DIR = os.path.dirname(__file__)
+FILENAME_CONF = "knowledge_engine.toml"
+CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 
-# TODO: load from config file
-KE_PATTERN = """ ?obs rdf:type saref:Observation .
-                 ?obs saref:madeBy ?device . 
-                 ?obs saref:hasTimestamp ?timestamp . 
-                 ?obs saref:hasResult ?result .
-                 ?result rdf:type saref:PropertyValue .
-                 ?result saref:isValueOfProperty ?prop .
-                 ?result saref:hasValue ?value .
-                 ?result saref:isMeasuredIn ?unit .
-             """
-KE_PREFIX = { "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-              "saref": "https://saref.etsi.org/core/" }
-ANCHORS = ["device", "prop"]
 
+# TODO:
+# - accomodate multiple subscriptions
 
 class KESarefAdaptor(Adaptor):
     """ Adaptor to TNO's Knowledge Engine
@@ -53,18 +47,47 @@ class KESarefAdaptor(Adaptor):
     """
 
     def init_hook(self: Self) -> None:
-        # TODO: load from config file
-        kb_id = "http://example.org/ai"
-        kb_name = "Anomaly Detector"
-        kb_description = "An anomaly dectector for streaming graph data"
+        conf = dict()
+        with open(CONF_PATH, 'rb') as f:
+            conf = toml.load(f)
 
+        self.context = dict()
+
+        kb_id = conf['knowledgeBaseId']
+        kb_name = conf['knowledgeBaseName']
+        kb_description = conf['knowledgeBaseDescription']
         try:
+            self.context['knowledgeBaseId'] = kb_id
             self.register(kb_id, kb_name, kb_description)
 
-            ki_name = "Measurements"
-            self.subscribe(KE_PATTERN, ki_name, kb_id, KE_PREFIX)
+            self.context['knowledgeInteractions'] = list()
+            for ki in conf['knowledgeInteraction']:
+                self.context['knowledgeInteractions'].append(ki)
+                
+                # ki_anchors = ki['knowledgeInteractionAnchors']
+
         except Exception:
             pass
+
+    def set_headers(self: Self, **kwargs) -> dict[str, Any]:
+        kb_id = self.context['knowledgeBaseId']
+
+        return {"Knowledge-Base-Id": kb_id}
+
+    def set_payload(self: Self, **kwargs) -> dict[str, Any]:
+        ki = self.context['knowledgeInteractions'][i]
+
+        ki_name = ki['knowledgeInteractionName']
+        ki_type = ki['knowledgeInteractionType']
+        ki_pattern = ki['knowledgeInteractionPattern']
+        ki_prefixes = ki['prefixes']
+
+        body = {"knowledgeInteractionName": ki_name,
+                "knowledgeInteractionType": ki_type,
+                "graphPattern": ki_pattern,
+                "prefixes": ki_prefixes}
+
+        return body
 
     def register(self: Self, kb_id: str, kb_name: str,
                  kb_description: str):
@@ -80,10 +103,10 @@ class KESarefAdaptor(Adaptor):
 
         logger.info(f"registered {kb_name}")
 
-    def subscribe(self: Self, triple_pattern: str, ki_name: str,
-                  kb_id: str, prefixes: dict[str, str]) -> str:
+    def subscribe(self: Self, kb_id: str, ki_name: str, ki_type: str,
+                  triple_pattern: str, prefixes: dict[str, str]) -> str:
         body = {"knowledgeInteractionName": ki_name,
-                "knowledgeInteractionType": "AskKnowledgeInteraction",
+                "knowledgeInteractionType": ki_type,
                 "graphPattern": triple_pattern,
                 "prefixes": prefixes}
 
@@ -95,7 +118,6 @@ class KESarefAdaptor(Adaptor):
         logger.info(f"received issued knowledge interaction id: {ki_id}")
 
         return ki_id
-
 
     def translate(self: Self, data: dict[str, Any], **kwargs)\
             -> tuple[list[Statement], list[IRIRef]]:
@@ -114,7 +136,7 @@ class KESarefAdaptor(Adaptor):
 
         bindings = data["bindingSet"]  # type: list[dict[str,str]]
         try:
-            statements_str = [s.strip() for s in KE_PATTERN.split('\n')]
+            statements_str = [s.strip() for s in KE_PATTERN.splitlines()]
             for bset in bindings:
                 for s in self.instantiate_graph(statements_str, bset):
                     match = re.fullmatch(STATEMENT, s)
@@ -128,11 +150,18 @@ class KESarefAdaptor(Adaptor):
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {bindings}")
 
-
         return (graph, anchors)  # TODO: change to yield?
 
     def instantiate_graph(self: Self, statements_str: list[str],
                           bindings: dict[str, str]) -> list[str]:
+        """ Replace variable names by bounded values. This will fail
+            if a variable name occurs inside a string literal, but
+            this is very unlikely.
+
+        :param statements_str: the triple pattern as strings
+        :param bindings: a map between variable names and their values
+        :return: the instantiated triples as strings
+        """
 
         out = list()
         for s in statements_str:
