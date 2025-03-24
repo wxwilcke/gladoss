@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 from collections import Counter
+from datetime import datetime
+from enum import Enum, auto
 import logging
 from queue import Queue
 import sys
@@ -10,7 +12,6 @@ from typing import Any, Dict, Iterator, List, Optional, Set, Union
 import numpy as np
 import scipy as sp
 
-from gladoss.core.utils import find_root, find_typed_instances
 from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal, Resource
 
@@ -359,9 +360,13 @@ class GraphPattern():
     """
 
     def __init__(self, assertionPatterns: set[AssertionPattern],
-                 anchors: set[Resource]) -> None:
+                 anchors: set[Resource], decay: int = -1) -> None:
         self.pattern = assertionPatterns
-        self.anchors = anchors
+        self.anchors = sorted(list(anchors))
+        self.decay = decay
+        self._t = 0
+        self._decay_tracker = dict()
+
 
         # TODO: deal with changes in distribution
         #       assign index to assertions?
@@ -375,36 +380,12 @@ class GraphPattern():
         return len(self.pattern)
 
     def update(self, g: set[Statement]) -> None:
+        # create new pattern
+        # for each different triple:
+        #  create updated triple and add
+        # add unchanged triples (efficient)
+        # return updated pattern
         pass
-
-    def depth(self) -> int:
-        """ Return the length of the longest non-cyclic path via BFS.
-
-        :rtype: int
-        """
-        d = {self._root: 0}  # record distances to nodes from root
-        q = Queue()
-
-        q.put(self._root)
-        while not q.empty():
-            u = q.get()
-            for a in self.pattern:
-                if u == a.head and isinstance(a.tail, IRIRef)\
-                   and a.tail not in d.keys():
-                    d[a.tail] = d[u] + 1  # depth of parent plus one
-
-                    q.put(a.tail)
-
-        return max(d.values())
-
-    def match(self, assertions: set[Statement] = set()) -> bool:
-        """ Check if set of statements (ie, a graph) matches
-            this pattern, by validating the location of the
-            anchors.
-
-        :param assertions: a connected set of statements (a graph)
-        :return: True if a match is found else False
-        """
 
     def __repr__(self) -> str:
         """ Return an internal string representation
@@ -424,3 +405,63 @@ class GraphPattern():
     def __hash__(self) -> int:
         return hash(str(self))
 
+
+class PatternVault():
+    def __init__(self) -> None:
+        self._polytree = dict()
+
+    def add(self, pattern: GraphPattern) -> None:
+        key = ''.join(pattern.anchors)
+        if key not in self._polytree.keys():
+            self._polytree[key] = [(pattern, datetime.now())]
+
+    def update(self, pattern: GraphPattern) -> None:
+        key = ''.join(pattern.anchors)
+        try:
+            # TODO: compress old version
+            # TODO: add timestamp?
+            self._polytree[key].append((pattern, datetime.now()))
+        except KeyError:
+            return
+
+    def create_associated_pattern(self, fact_set: set[Statement],
+                                  anchor_set: set[Resource]) -> GraphPattern:
+        # TODO: create pattern
+        
+        pattern = ...
+        self.add(pattern)
+
+    def find_associated_pattern(self, anchor_set: set[Resource])\
+            -> GraphPattern | None:
+        """ Find and return most recent associated pattern.
+
+        :param anchor_set: [TODO:description]
+        :return: [TODO:description]
+        """
+        key = ''.join(sorted(list(anchor_set)))
+        try:
+            pattern, _ = self._polytree[key][-1]
+            return pattern
+        except KeyError:
+            return None
+
+    def update_associated_pattern(self, pattern: GraphPattern,
+                                  fact_set: set[Statement]) -> None:
+        pass
+
+
+class ValidationReport():
+
+    class Grade(Enum):
+        FAILED = auto()
+        SUSPICIOUS = auto()
+        PASSED = auto()
+
+    def __init__(self, pattern: GraphPattern, fact_set: set[Statement],
+                 timestamp: datetime, grade: Grade, metadata: dict[str, str])\
+            -> None:
+        self.pattern = pattern
+        self.fact_set = fact_set
+        self.timestamp = timestamp
+        self.grade = grade
+        self.metadata = metadata

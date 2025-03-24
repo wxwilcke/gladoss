@@ -32,7 +32,7 @@ CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 # TODO:
 # - accomodate multiple subscriptions
 
-class KESarefAdaptor(Adaptor):
+class KE_Adaptor(Adaptor):
     """ Adaptor to TNO's Knowledge Engine
 
         Expects data in the form {"bindingSet": [{ "u": "<IRI>|<Literal>",

@@ -7,12 +7,23 @@ Pattern learning and anomaly detection will not occur.
 
 import argparse
 import logging
+import signal
+from threading import Event
 
 from gladoss.adaptors.dummy import DummyAdaptor
+from gladoss.core.monitor import Monitor
 
 logger = logging.getLogger(__name__)
 
 LAND = "\N{LOGICAL AND}"
+
+
+def signal_handler(signum, frame):
+    signal.signal(signum, signal.SIG_IGN)
+    logger.info("Received Keyboard Interrupt")
+
+    global controller
+    controller.set()
 
 
 def main(flags: argparse.Namespace):
@@ -21,13 +32,16 @@ def main(flags: argparse.Namespace):
     :param flags: User-provided parameters
     """
     logging.info("Listening for messages")
-    adaptor = DummyAdaptor(endpoint=flags.endpoint,
-                           continuous=flags.continuous,
-                           num_retries=flags.retries,
-                           retry_delay=flags.retry_delay,
-                           request_delay=flags.request_delay)
+    adaptor = DummyAdaptor()
+    monitor = Monitor(adaptor=adaptor,
+                      endpoint=flags.endpoint,
+                      continuous=flags.continuous,
+                      num_retries=flags.retries,
+                      retry_delay=flags.retry_delay,
+                      request_delay=flags.request_delay,
+                      controller=controller)
 
-    for fact_lst, anchor_lst in adaptor.listen():
+    for fact_lst, anchor_lst in monitor.listen():
         print(f" {LAND} ".join([str(fact) for fact in fact_lst]))
         logger.debug(f"Anchors: {anchor_lst}")
 
@@ -63,5 +77,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=log_level,
                         format='[%(asctime)s] [%(levelname)s] %(filename)s '
                                '- %(message)s')
+    # register SIGINT signal handler
+    global controller
+    controller = Event()
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     main(flags)
