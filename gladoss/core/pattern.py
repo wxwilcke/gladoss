@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 from collections import Counter
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum, auto
 import logging
-from queue import Queue
 import sys
 from typing import Any, Dict, Iterator, List, Optional, Set, Union
 
 import numpy as np
 import scipy as sp
-
 from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal, Resource
+
+from gladoss.core.utils import gen_id
 
 
 logger = logging.getLogger(__name__)
@@ -88,12 +89,12 @@ class Distribution():
         # schedule future decay of sample
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = sample
+            self._decay_tracker[t_decay] = [sample]
 
         # increment time
-        self.update()
+        self._forward()
 
-    def update(self):
+    def _forward(self):
         """ Update the distribution by a single time step.
         """
         self._t += 1
@@ -107,17 +108,17 @@ class Distribution():
         """ Forget about samples that have exceeded their decay period.
         """
         if self._t in self._decay_tracker.keys():
-            sample = self._decay_tracker[self._t]
-            if sample in self.samples.keys():
-                # decrease sample count
-                self.samples[sample] -= 1
+            for sample in self._decay_tracker[self._t]:
+                if sample in self.samples.keys():
+                    # decrease sample count
+                    self.samples[sample] -= 1
 
-            if self.samples[sample] <= 0:
-                # remove sample from index
-                del self.samples[sample]
+                if self.samples[sample] <= 0:
+                    # remove sample from index
+                    del self.samples[sample]
 
-            # clean up decay tracker
-            del self._decay_tracker[self._t]
+                # clean up decay tracker
+                del self._decay_tracker[self._t]
 
     def fit(self) -> None:
         pass
@@ -139,13 +140,13 @@ class ContinuousDistribution(Distribution):
     _N = "\N{MATHEMATICAL BOLD SCRIPT CAPITAL N}"
 
     def __init__(self, rng: np.random.Generator, decay: int = -1,
-                 resolution: int = -1) -> None:
+                 sample_size: int = 10, resolution: int = -1) -> None:
         """ Continuous distribution over Real numbers.
 
         :param decay: time until seen sample is forgotten
         :param resolution: number of significant figures
         """
-        super().__init__(rng, decay)
+        super().__init__(rng, sample_size, decay)
         self.resolution = resolution
 
         self.shape = tuple()
@@ -199,7 +200,7 @@ class ContinuousDistribution(Distribution):
         try:
             # fit distribution
             params = sp.stats.norm.fit(subsample)
-            
+
             # split parameter components
             self.shape = params[:-2]
             self.loc = params[-2]
@@ -207,17 +208,17 @@ class ContinuousDistribution(Distribution):
         except Exception:
             return
 
-
     def prob(self, sample: float) -> float:
         """ Return the probability P of observing the given sample s
-            given distribution parameters theta: P(s|theta). Since 
+            given distribution parameters theta: P(s|theta). Since
             we cannot compute a point on a continuous distribution,
             we just check for left or right-tailed probabilities.
 
         :param sample: a real number to compute the probability for
         :return: the left or right-tailed probability
         """
-        # TODO: include sample_size?
+        # TODO: include sample_size over time
+        # TODO: check if correct
         p_ltail = 2 * sp.stats.norm.cdf(sample, loc=self.loc, scale=self.scale)
         if sample < self.loc:
             return p_ltail
@@ -234,9 +235,31 @@ class ContinuousDistribution(Distribution):
         """
         return float(
             np.sum(np.log(sp.stats.norm.pdf(list(self.samples.elements()),
-                                                 self.loc,
-                                                 self.scale))))
-        
+                                            self.loc,
+                                            self.scale))))
+
+    def __deepcopy__(self, memo) -> ContinuousDistribution:
+        """ Create a copy which deepcopies only the dynamic
+            elements whereas it creates references to static
+            and immutable objects.
+
+        :param memo [TODO:type]: [TODO:description]
+        :return: [TODO:description]
+        """
+        dist = ContinuousDistribution(rng=self._rng, decay=self.decay,
+                                      sample_size=self.sample_size,
+                                      resolution=self.resolution)
+
+        dist.samples = Counter(self.samples.elements())
+
+        dist._t = self._t
+        dist._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
+
+        dist.shape = self.shape
+        dist.loc = self.loc
+        dist.scale = self.scale
+
+        return dist
 
     def __str__(self) -> str:
         return f"{ContinuousDistribution._N}({self.loc}, "\
@@ -266,7 +289,7 @@ class DiscreteDistribution(Distribution):
         self.k = self.samples
         self.p = [k/self.n for k in self.k]
 
-    def prob(self, sample: float) -> float:
+    def prob(self, sample: Any) -> tuple[float, tuple[float, float]]:
         """ Compute probability P of observing sample s given
             distribution parameters theta and past W observed
             samples, with W the sample_size size.
@@ -276,22 +299,85 @@ class DiscreteDistribution(Distribution):
         """
         if sample not in self.samples.keys():
             logger.info("Provides sample is out-of-distribution")
-            return 0.
+            return 0., (0., 0.)
         if self.samples.total() < self.sample_size:
             logger.info("sample_size size exceeds number of observed samples")
 
-        observed_samples = ... # + sample
-        observed_samples_prob = ...
-        p = sp.stats.multinomial.pmf(x=observed_samples,
-                                     n=self.sample_size + 1,
-                                     p=observed_samples_prob)
-        return p
+        # time window and corresponding samples TODO: disconnect from decay
+        t_max = max(self._decay_tracker.keys())
+        window = [t for t in self._decay_tracker.keys()
+                  if t in range(t_max-self.sample_size, t_max+1)]
+        samples = [v for t in window for v in self._decay_tracker[t]]
+
+        # add observed sample
+        samples.append(sample)
+
+        # compute counts and probabilities
+        samples_counter = Counter(samples)
+        x, p = list(), list()
+        sample_i = -1
+        for i, (value, freq) in enumerate(samples_counter.items()):
+            x.append(freq)
+            p.append(freq/self.sample_size)
+
+            if value == sample:
+                # keep track of sample index
+                sample_i = i
+
+        # compute probability
+        prob = sp.stats.multinomial.pmf(x=x, n=len(samples), p=p)
+        # FIXME: idea: compare to ideal prob?
+
+        # compute confidence interval - recast problem as computing
+        # binomial CI of observing vs not observing sample
+        binom_result = sp.stats.binomtest(k=x[sample_i],
+                                          n=self.sample_size,
+                                          p=p[sample_i])
+        ci_lb, ci_hb = binom_result.proportion_ci()
+
+        return prob, (ci_lb, ci_hb)
+
+    def loglikelihood(self) -> float:
+        """ Return log likelihood L of the distribution parameters theta
+            given the observed samples S: L(theta|S)
+
+        :return: a goodness of fit measurement
+        """
+        pass
+
+    def __deepcopy__(self, memo) -> DiscreteDistribution:
+        """ Create a copy which deepcopies only the dynamic
+            elements whereas it creates references to static
+            and immutable objects.
+
+        :param memo [TODO:type]: [TODO:description]
+        :return: [TODO:description]
+        """
+        dist = DiscreteDistribution(rng=self._rng,
+                                    sample_size=self.sample_size,
+                                    decay=self.decay)
+
+        dist.samples = Counter(self.samples.elements())
+
+        dist._t = self._t
+        dist._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
+
+        # TODO: distribution-specific parameters
+
+        return dist
+
+    def __str__(self) -> str:
+        pass
+
+    def __repr__(self) -> str:
+        pass
 
 
 class AssertionPattern():
     def __init__(self,  head: IRIRefWrapper | DiscreteDistribution,
                  relation: IRIRefWrapper,
-                 tail: IRIRefWrapper | Literal | Distribution) -> None:
+                 tail: IRIRefWrapper | Literal | Distribution,
+                 identifier: str) -> None:
         """ Initialize a new AssertionPattern.
 
         :param head: the subject of an assertion or its distribution
@@ -301,35 +387,55 @@ class AssertionPattern():
         self.head = head
         self.relation = relation
         self.tail = tail
+        self._id = identifier
 
-    def weak_match(self, other: Statement) -> bool:
-        """ Check if a given Statement matches the pattern by comparing
-            the types and values of their elements, with the exception
-            of any distributions the pattern might have (which cannot
-            occur in Statements).
+#    def weak_match(self, other: Statement) -> bool:
+#        """ Check if a given Statement matches the pattern by comparing
+#            the types and values of their elements, with the exception
+#            of any distributions the pattern might have (which cannot
+#            occur in Statements).
+#
+#        :param other: [TODO:description]
+#        :return: [TODO:description]
+#        """
+#        if type(other) is not Statement:
+#            return False
+#
+#        if (isinstance(self.relation, IRIRef)
+#            and self.relation != other.relation)\
+#           or (isinstance(self.head, IRIRef)
+#               and self.head != other.head)\
+#           or ((isinstance(self.tail, IRIRef)
+#                or isinstance(self.tail, Literal))
+#               and self.tail != other.tail):
+#            return False
+#
+#        return True
+#
+#    def strong_match(self, other: Statement) -> bool:
+#        return self.__eq__(other)
+#
+#    def equiv(self, other: Any) -> bool:
+#        return str(self) == str(other)
 
-        :param other: [TODO:description]
-        :return: [TODO:description]
+    def __deepcopy__(self, memo) -> AssertionPattern:
+        """ Deepcopy only the dynamic elements.
+
+        :param memo [TODO:type]: [TODO:description]
         """
-        if type(other) is not Statement:
-            return False
+        head = self.head
+        if isinstance(self.head, Distribution):
+            head = deepcopy(self.head)
 
-        if (isinstance(self.relation, IRIRef)
-            and self.relation != other.relation)\
-           or (isinstance(self.head, IRIRef)
-               and self.head != other.head)\
-           or ((isinstance(self.tail, IRIRef)
-                or isinstance(self.tail, Literal))
-               and self.tail != other.tail):
-            return False
+        tail = self.tail
+        if isinstance(self.tail, Distribution):
+            tail = deepcopy(self.tail)
 
-        return True
-
-    def strong_match(self, other: Statement) -> bool:
-        return self.__eq__(other)
+        return AssertionPattern(head=head, relation=self.relation, tail=tail,
+                                identifier=self._id)
 
     def __eq__(self, other: Any) -> bool:
-        return str(self) == str(other)
+        return self._id == other._id
 
     def __lt__(self, other: AssertionPattern) -> bool:
         return str(self) < str(other)
@@ -356,21 +462,34 @@ class GraphPattern():
     """ GraphPattern class
 
     Holds all assertions of a graph pattern and keeps
-    track of the connections and distances (from the root) of these assertions.
+    track of the connections of these assertions.
     """
 
     def __init__(self, assertionPatterns: set[AssertionPattern],
-                 anchors: set[Resource], decay: int = -1) -> None:
+                 anchors: set[Resource], threshold: int = -1,
+                 decay: int = -1) -> None:
         self.pattern = assertionPatterns
         self.anchors = sorted(list(anchors))
+
+        # number of time steps (with decay) that an assertion is present
+        # before including it into the pattern of nominal behaviour.
+        self.threshold = threshold
+
+        # number of time steps that an existin assertion is absent before
+        # removing it from the pattern of nominal behaviour
         self.decay = decay
+
         self._t = 0
         self._decay_tracker = dict()
-
 
         # TODO: deal with changes in distribution
         #       assign index to assertions?
         self.assertions = Counter(self.pattern)
+
+        # schedule future decay of assertion patterns
+        if self.decay > 0:
+            t_decay = (self._t + self.decay) % sys.maxsize
+            self._decay_tracker[t_decay] = {p for p in self.pattern}
 
     def __len__(self) -> int:
         """ Return the number of assertions
@@ -378,6 +497,35 @@ class GraphPattern():
         :rtype: int
         """
         return len(self.pattern)
+
+    def _forward(self):
+        """ Update the distribution by a single time step.
+        """
+        self._t += 1
+        if self._t == sys.maxsize:
+            self._t = 0
+
+        if self.decay > 0:
+            self._decay()
+
+    def _decay(self) -> None:
+        """ Forget about assertions that have exceeded their decay period.
+        """
+        # FIXME: cope with variants of the same assertion pattern,
+        # which should be seen as the same one
+        if self._t in self._decay_tracker.keys():
+            assertion_set = self._decay_tracker[self._t]
+            for assertion in assertion_set:
+                if assertion in self.assertions.keys():
+                    # decrease sample count
+                    self.assertions[assertion] -= 1
+
+                if self.assertions[assertion] <= 0:
+                    # remove sample from index
+                    del self.assertions[assertion]
+
+                # clean up decay tracker
+                del self._decay_tracker[self._t]
 
     def update(self, g: set[Statement]) -> None:
         # create new pattern

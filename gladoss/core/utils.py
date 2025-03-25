@@ -133,3 +133,22 @@ def import_class(module_map: dict[str, list[str]], name: str) -> Adaptor:
         sys.exit(1)
 
     return cls
+
+
+def gen_id(rng: np.random.Generator) -> str:
+    """ Generate a random alphanumeric identifier.
+
+    :param rng: [TODO:description]
+    :return: [TODO:description]
+    """
+    a, z = 97, 122
+    i_l, i_h = 48, 57
+
+    # generate vocabulary
+    ascii_lst = [chr(i) for i in range(a, z+1)]\
+        + [chr(i) for i in range(i_l, i_h+1)]
+
+    # sample vocabulary
+    id_lst = rng.choice(ascii_lst, size=20)
+
+    return 'U' + ''.join(id_lst)
