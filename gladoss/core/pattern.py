@@ -7,11 +7,12 @@ from datetime import datetime
 from enum import Enum, auto
 import logging
 import sys
-from typing import Any, Dict, Iterator, List, Optional, Set, Union
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Set, Union
 
 import numpy as np
 import scipy as sp
 from rdf.graph import Statement
+from rdf.namespaces import XSD
 from rdf.terms import IRIRef, Literal, Resource
 
 from gladoss.core.utils import gen_id
@@ -20,51 +21,11 @@ from gladoss.core.utils import gen_id
 logger = logging.getLogger(__name__)
 
 
-class IRIRefWrapper(IRIRef):
-    """ IRIRef Wrapper class
-
-    A wrapper around a IRIRef, but which stores additional semantic
-    information (eg, the class or superproperty)
-    """
-
-    def __init__(self, resource: IRIRef,
-                 parent: Optional[IRIRef] = None) -> None:
-        """ Initialize and instance of this class
-
-        :params resource: the IRI
-        :returns: None
-        """
-        super().__init__(resource)
-
-        self.parent = parent
-
-    def __repr__(self) -> str:
-        s = super().__str__()
-        if self.parent is not None:
-            s += f" [{str(self.parent)}]"
-
-        return s
-
-    def __hash__(self) -> int:
-        return hash(self.__repr__())
-
-    def __eq__(self, other: Any) -> bool:
-        if type(other) is not IRIRefWrapper:
-            return False
-
-        return (self.parent is None or self.parent == other.parent)\
-            and self.value == other.value
-
-    def __lt__(self, other: IRIRefWrapper) -> bool:
-        return (self.parent is not None and self.parent < other.parent)\
-                or ((self.parent is None or self.parent == other.parent)
-                    and self.value < other.value)
-
-
 class Distribution():
     def __init__(self, rng: np.random.Generator,
                  sample_size: int = -1,
-                 decay: int = -1) -> None:
+                 decay: int = -1,
+                 dtype: Optional[str] = None) -> None:
         """ Distribution over samples.
 
         :param decay: time until seen sample is forgotten
@@ -75,6 +36,7 @@ class Distribution():
         self.decay = decay
         self._t = 0
         self._decay_tracker = dict()
+        self.dtype = dtype
 
     def addSample(self, sample: Any) -> None:
         """ Add a single sample to the distribution.
@@ -124,7 +86,7 @@ class Distribution():
         pass
 
     def __repr__(self) -> str:
-        return ", ".join(s for s in self.samples.elements())
+        return ", ".join(sorted(list(self.samples.elements())))
 
     def __hash__(self) -> int:
         return hash(repr(self))
@@ -227,6 +189,10 @@ class ContinuousDistribution(Distribution):
         else:
             return 1.0
 
+        # TODO: alternative idea: check if value falls outside .95 or .99
+        # confidence interval
+        # sp.stats.norm(mu, sigma).interval(CI_level)
+
     def loglikelihood(self) -> float:
         """ Return log likelihood L of the distribution parameters theta
             given the observed samples S: L(theta|S)
@@ -265,11 +231,6 @@ class ContinuousDistribution(Distribution):
         return f"{ContinuousDistribution._N}({self.loc}, "\
                + f"{self.scale}\N{SUPERSCRIPT TWO})"
 
-    def __repr__(self) -> str:
-        return self.__str__() + f" [decay: {self.decay}, "\
-                                + f"res: {self.resolution}, "\
-                                + f"n: {self.samples.total()}]"
-
 
 class DiscreteDistribution(Distribution):
     def __init__(self, rng: np.random.Generator, sample_size: int = 10,
@@ -279,6 +240,10 @@ class DiscreteDistribution(Distribution):
         :param decay: time until seen sample is forgotten
         """
         super().__init__(rng, sample_size, decay)
+
+        self.n = 0
+        self.k = list()
+        self.p = 0.
 
     def fit(self) -> None:
         # FIXME: check if needed (why not on the fly?)
@@ -362,21 +327,21 @@ class DiscreteDistribution(Distribution):
         dist._t = self._t
         dist._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
 
-        # TODO: distribution-specific parameters
+        # distribution-specific parameters
+        dist.n = self.n
+        dist.k = self.k
+        dist.p = self.p
 
         return dist
 
     def __str__(self) -> str:
         pass
 
-    def __repr__(self) -> str:
-        pass
-
 
 class AssertionPattern():
-    def __init__(self,  head: IRIRefWrapper | DiscreteDistribution,
-                 relation: IRIRefWrapper,
-                 tail: IRIRefWrapper | Literal | Distribution,
+    def __init__(self,  head: IRIRef | DiscreteDistribution,
+                 relation: IRIRef,
+                 tail: IRIRef | Literal | Distribution,
                  identifier: str) -> None:
         """ Initialize a new AssertionPattern.
 
@@ -389,34 +354,133 @@ class AssertionPattern():
         self.tail = tail
         self._id = identifier
 
-#    def weak_match(self, other: Statement) -> bool:
-#        """ Check if a given Statement matches the pattern by comparing
-#            the types and values of their elements, with the exception
-#            of any distributions the pattern might have (which cannot
-#            occur in Statements).
-#
-#        :param other: [TODO:description]
-#        :return: [TODO:description]
-#        """
-#        if type(other) is not Statement:
-#            return False
-#
-#        if (isinstance(self.relation, IRIRef)
-#            and self.relation != other.relation)\
-#           or (isinstance(self.head, IRIRef)
-#               and self.head != other.head)\
-#           or ((isinstance(self.tail, IRIRef)
-#                or isinstance(self.tail, Literal))
-#               and self.tail != other.tail):
-#            return False
-#
-#        return True
-#
-#    def strong_match(self, other: Statement) -> bool:
-#        return self.__eq__(other)
-#
-#    def equiv(self, other: Any) -> bool:
-#        return str(self) == str(other)
+    def weak_match(self, other: AssertionPattern) -> bool:
+        """ Check if two assertion patterns are likely the same (yet
+            perhaps different versions) by exactly comparing the types
+            and values of their static elements, and by weakly comparing
+            their distributions, if present.
+
+        :param other: [TODO:description]
+        :return: [TODO:description]
+        """
+        return type(self) is type(other)\
+            and (isinstance(self.relation, IRIRef)
+                 and self.relation == other.relation)\
+            and ((isinstance(self.head, IRIRef)
+                  and self.head == other.head)
+                 or (isinstance(self.head, Distribution)
+                     and type(self.head) is type(other.head)
+                     and self.head.dtype == other.head.dtype
+                     and self.head.sample_size == other.head.sample_size
+                     and self.head.decay == other.head.decay))\
+            and (((isinstance(self.tail, IRIRef)
+                   or isinstance(self.tail, Literal))
+                  and self.tail == other.tail)
+                 or (isinstance(self.tail, Distribution)
+                     and type(self.tail) is type(other.tail)
+                     and self.tail.dtype == other.tail.dtype
+                     and self.tail.sample_size == other.tail.sample_size
+                     and self.tail.decay == other.tail.decay))
+
+    def strong_match(self, other: AssertionPattern) -> bool:
+        """ Check if two assertion patterns are likely the same by
+            exactly comparing the types and values of their static
+            elements, and by strongly comparing their distributions,
+            if present.
+
+        :param other: [TODO:description]
+        :return: [TODO:description]
+        """
+        return self.weak_match(other)\
+            and not ((isinstance(self.head, Distribution)
+                      and self.head != other.head)
+                     or (isinstance(self.tail, Distribution)
+                         and self.tail != other.tail))
+
+    def equiv(self, other: Any) -> bool:
+        return str(self) == str(other)
+
+    def create_from(self, rng: np.random.Generator,
+                    assertion: Statement) -> AssertionPattern:
+        head = assertion.subject
+        relation = assertion.predicate
+        tail = assertion.object
+
+        return AssertionPattern(head, relation, tail,
+                                identifier=gen_id(rng))
+
+    def update_from(self, assertion: Statement) -> AssertionPattern:
+        ap_upd = deepcopy(self)
+
+        # check if the assertion matches
+        assert ap_upd.relation == assertion.predicate
+
+        if isinstance(ap_upd.head, Distribution):
+            # add new value to distribution
+            ap_upd.head.addSample(assertion.subject)
+        elif ap_upd.head != assertion.subject:  # different IRIRefs
+            # create a new distribution and add values
+            dist = DiscreteDistribution(rng=rng,
+                                        sample_size=sample_size,
+                                        decay=decay)
+
+            dist.addSample(ap_upd.head)
+            dist.addSample(assertion.subject)
+
+            ap_upd.head = dist  # set distribution as head
+           
+        if isinstance(ap_upd.tail, Distribution):
+            # add new value to distribution
+            if isinstance(assertion.object, Literal):
+                dtype = assertion.object.datatype
+                if assertion.object.language is not None:
+                    dtype = XSD + "string"
+
+                assert ap_upd.tail.dtype == dtype
+
+                ap_upd.tail.addSample(assertion.object.value)
+            else:  # IRIRef
+                assert type(ap_upd.head) is type(assertion.subject)
+                ap_upd.tail.addSample(assertion.object)
+        elif ap_upd.tail != assertion.object:  # different resources
+            if isinstance(assertion.object, Literal):
+                dtype = assertion.object.datatype
+                if assertion.object.language is not None:
+                    dtype = XSD + "string"
+
+                if dtype is None:
+                    # TODO: fallback on python
+                    pass
+
+                if dtype in CONTINUOUS_DATATYPES:
+                    # TODO: convert time
+                    dist = ContinuousDistribution(rng=rng,
+                                                  sample_size=sample_size,
+                                                  decay=decay,
+                                                  dtype=dtype)
+                else:
+                    dist = DiscreteDistribution(rng=rng,
+                                                sample_size=sample_size,
+                                                decay=decay,
+                                                dtype=dtype)
+
+                ap_upd.tail.addSample(ap_upd.tail)
+                ap_upd.tail.addSample(assertion.object.value)
+
+            else:  # IRIRef
+                assert type(ap_upd.tail) is type(assertion.object)
+
+                # create a new distribution and add values
+                dist = DiscreteDistribution(rng=rng,
+                                            sample_size=sample_size,
+                                            decay=decay)
+
+                dist.addSample(ap_upd.tail)
+                dist.addSample(assertion.object)
+
+            ap_upd.tail = dist  # set distribution as tail
+          
+        return ap_upd
 
     def __deepcopy__(self, memo) -> AssertionPattern:
         """ Deepcopy only the dynamic elements.
@@ -464,12 +528,14 @@ class GraphPattern():
     Holds all assertions of a graph pattern and keeps
     track of the connections of these assertions.
     """
-
-    def __init__(self, assertionPatterns: set[AssertionPattern],
-                 anchors: set[Resource], threshold: int = -1,
+    def __init__(self, pattern: Sequence[AssertionPattern],
+                 anchors: Sequence[Resource], threshold: int = -1,
                  decay: int = -1) -> None:
-        self.pattern = assertionPatterns
+        self.pattern = list(pattern)
         self.anchors = sorted(list(anchors))
+
+        id_lst = [ap._id for ap in self.pattern]
+        self._id_to_assertion_map = {_id: i for i, _id in enumerate(id_lst)}
 
         # number of time steps (with decay) that an assertion is present
         # before including it into the pattern of nominal behaviour.
@@ -482,14 +548,38 @@ class GraphPattern():
         self._t = 0
         self._decay_tracker = dict()
 
-        # TODO: deal with changes in distribution
-        #       assign index to assertions?
-        self.assertions = Counter(self.pattern)
+        # track frequencyof assertions by their identifiers
+        self._freq_tracker = Counter(id_lst)
+
+        # track newly observed assertions (added on reaching threshold)
+        self._under_consideration = set()
 
         # schedule future decay of assertion patterns
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = {p for p in self.pattern}
+            self._decay_tracker[t_decay] = id_lst
+
+    def update(self, assertionPatterns: set[AssertionPattern]) -> None:
+        for ap in assertionPatterns:
+            if ap._id not in self._freq_tracker.keys():
+                # add unknown assertion for consideration
+                self._under_consideration.add(ap)
+                self._freq_tracker[ap._id] = 0
+            else:  # replace known assertion if different from t - n
+                i = self._id_to_assertion_map[ap._id]
+                ap_old = self.pattern[i]
+                if ap_old.strong_match(ap):  # FIXME: check if valid
+                    self.pattern[i] = ap
+
+            self._freq_tracker[ap._id] += 1  # increase count
+
+        # schedule future decay of assertion patterns
+        if self.decay > 0:
+            t_decay = (self._t + self.decay) % sys.maxsize
+            self._decay_tracker[t_decay] = {ap._id for ap in assertionPatterns}
+
+        # increment time
+        self._forward()
 
     def __len__(self) -> int:
         """ Return the number of assertions
@@ -505,35 +595,61 @@ class GraphPattern():
         if self._t == sys.maxsize:
             self._t = 0
 
+        if self.threshold > 0:
+            self._consider()
+
         if self.decay > 0:
             self._decay()
+
+    def _consider(self) -> None:
+        """ Add new assertions which have reached the threshold.
+        """
+        remove_set = set()
+        for ap in self._under_consideration:
+            if ap._id in self._freq_tracker.keys():
+                if self._freq_tracker[ap._id] >= self.threshold:
+                    # add assertion to pattern
+                    self.pattern.append(ap)
+                    self._id_to_assertion_map[ap._id] = len(self.pattern) - 1
+
+                    remove_set.add(ap)
+
+                    continue
+
+                if self._freq_tracker[ap._id] <= 0:
+                    # assertion decayed
+                    remove_set.add(ap)
+
+        self._under_consideration -= remove_set  # remove waiting assertions
 
     def _decay(self) -> None:
         """ Forget about assertions that have exceeded their decay period.
         """
-        # FIXME: cope with variants of the same assertion pattern,
-        # which should be seen as the same one
         if self._t in self._decay_tracker.keys():
-            assertion_set = self._decay_tracker[self._t]
-            for assertion in assertion_set:
-                if assertion in self.assertions.keys():
+            for ap in self._decay_tracker[self._t]:
+                if ap._id in self._freq_tracker.keys():
                     # decrease sample count
-                    self.assertions[assertion] -= 1
+                    self._freq_tracker[ap._id] -= 1
 
-                if self.assertions[assertion] <= 0:
+                if self._freq_tracker[ap._id] <= 0:
                     # remove sample from index
-                    del self.assertions[assertion]
+                    del self._freq_tracker[ap._id]
 
                 # clean up decay tracker
                 del self._decay_tracker[self._t]
 
-    def update(self, g: set[Statement]) -> None:
-        # create new pattern
-        # for each different triple:
-        #  create updated triple and add
-        # add unchanged triples (efficient)
-        # return updated pattern
-        pass
+    def __deepcopy__(self, memo) -> GraphPattern:
+        gp = GraphPattern(pattern=[ap for ap in self.pattern],
+                          anchors=self.anchors,
+                          threshold=self.threshold,
+                          decay=self.decay)
+
+        gp._t = self._t
+        gp._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
+        gp._freq_tracker = Counter(self._freq_tracker.elements())
+        gp._under_consideration = {gp for gp in self._under_consideration}
+
+        return gp
 
     def __repr__(self) -> str:
         """ Return an internal string representation
@@ -548,7 +664,7 @@ class GraphPattern():
         :rtype: str
         """
         return "{" + "; ".join([str(assertion) for assertion in
-                                sorted(self.pattern)]) + "}"
+                                self.pattern]) + "}"
 
     def __hash__(self) -> int:
         return hash(str(self))
@@ -572,9 +688,11 @@ class PatternVault():
         except KeyError:
             return
 
+    def create_assertion_pattern(self, assertion: Statement)\
+            -> AssertionPattern:
+
     def create_associated_pattern(self, fact_set: set[Statement],
                                   anchor_set: set[Resource]) -> GraphPattern:
-        # TODO: create pattern
         
         pattern = ...
         self.add(pattern)
@@ -595,7 +713,11 @@ class PatternVault():
 
     def update_associated_pattern(self, pattern: GraphPattern,
                                   fact_set: set[Statement]) -> None:
-        pass
+        # determine matching assertions from the associated graph pattern
+        # then copy and update
+        ap = ...
+        gp = deepcopy(pattern)
+        gp.update(ap)
 
 
 class ValidationReport():
