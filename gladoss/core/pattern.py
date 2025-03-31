@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Set, Union
 
 import numpy as np
 import scipy as sp
+from gladoss.core.multimodal.datatypes import XSD_CONTINUOUS, XSD_DISCRETE, cast_literal, infer_datatype
 from rdf.graph import Statement
 from rdf.namespaces import XSD
 from rdf.terms import IRIRef, Literal, Resource
@@ -415,10 +416,13 @@ class AssertionPattern():
         # check if the assertion matches
         assert ap_upd.relation == assertion.predicate
 
+        # evaluate head
         if isinstance(ap_upd.head, Distribution):
-            # add new value to distribution
+            # add new value (IRIRef) to distribution
             ap_upd.head.addSample(assertion.subject)
         elif ap_upd.head != assertion.subject:  # different IRIRefs
+            assert type(ap_upd.head) is type(assertion.subject)
+
             # create a new distribution and add values
             dist = DiscreteDistribution(rng=rng,
                                         sample_size=sample_size,
@@ -429,6 +433,7 @@ class AssertionPattern():
 
             ap_upd.head = dist  # set distribution as head
            
+        # evaluate tail
         if isinstance(ap_upd.tail, Distribution):
             # add new value to distribution
             if isinstance(assertion.object, Literal):
@@ -436,40 +441,45 @@ class AssertionPattern():
                 if assertion.object.language is not None:
                     dtype = XSD + "string"
 
+                if dtype is None:
+                    # fallback to python
+                    dtype = infer_datatype(assertion.object.value)
+
                 assert ap_upd.tail.dtype == dtype
 
                 ap_upd.tail.addSample(assertion.object.value)
-            else:  # IRIRef
-                assert type(ap_upd.head) is type(assertion.subject)
+            elif isinstance(assertion.object, IRIRef):
                 ap_upd.tail.addSample(assertion.object)
         elif ap_upd.tail != assertion.object:  # different resources
-            if isinstance(assertion.object, Literal):
-                dtype = assertion.object.datatype
-                if assertion.object.language is not None:
+            assert type(ap_upd.tail) is type(assertion.object)
+            if isinstance(ap_upd.tail, Literal):
+                dtype = ap_upd.tail.datatype
+                if ap_upd.tail.language is not None:
                     dtype = XSD + "string"
 
                 if dtype is None:
-                    # TODO: fallback on python
-                    pass
+                    # fallback to python
+                    dtype = infer_datatype(ap_upd.tail.value)
 
-                if dtype in CONTINUOUS_DATATYPES:
-                    # TODO: convert time
+                if dtype in XSD_CONTINUOUS:
                     dist = ContinuousDistribution(rng=rng,
                                                   sample_size=sample_size,
                                                   decay=decay,
                                                   dtype=dtype)
-                else:
+                elif dtype in XSD_DISCRETE:
                     dist = DiscreteDistribution(rng=rng,
                                                 sample_size=sample_size,
                                                 decay=decay,
                                                 dtype=dtype)
+                else:
+                    raise NotImplementedError()
 
-                ap_upd.tail.addSample(ap_upd.tail)
-                ap_upd.tail.addSample(assertion.object.value)
+                for value in {ap_upd.tail.value, assertion.object.value}:
+                    # cast value to appropriate format
+                    value = cast_literal(dtype, value)
+                    dist.addSample(value)
 
             else:  # IRIRef
-                assert type(ap_upd.tail) is type(assertion.object)
-
                 # create a new distribution and add values
                 dist = DiscreteDistribution(rng=rng,
                                             sample_size=sample_size,
