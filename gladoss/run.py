@@ -50,14 +50,15 @@ def listener(monitor: Monitor, q: Queue) -> None:
 
 def process_observation(pv: PatternVault, fact_set: set[Statement],
                         anchor_set: set[Resource]):
-    pattern = pv.find_associated_pattern(anchor_set)
+    pattern = pv.find_associated_graph_pattern(anchor_set)
     if pattern is None:
         logger.debug(f"Associated pattern not found: {fact_set}")
-        pattern = pv.create_associated_pattern(fact_set, anchor_set)
+        pattern = pv.create_graph_pattern(fact_set, anchor_set)
+        pv.add_pattern(pattern)
 
     report = create_validation_report(pattern, fact_set)
     if report is None:  # no suspicious behaviour detected
-        pv.update_associated_pattern(pattern, fact_set)
+        pv.update_associated_graph_pattern(pattern, fact_set)
 
     return report
 

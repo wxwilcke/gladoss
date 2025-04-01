@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 
 from rdf.namespaces import XSD
-from rdf.terms import IRIRef
+from rdf.terms import Literal, IRIRef
 
 
 XSD_DATEFRAG = {XSD + 'gDay',
@@ -66,8 +66,28 @@ DAYS_PER_YEAR = 365
 logger = logging.getLogger(__name__)
 
 
-def infer_datatype(s: str) -> IRIRef:
-    """ Infer datatype heuristically. Defaults back to string.
+def infer_datatype(literal: Literal) -> IRIRef:
+    """ Infer XSD datatype from semantic annotations.
+        Falls back to python heuristic. Defaults to
+        string.
+
+    :param literal: [TODO:description]
+    :return: [TODO:description]
+    """
+    dtype = literal.datatype
+    if literal.language is not None:
+        dtype = XSD + "string"
+
+    if dtype is None:
+        # fallback to python
+        dtype = infer_python_type(literal.value)
+
+    return dtype
+
+
+def infer_python_type(s: str) -> IRIRef:
+    """ Infer XSD datatype heuristically. Defaults back
+        to string.
 
     :param s: [TODO:description]
     :return: [TODO:description]
@@ -88,7 +108,10 @@ def infer_datatype(s: str) -> IRIRef:
 
 def cast_literal(dtype: IRIRef, value: str) -> str | int | float:
     """ Cast literal value to appropriate python object
-        based on given datatype.
+        based on given XSD datatype. Compound values 'X-Y'
+        (eg gMonthDay) are consolidated into units of Y
+        (ie days), and full dates with/without time component
+        are converted to unix timestamps.
 
     :param dtype: [TODO:description]
     :param value: [TODO:description]

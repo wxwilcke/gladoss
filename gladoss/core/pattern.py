@@ -26,7 +26,7 @@ class Distribution():
     def __init__(self, rng: np.random.Generator,
                  sample_size: int = -1,
                  decay: int = -1,
-                 dtype: Optional[str] = None) -> None:
+                 dtype: Optional[IRIRef] = None) -> None:
         """ Distribution over samples.
 
         :param decay: time until seen sample is forgotten
@@ -56,6 +56,54 @@ class Distribution():
 
         # increment time
         self._forward()
+
+    @staticmethod
+    def create_from(rng: np.random.Generator,
+                    resource: Resource, sample_size: int,
+                    decay: int) -> Distribution:
+        """ Create new distribution from the given resource. Infers
+            datatype from semantic annotations or, if unavailable,
+            using python heuristics. Once created, the given resource
+            is added to the distribution.
+
+        :param rng: [TODO:description]
+        :param resource: [TODO:description]
+        :param sample_size: [TODO:description]
+        :param decay: [TODO:description]
+        :return: [TODO:description]
+        :raises NotImplementedError: [TODO:description]
+        """
+        if isinstance(resource, Literal):
+            # determine datatype
+            dtype = infer_datatype(resource)
+
+            # creae new distribution
+            if dtype in XSD_CONTINUOUS:
+                dist = ContinuousDistribution(rng=rng,
+                                              sample_size=sample_size,
+                                              decay=decay,
+                                              dtype=dtype)
+            elif dtype in XSD_DISCRETE:
+                dist = DiscreteDistribution(rng=rng,
+                                            sample_size=sample_size,
+                                            decay=decay,
+                                            dtype=dtype)
+            else:
+                raise NotImplementedError()
+
+            # cast value to appropriate format and add to distribution
+            value = cast_literal(dtype, resource.value)
+            dist.addSample(value)
+
+        else:  # IRIRef
+            # create a new distribution and add values
+            dist = DiscreteDistribution(rng=rng,
+                                        sample_size=sample_size,
+                                        decay=decay)
+
+            dist.addSample(resource)
+
+        return dist
 
     def _forward(self):
         """ Update the distribution by a single time step.
@@ -103,13 +151,14 @@ class ContinuousDistribution(Distribution):
     _N = "\N{MATHEMATICAL BOLD SCRIPT CAPITAL N}"
 
     def __init__(self, rng: np.random.Generator, decay: int = -1,
-                 sample_size: int = 10, resolution: int = -1) -> None:
+                 sample_size: int = 10, resolution: int = -1,
+                 dtype: Optional[IRIRef] = None) -> None:
         """ Continuous distribution over Real numbers.
 
         :param decay: time until seen sample is forgotten
         :param resolution: number of significant figures
         """
-        super().__init__(rng, sample_size, decay)
+        super().__init__(rng, sample_size, decay, dtype)
         self.resolution = resolution
 
         self.shape = tuple()
@@ -235,12 +284,12 @@ class ContinuousDistribution(Distribution):
 
 class DiscreteDistribution(Distribution):
     def __init__(self, rng: np.random.Generator, sample_size: int = 10,
-                 decay: int = -1) -> None:
+                 decay: int = -1, dtype: Optional[IRIRef] = None) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
         """
-        super().__init__(rng, sample_size, decay)
+        super().__init__(rng, sample_size, decay, dtype)
 
         self.n = 0
         self.k = list()
@@ -401,8 +450,18 @@ class AssertionPattern():
     def equiv(self, other: Any) -> bool:
         return str(self) == str(other)
 
-    def create_from(self, rng: np.random.Generator,
+    @staticmethod
+    def create_from(rng: np.random.Generator,
                     assertion: Statement) -> AssertionPattern:
+        """ Create a new assertion pattern from the provided
+            assertion. This assumes that all three elements
+            are static, until possible future observations
+            challenge these beliefs.
+
+        :param rng: [TODO:description]
+        :param assertion: [TODO:description]
+        :return: [TODO:description]
+        """
         head = assertion.subject
         relation = assertion.predicate
         tail = assertion.object
@@ -410,90 +469,74 @@ class AssertionPattern():
         return AssertionPattern(head, relation, tail,
                                 identifier=gen_id(rng))
 
-    def update_from(self, assertion: Statement) -> AssertionPattern:
+    def update_from(self, rng: np.random.Generator,
+                    assertion: Statement, sample_size: int,
+                    decay: int) -> AssertionPattern:
+        """ Update the assertion pattern with a new observation
+            by copying the pattern and updating its head and/or
+            tail elements. Creates a new distribution on the head
+            and/or tail if we observe a value that is different
+            from the one the original pattern was instantiated
+            with; this updates our assumption from the element
+            being a static value to it being a dynamic one.
+
+        :param rng: [TODO:description]
+        :param assertion: [TODO:description]
+        :param sample_size: [TODO:description]
+        :param decay: [TODO:description]
+        :return: The updated assertion pattern (a copy)
+        """
         ap_upd = deepcopy(self)
+
+        def update_element(reference: IRIRef | Literal | Distribution,
+                           resource: Resource) -> Distribution:
+            """ Add the given value to an appropriate distribution.
+                Creates a new distribution if none exists yet (in
+                which case we observe two different values).
+
+            :param reference: [TODO:description]
+            :param resource: [TODO:description]
+            :return: [TODO:description]
+            """
+            dist = reference
+            if not isinstance(reference, Distribution):
+                # create a new distribution and add values
+                dist = Distribution.create_from(rng=rng, resource=reference,
+                                                sample_size=sample_size,
+                                                decay=decay)
+            if isinstance(resource, Literal):
+                dtype = infer_datatype(resource)
+                assert dist.dtype == dtype
+
+                # cast value to appropriate format and add to distribution
+                value = cast_literal(dtype, resource.value)
+                dist.addSample(value)
+            else:  # IRIRef
+                dist.addSample(resource)
+
+            return dist  # set distribution
 
         # check if the assertion matches
         assert ap_upd.relation == assertion.predicate
 
-        # evaluate head
-        if isinstance(ap_upd.head, Distribution):
-            # add new value (IRIRef) to distribution
-            ap_upd.head.addSample(assertion.subject)
-        elif ap_upd.head != assertion.subject:  # different IRIRefs
-            assert type(ap_upd.head) is type(assertion.subject)
+        # evaluate head if necessary
+        if not (type(ap_upd.head) is type(assertion.subject)
+                and ap_upd.head == assertion.subject):
+            ap_upd.head = update_element(ap_upd.head, assertion.subject)
 
-            # create a new distribution and add values
-            dist = DiscreteDistribution(rng=rng,
-                                        sample_size=sample_size,
-                                        decay=decay)
+        # evaluate tail if necessary
+        if not (type(ap_upd.tail) is type(assertion.obbject)
+                and ap_upd.tail == assertion.object):
+            ap_upd.tail = update_element(ap_upd.tail, assertion.object)
 
-            dist.addSample(ap_upd.head)
-            dist.addSample(assertion.subject)
-
-            ap_upd.head = dist  # set distribution as head
-           
-        # evaluate tail
-        if isinstance(ap_upd.tail, Distribution):
-            # add new value to distribution
-            if isinstance(assertion.object, Literal):
-                dtype = assertion.object.datatype
-                if assertion.object.language is not None:
-                    dtype = XSD + "string"
-
-                if dtype is None:
-                    # fallback to python
-                    dtype = infer_datatype(assertion.object.value)
-
-                assert ap_upd.tail.dtype == dtype
-
-                ap_upd.tail.addSample(assertion.object.value)
-            elif isinstance(assertion.object, IRIRef):
-                ap_upd.tail.addSample(assertion.object)
-        elif ap_upd.tail != assertion.object:  # different resources
-            assert type(ap_upd.tail) is type(assertion.object)
-            if isinstance(ap_upd.tail, Literal):
-                dtype = ap_upd.tail.datatype
-                if ap_upd.tail.language is not None:
-                    dtype = XSD + "string"
-
-                if dtype is None:
-                    # fallback to python
-                    dtype = infer_datatype(ap_upd.tail.value)
-
-                if dtype in XSD_CONTINUOUS:
-                    dist = ContinuousDistribution(rng=rng,
-                                                  sample_size=sample_size,
-                                                  decay=decay,
-                                                  dtype=dtype)
-                elif dtype in XSD_DISCRETE:
-                    dist = DiscreteDistribution(rng=rng,
-                                                sample_size=sample_size,
-                                                decay=decay,
-                                                dtype=dtype)
-                else:
-                    raise NotImplementedError()
-
-                for value in {ap_upd.tail.value, assertion.object.value}:
-                    # cast value to appropriate format
-                    value = cast_literal(dtype, value)
-                    dist.addSample(value)
-
-            else:  # IRIRef
-                # create a new distribution and add values
-                dist = DiscreteDistribution(rng=rng,
-                                            sample_size=sample_size,
-                                            decay=decay)
-
-                dist.addSample(ap_upd.tail)
-                dist.addSample(assertion.object)
-
-            ap_upd.tail = dist  # set distribution as tail
-          
         return ap_upd
 
     def __deepcopy__(self, memo) -> AssertionPattern:
-        """ Deepcopy only the dynamic elements.
+        """ Create a deep copy of this assertion pattern which
+            creates references to static elements but which
+            deep copies all dynamic elements. Note that the
+            copied pattern will have the same identifier as
+            the original: 'original == copy' wil be true.
 
         :param memo [TODO:type]: [TODO:description]
         """
@@ -539,8 +582,8 @@ class GraphPattern():
     track of the connections of these assertions.
     """
     def __init__(self, pattern: Sequence[AssertionPattern],
-                 anchors: Sequence[Resource], threshold: int = -1,
-                 decay: int = -1) -> None:
+                 anchors: Sequence[Resource], threshold: int,
+                 decay: int) -> None:
         self.pattern = list(pattern)
         self.anchors = sorted(list(anchors))
 
@@ -684,12 +727,12 @@ class PatternVault():
     def __init__(self) -> None:
         self._polytree = dict()
 
-    def add(self, pattern: GraphPattern) -> None:
+    def add_pattern(self, pattern: GraphPattern) -> None:
         key = ''.join(pattern.anchors)
         if key not in self._polytree.keys():
             self._polytree[key] = [(pattern, datetime.now())]
 
-    def update(self, pattern: GraphPattern) -> None:
+    def update_pattern(self, pattern: GraphPattern) -> None:
         key = ''.join(pattern.anchors)
         try:
             # TODO: compress old version
@@ -698,16 +741,45 @@ class PatternVault():
         except KeyError:
             return
 
-    def create_assertion_pattern(self, assertion: Statement)\
-            -> AssertionPattern:
+    @staticmethod
+    def create_assertion_pattern(rng: np.random.Generator,
+                                 assertion: Statement) -> AssertionPattern:
+        """ Return a new assertion pattern that belongs to the
+            provided assertion. The returned pattern is assigned
+            a unique identifier, and assumes (until observations
+            claim otherwise) that all elements are static.
 
-    def create_associated_pattern(self, fact_set: set[Statement],
-                                  anchor_set: set[Resource]) -> GraphPattern:
-        
-        pattern = ...
-        self.add(pattern)
+        :param rng: [TODO:description]
+        :param assertion: [TODO:description]
+        :return: [TODO:description]
+        """
+        return AssertionPattern.create_from(rng=rng, assertion=assertion)
 
-    def find_associated_pattern(self, anchor_set: set[Resource])\
+    @staticmethod
+    def create_graph_pattern(rng: np.random.Generator,
+                             fact_set: Sequence[Statement],
+                             anchor_set: Sequence[Resource],
+                             threshold: int = -1,
+                             decay: int = -1) -> GraphPattern:
+        """ Return a new graph pattern from the provided facts
+            and anchors by creating assertion patterns for each
+            fact and by adding these to an empty graph pattern.
+
+        :param rng: [TODO:description]
+        :param fact_set: [TODO:description]
+        :param anchor_set: [TODO:description]
+        :param threshold: [TODO:description]
+        :param decay: [TODO:description]
+        :return: [TODO:description]
+        """
+        # create list of assertion patterns from given set of facts
+        pattern = [PatternVault.create_assertion_pattern(rng, assertion)
+                   for assertion in fact_set]
+
+        return GraphPattern(pattern=pattern, anchors=anchor_set,
+                            threshold=threshold, decay=decay)
+
+    def find_associated_graph_pattern(self, anchor_set: set[Resource])\
             -> GraphPattern | None:
         """ Find and return most recent associated pattern.
 
@@ -721,8 +793,8 @@ class PatternVault():
         except KeyError:
             return None
 
-    def update_associated_pattern(self, pattern: GraphPattern,
-                                  fact_set: set[Statement]) -> None:
+    def update_associated_graph_pattern(self, pattern: GraphPattern,
+                                       fact_set: set[Statement]) -> None:
         # determine matching assertions from the associated graph pattern
         # then copy and update
         ap = ...
