@@ -2,11 +2,14 @@
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+from datetime import datetime
 import logging
 from queue import Queue
 import signal
 from threading import Event
+from typing import Sequence
 
+import numpy as np
 from rdf.graph import Statement
 from rdf.terms import Resource
 
@@ -15,7 +18,7 @@ from gladoss.data.backup import BackupManager
 from gladoss.data.utils import timeSpanArg
 from gladoss.core.monitor import Monitor
 from gladoss.core.pattern import GraphPattern, PatternVault, ValidationReport
-from gladoss.core.utils import import_module
+from gladoss.core.utils import import_module, init_rng
 
 
 logger = logging.getLogger(__name__)
@@ -34,9 +37,16 @@ def signal_handler(signum, frame):
     controller.set()
 
 
-def create_validation_report(pattern: GraphPattern, fact_set: set[Statement])\
-        -> ValidationReport:
-    pass
+def create_validation_report(pattern: GraphPattern,
+                             facts: Sequence[Statement])\
+                                     -> ValidationReport:
+    # TODO Placeholder
+    report = ValidationReport(pattern=pattern, facts=facts,
+                              timestamp=datetime.now(),
+                              grade=ValidationReport.Grade.PASSED,
+                              metadata={})
+
+    return report
 
 
 def publish_validation_report(adaptor: Adaptor, report: ValidationReport):
@@ -44,26 +54,31 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport):
 
 
 def listener(monitor: Monitor, q: Queue) -> None:
-    for fact_set, anchor_set in monitor.listen():
-        q.put((fact_set, anchor_set))
+    for facts, anchors in monitor.listen():
+        q.put((facts, anchors))
 
 
-def process_observation(pv: PatternVault, fact_set: set[Statement],
-                        anchor_set: set[Resource]):
-    pattern = pv.find_associated_graph_pattern(anchor_set)
+def process_observation(rng: np.random.Generator, pv: PatternVault,
+                        facts: Sequence[Statement],
+                        anchors: Sequence[Resource],
+                        threshold: int, decay: int):
+    pattern = pv.find_associated_graph_pattern(anchors)
     if pattern is None:
-        logger.debug(f"Associated pattern not found: {fact_set}")
-        pattern = pv.create_graph_pattern(fact_set, anchor_set)
+        logger.debug(f"Associated pattern not found: {facts}")
+        pattern = pv.create_graph_pattern(rng=rng, facts=facts,
+                                          anchors=anchors,
+                                          threshold=threshold, decay=decay)
         pv.add_pattern(pattern)
 
-    report = create_validation_report(pattern, fact_set)
+    report = create_validation_report(pattern, facts)
     if report is None:  # no suspicious behaviour detected
-        pv.update_associated_graph_pattern(pattern, fact_set)
+        pv.update_associated_graph_pattern(pattern, facts)
 
     return report
 
 
-def main(adaptor_cls: Adaptor, flags: argparse.Namespace):
+def main(rng: np.random.Generator, adaptor_cls: Adaptor,
+         flags: argparse.Namespace) -> None:
     logger.info("Initiating Program")
 
     adaptor = adaptor_cls()
@@ -95,9 +110,10 @@ def main(adaptor_cls: Adaptor, flags: argparse.Namespace):
                 # spawn a new thread for each
                 job = q.get()
 
-                fact_set, anchor_set = job
-                job_fs = executor.submit(process_observation,
-                                         pv, fact_set, anchor_set)
+                facts, anchors = job
+                job_fs = executor.submit(process_observation, rng, pv,
+                                         facts, anchors, flags.threshold,
+                                         flags.decay)
                 jobs_active.add(job_fs)
 
             # process output of completed jobs
@@ -118,7 +134,7 @@ def main(adaptor_cls: Adaptor, flags: argparse.Namespace):
 
     bckmgr.disable_auto_backup()
     bckmgr.create_backup()  # emergency backup
- 
+
     logger.info("Waiting on connections to close...")
 
 
@@ -148,6 +164,8 @@ if __name__ == "__main__":
                         default=30, type=int)
     parser.add_argument("--request_delay", help="Number of seconds to wait "
                         + "between polling the server.", default=0.5, type=int)
+    parser.add_argument("--seed", help="Seed for random number generator "
+                        + "(optional)", type=int, default=None)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "
                         + "console.", action='count', default=0)
 
@@ -172,8 +190,11 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
 
+    # set random number generator
+    rng = init_rng(flags.seed)
+
     # import specified adaptor
     adaptor = import_module(_ADAPTORS, flags.adaptor)
 
     # start main loop
-    main(adaptor, flags)
+    main(rng, adaptor, flags)

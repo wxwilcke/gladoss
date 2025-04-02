@@ -102,7 +102,7 @@ def find_shortest_paths(g: set[Statement], source: IRIRef, target: IRIRef | Lite
 #     return out
 
 
-def init_rng(seed: Optional[int | float] = None) -> np.random.Generator:
+def init_rng(seed: Optional[int] = None) -> np.random.Generator:
     """ Initiate random state by specified seed. Use in
         scipy instances S with S.random_state = rng.
 

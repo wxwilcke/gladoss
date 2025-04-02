@@ -5,6 +5,7 @@ from collections import Counter
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum, auto
+from threading import Lock
 import logging
 import sys
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Set, Union
@@ -404,51 +405,37 @@ class AssertionPattern():
         self.tail = tail
         self._id = identifier
 
-    def weak_match(self, other: AssertionPattern) -> bool:
-        """ Check if two assertion patterns are likely the same (yet
-            perhaps different versions) by exactly comparing the types
-            and values of their static elements, and by weakly comparing
-            their distributions, if present.
+    def weak_match(self, fact: Statement) -> bool:
+        """ Check if the provided fact is a likely match to
+            this assertion pattern, by comparing whether
+            elements are the same or appropriate fits. This
+            will fail when the same relation - object type
+            is present in more than one statement.
 
         :param other: [TODO:description]
         :return: [TODO:description]
         """
-        return type(self) is type(other)\
-            and (isinstance(self.relation, IRIRef)
-                 and self.relation == other.relation)\
-            and ((isinstance(self.head, IRIRef)
-                  and self.head == other.head)
-                 or (isinstance(self.head, Distribution)
-                     and type(self.head) is type(other.head)
-                     and self.head.dtype == other.head.dtype
-                     and self.head.sample_size == other.head.sample_size
-                     and self.head.decay == other.head.decay))\
-            and (((isinstance(self.tail, IRIRef)
-                   or isinstance(self.tail, Literal))
-                  and self.tail == other.tail)
-                 or (isinstance(self.tail, Distribution)
-                     and type(self.tail) is type(other.tail)
-                     and self.tail.dtype == other.tail.dtype
-                     and self.tail.sample_size == other.tail.sample_size
-                     and self.tail.decay == other.tail.decay))
+        return isinstance(fact, Statement)\
+            and (type(self.relation) is type(fact.predicate)
+                 and self.relation == fact.predicate)\
+            and ((isinstance(self.tail, Resource)
+                  and infer_datatype(self.tail) == infer_datatype(fact.object))
+                 or (isinstance(self.tail, DiscreteDistribution)
+                     and isinstance(fact.object, IRIRef))
+                 or (isinstance(self.tail, ContinuousDistribution)
+                     and isinstance(fact.object, Literal)
+                     and infer_datatype(fact.object) == self.tail.dtype))
 
-    def strong_match(self, other: AssertionPattern) -> bool:
-        """ Check if two assertion patterns are likely the same by
-            exactly comparing the types and values of their static
-            elements, and by strongly comparing their distributions,
-            if present.
+    def strong_match(self, fact: Statement) -> bool:
+        """ Check if the provided fact is a likely match to
+            this assertion pattern, by comparing whether
+            elements are the same or if the values fall
+            within the distributions, if present.
 
         :param other: [TODO:description]
         :return: [TODO:description]
         """
-        return self.weak_match(other)\
-            and not ((isinstance(self.head, Distribution)
-                      and self.head != other.head)
-                     or (isinstance(self.tail, Distribution)
-                         and self.tail != other.tail))
-
-    def equiv(self, other: Any) -> bool:
-        return str(self) == str(other)
+        return self.weak_match(fact)  # TODO
 
     @staticmethod
     def create_from(rng: np.random.Generator,
@@ -726,11 +713,27 @@ class GraphPattern():
 class PatternVault():
     def __init__(self) -> None:
         self._polytree = dict()
+        self._lock = Lock()
 
     def add_pattern(self, pattern: GraphPattern) -> None:
+        """ Add new graph pattern to pattern vault, by creating a
+            new tree with the given pattern as root. This operation
+            uses the anchors as key for the associated tree,
+            includes a timestamp to record the moment of creation,
+            and is thread safe.
+
+        :param pattern: [TODO:description]
+        """
         key = ''.join(pattern.anchors)
-        if key not in self._polytree.keys():
+
+        self._lock.acquire()
+        try:
+            assert key not in self._polytree.keys()
             self._polytree[key] = [(pattern, datetime.now())]
+        except Exception as e:
+            logger.error(f"Unable to add new pattern to pattern vault: {e}")
+        finally:
+            self._lock.release()
 
     def update_pattern(self, pattern: GraphPattern) -> None:
         key = ''.join(pattern.anchors)
@@ -757,8 +760,8 @@ class PatternVault():
 
     @staticmethod
     def create_graph_pattern(rng: np.random.Generator,
-                             fact_set: Sequence[Statement],
-                             anchor_set: Sequence[Resource],
+                             facts: Sequence[Statement],
+                             anchors: Sequence[Resource],
                              threshold: int = -1,
                              decay: int = -1) -> GraphPattern:
         """ Return a new graph pattern from the provided facts
@@ -766,37 +769,50 @@ class PatternVault():
             fact and by adding these to an empty graph pattern.
 
         :param rng: [TODO:description]
-        :param fact_set: [TODO:description]
-        :param anchor_set: [TODO:description]
+        :param facts: [TODO:description]
+        :param anchors: [TODO:description]
         :param threshold: [TODO:description]
         :param decay: [TODO:description]
         :return: [TODO:description]
         """
         # create list of assertion patterns from given set of facts
         pattern = [PatternVault.create_assertion_pattern(rng, assertion)
-                   for assertion in fact_set]
+                   for assertion in facts]
 
-        return GraphPattern(pattern=pattern, anchors=anchor_set,
+        return GraphPattern(pattern=pattern, anchors=anchors,
                             threshold=threshold, decay=decay)
 
-    def find_associated_graph_pattern(self, anchor_set: set[Resource])\
+    def find_associated_graph_pattern(self, anchors: Sequence[Resource])\
             -> GraphPattern | None:
-        """ Find and return most recent associated pattern.
+        """ Find and return the most recent associated graph pattern. This
+            operation uses the anchors as keys and is thread safe.
 
-        :param anchor_set: [TODO:description]
+        :param anchors: [TODO:description]
         :return: [TODO:description]
         """
-        key = ''.join(sorted(list(anchor_set)))
+        key = ''.join(sorted(list(anchors)))
+        self._lock.acquire()
         try:
             pattern, _ = self._polytree[key][-1]
             return pattern
-        except KeyError:
+        except (KeyError, IndexError):
             return None
+        finally:
+            self._lock.release()
 
     def update_associated_graph_pattern(self, pattern: GraphPattern,
-                                       fact_set: set[Statement]) -> None:
+                                        facts: Sequence[Statement]) -> None:
         # determine matching assertions from the associated graph pattern
         # then copy and update
+
+        # first check if relations are unique and, if so, compare on that
+        # if not, use weak match, and if that fails use strong match
+        fact_to_ap_map = dict()
+
+        rel_unique = {fact.predicate for fact in facts}
+        if len(rel_unique) == len(facts):
+            pass  # match
+
         ap = ...
         gp = deepcopy(pattern)
         gp.update(ap)
@@ -809,11 +825,11 @@ class ValidationReport():
         SUSPICIOUS = auto()
         PASSED = auto()
 
-    def __init__(self, pattern: GraphPattern, fact_set: set[Statement],
+    def __init__(self, pattern: GraphPattern, facts: Sequence[Statement],
                  timestamp: datetime, grade: Grade, metadata: dict[str, str])\
             -> None:
         self.pattern = pattern
-        self.fact_set = fact_set
+        self.facts = facts
         self.timestamp = timestamp
         self.grade = grade
         self.metadata = metadata
