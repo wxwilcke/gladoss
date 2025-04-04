@@ -7,7 +7,7 @@ import logging
 from queue import Queue
 import signal
 from threading import Event
-from typing import Sequence
+from typing import Collection
 
 import numpy as np
 from rdf.graph import Statement
@@ -38,7 +38,7 @@ def signal_handler(signum, frame):
 
 
 def create_validation_report(pattern: GraphPattern,
-                             facts: Sequence[Statement])\
+                             facts: Collection[Statement])\
                                      -> ValidationReport:
     # TODO Placeholder
     report = ValidationReport(pattern=pattern, facts=facts,
@@ -59,8 +59,8 @@ def listener(monitor: Monitor, q: Queue) -> None:
 
 
 def process_observation(rng: np.random.Generator, pv: PatternVault,
-                        facts: Sequence[Statement],
-                        anchors: Sequence[Resource],
+                        facts: Collection[Statement],
+                        anchors: Collection[Resource],
                         threshold: int, decay: int):
     pattern = pv.find_associated_graph_pattern(anchors)
     if pattern is None:

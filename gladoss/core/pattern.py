@@ -8,7 +8,7 @@ from enum import Enum, auto
 from threading import Lock
 import logging
 import sys
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Set, Union
+from typing import Any, Dict, Iterator, List, Optional, Collection, Set, Union
 
 import numpy as np
 import scipy as sp
@@ -17,7 +17,7 @@ from rdf.graph import Statement
 from rdf.namespaces import XSD
 from rdf.terms import IRIRef, Literal, Resource
 
-from gladoss.core.utils import gen_id
+from gladoss.core.utils import gen_id, match_facts_to_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -409,8 +409,8 @@ class AssertionPattern():
         """ Check if the provided fact is a likely match to
             this assertion pattern, by comparing whether
             elements are the same or appropriate fits. This
-            will fail when the same relation - object type
-            is present in more than one statement.
+            will fail when the same subject - relation -
+            object type is present in more than one statement.
 
         :param other: [TODO:description]
         :return: [TODO:description]
@@ -418,6 +418,9 @@ class AssertionPattern():
         return isinstance(fact, Statement)\
             and (type(self.relation) is type(fact.predicate)
                  and self.relation == fact.predicate)\
+            and (isinstance(self.head, DiscreteDistribution)
+                 or (isinstance(self.head, IRIRef)
+                     and self.head == fact.subject))\
             and ((isinstance(self.tail, Resource)
                   and infer_datatype(self.tail) == infer_datatype(fact.object))
                  or (isinstance(self.tail, DiscreteDistribution)
@@ -568,11 +571,17 @@ class GraphPattern():
     Holds all assertions of a graph pattern and keeps
     track of the connections of these assertions.
     """
-    def __init__(self, pattern: Sequence[AssertionPattern],
-                 anchors: Sequence[Resource], threshold: int,
+    def __init__(self, pattern: Collection[AssertionPattern],
+                 anchors: Collection[Resource], threshold: int,
                  decay: int) -> None:
         self.pattern = list(pattern)
         self.anchors = sorted(list(anchors))
+
+        # # track which assertion patterns are connected to one or more anchors
+        # self._anchor_connections_head = {ap._id for ap in self.pattern
+        #                                  if ap.head in self.anchors}
+        # self._anchor_connections_tail = {ap._id for ap in self.pattern
+        #                                  if ap.tail in self.anchors}
 
         id_lst = [ap._id for ap in self.pattern]
         self._id_to_assertion_map = {_id: i for i, _id in enumerate(id_lst)}
@@ -592,31 +601,35 @@ class GraphPattern():
         self._freq_tracker = Counter(id_lst)
 
         # track newly observed assertions (added on reaching threshold)
-        self._under_consideration = set()
+        self._under_consideration = list()
+        self._id_to_consideration_map = dict()
 
         # schedule future decay of assertion patterns
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
             self._decay_tracker[t_decay] = id_lst
 
-    def update(self, assertionPatterns: set[AssertionPattern]) -> None:
-        for ap in assertionPatterns:
+    def update(self, aPatterns: Collection[AssertionPattern]) -> None:
+        for ap in aPatterns:
             if ap._id not in self._freq_tracker.keys():
                 # add unknown assertion for consideration
-                self._under_consideration.add(ap)
+                self._under_consideration.append(ap)
+                self._id_to_consideration_map[ap._id]\
+                    = len(self._under_consideration) - 1
                 self._freq_tracker[ap._id] = 0
-            else:  # replace known assertion if different from t - n
+            elif ap._id in self._id_to_assertion_map.keys():
                 i = self._id_to_assertion_map[ap._id]
-                ap_old = self.pattern[i]
-                if ap_old.strong_match(ap):  # FIXME: check if valid
-                    self.pattern[i] = ap
+                self.pattern[i] = ap  # replace with updated ap
+            else:  # under consideration
+                i = self._id_to_assertion_map[ap._id]
+                self._under_consideration[i] = ap
 
             self._freq_tracker[ap._id] += 1  # increase count
 
         # schedule future decay of assertion patterns
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = {ap._id for ap in assertionPatterns}
+            self._decay_tracker[t_decay] = {ap._id for ap in aPatterns}
 
         # increment time
         self._forward()
@@ -652,15 +665,18 @@ class GraphPattern():
                     self.pattern.append(ap)
                     self._id_to_assertion_map[ap._id] = len(self.pattern) - 1
 
-                    remove_set.add(ap)
+                    remove_set.add(ap._id)
+                    del self._id_to_consideration_map[ap._id]
 
                     continue
 
                 if self._freq_tracker[ap._id] <= 0:
                     # assertion decayed
-                    remove_set.add(ap)
+                    remove_set.add(ap._id)
+                    del self._id_to_consideration_map[ap._id]
 
-        self._under_consideration -= remove_set  # remove waiting assertions
+        self._under_consideration = [ap for ap in self._under_consideration
+                                     if ap._id not in remove_set]
 
     def _decay(self) -> None:
         """ Forget about assertions that have exceeded their decay period.
@@ -687,7 +703,9 @@ class GraphPattern():
         gp._t = self._t
         gp._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
         gp._freq_tracker = Counter(self._freq_tracker.elements())
-        gp._under_consideration = {gp for gp in self._under_consideration}
+        gp._under_consideration = [gp for gp in self._under_consideration]
+        gp._id_to_consideration_map\
+            = {gp._id: i for i, gp in  enumerate(gp._under_consideration)}
 
         return gp
 
@@ -760,8 +778,8 @@ class PatternVault():
 
     @staticmethod
     def create_graph_pattern(rng: np.random.Generator,
-                             facts: Sequence[Statement],
-                             anchors: Sequence[Resource],
+                             facts: Collection[Statement],
+                             anchors: Collection[Resource],
                              threshold: int = -1,
                              decay: int = -1) -> GraphPattern:
         """ Return a new graph pattern from the provided facts
@@ -782,7 +800,7 @@ class PatternVault():
         return GraphPattern(pattern=pattern, anchors=anchors,
                             threshold=threshold, decay=decay)
 
-    def find_associated_graph_pattern(self, anchors: Sequence[Resource])\
+    def find_associated_graph_pattern(self, anchors: Collection[Resource])\
             -> GraphPattern | None:
         """ Find and return the most recent associated graph pattern. This
             operation uses the anchors as keys and is thread safe.
@@ -800,22 +818,36 @@ class PatternVault():
         finally:
             self._lock.release()
 
-    def update_associated_graph_pattern(self, pattern: GraphPattern,
-                                        facts: Sequence[Statement]) -> None:
+    def update_associated_graph_pattern(self, gPattern: GraphPattern,
+                                        facts: Collection[Statement]) -> None:
         # determine matching assertions from the associated graph pattern
         # then copy and update
 
-        # first check if relations are unique and, if so, compare on that
-        # if not, use weak match, and if that fails use strong match
-        fact_to_ap_map = dict()
+        # copy graph pattern
+        gp = deepcopy(gPattern)
 
-        rel_unique = {fact.predicate for fact in facts}
-        if len(rel_unique) == len(facts):
-            pass  # match
+        # find pairs of facts and associated assertion patterns
+        fact_ap_pairs, unmatched = match_facts_to_patterns(facts, gp.pattern)
 
-        ap = ...
-        gp = deepcopy(pattern)
-        gp.update(ap)
+        # copy assertion patterns and update copies with new obsercations
+        ap_upd = {ap.update_from(fact) for fact, ap in fact_ap_pairs}
+
+        # find pairs for assertion patterns under consideration 
+        uc_upd = set()
+        if len(gp._under_consideration) > 0:
+            fact_uc_pairs, unmatched = match_facts_to_patterns(
+                    unmatched,
+                    gp._under_consideration)
+
+            uc_upd = {ap.update_from(fact) for fact, ap in fact_uc_pairs}
+
+
+        # create new assertion patterns for unmatched observations
+        ap_new = {AssertionPattern.create_from(rng, fact)
+                  for fact in unmatched}
+
+        # update copy with new assertion patterns
+        gp.update(ap_upd | uc_upd | ap_new)
 
 
 class ValidationReport():
@@ -825,7 +857,7 @@ class ValidationReport():
         SUSPICIOUS = auto()
         PASSED = auto()
 
-    def __init__(self, pattern: GraphPattern, facts: Sequence[Statement],
+    def __init__(self, pattern: GraphPattern, facts: Collection[Statement],
                  timestamp: datetime, grade: Grade, metadata: dict[str, str])\
             -> None:
         self.pattern = pattern
