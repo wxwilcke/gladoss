@@ -17,8 +17,10 @@ from gladoss.adaptors.adaptor import Adaptor
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import timeSpanArg
 from gladoss.core.monitor import Monitor
-from gladoss.core.pattern import GraphPattern, PatternVault, ValidationReport
-from gladoss.core.utils import import_module, init_rng
+from gladoss.core.pattern import (GraphPattern,
+                                  PatternVault, ValidationReport,
+                                  create_graph_pattern, update_graph_pattern)
+from gladoss.core.utils import import_module, init_rng, match_facts_to_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -65,14 +67,15 @@ def process_observation(rng: np.random.Generator, pv: PatternVault,
     pattern = pv.find_associated_graph_pattern(anchors)
     if pattern is None:
         logger.debug(f"Associated pattern not found: {facts}")
-        pattern = pv.create_graph_pattern(rng=rng, facts=facts,
-                                          anchors=anchors,
-                                          threshold=threshold, decay=decay)
+        pattern = create_graph_pattern(rng=rng, facts=facts,
+                                       anchors=anchors,
+                                       threshold=threshold, decay=decay)
         pv.add_pattern(pattern)
 
     report = create_validation_report(pattern, facts)
     if report is None:  # no suspicious behaviour detected
-        pv.update_associated_graph_pattern(pattern, facts)
+        gp = update_graph_pattern(rng, pattern, facts)
+        pv.update_pattern(gp)
 
     return report
 

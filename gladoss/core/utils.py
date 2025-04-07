@@ -143,14 +143,14 @@ def match_facts_to_patterns(
 
         if len(matches) > 1:
             fact_ap_conflicts.append((fact, matches))
-        elif len(matches) == 1:
+        elif len(matches) == 1:  # exact one match found
             fact_ap_pairs.append((fact, matches[-1]))
         else:  # no matches
             remainder.add(fact)
 
-    # conflict resolution
+    # conflict resolution: multiple matches per fact
     if len(fact_ap_conflicts) > 0:
-        # TODO: solve conflicts
+        # TODO: implement some conflict resolution
         for fact, _ in fact_ap_conflicts:
             logger.debug(f"Matches multiple assertion patterns: {fact}")
 

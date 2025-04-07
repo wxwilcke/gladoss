@@ -23,6 +23,81 @@ from gladoss.core.utils import gen_id, match_facts_to_patterns
 logger = logging.getLogger(__name__)
 
 
+def create_assertion_pattern(rng: np.random.Generator,
+                             assertion: Statement) -> AssertionPattern:
+    """ Return a new assertion pattern that belongs to the
+        provided assertion. The returned pattern is assigned
+        a unique identifier, and assumes (until observations
+        claim otherwise) that all elements are static.
+
+    :param rng: [TODO:description]
+    :param assertion: [TODO:description]
+    :return: [TODO:description]
+    """
+    return AssertionPattern.create_from(rng=rng, assertion=assertion)
+
+
+def create_graph_pattern(rng: np.random.Generator,
+                         facts: Collection[Statement],
+                         anchors: Collection[Resource],
+                         threshold: int = -1,
+                         decay: int = -1) -> GraphPattern:
+    """ Return a new graph pattern from the provided facts
+        and anchors by creating assertion patterns for each
+        fact and by adding these to an empty graph pattern.
+
+    :param rng: [TODO:description]
+    :param facts: [TODO:description]
+    :param anchors: [TODO:description]
+    :param threshold: [TODO:description]
+    :param decay: [TODO:description]
+    :return: [TODO:description]
+    """
+    # create list of assertion patterns from given set of facts
+    pattern = [create_assertion_pattern(rng, assertion)
+               for assertion in facts]
+
+    return GraphPattern(pattern=pattern, anchors=anchors,
+                        threshold=threshold, decay=decay)
+
+
+def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
+                         facts: Collection[Statement]) -> GraphPattern:
+    """ Return an updated copy of the provided graph pattern by
+        first pairing the provided statements with their associated
+        assertion patterns, and by then updating these patterns
+        with the new observations.
+
+    :param gPattern: [TODO:description]
+    :param facts: [TODO:description]
+    """
+    # find pairs of facts and associated assertion patterns
+    # next update copies thereof with new observations
+    fact_ap_pairs, unmatched = match_facts_to_patterns(
+            facts,
+            gPattern.pattern)
+    ap_upd = {ap.update_from(fact) for fact, ap in fact_ap_pairs}
+
+    # find pairs for assertion patterns under consideration
+    # only consider the facts that haven't been matched in the previous step
+    uc_upd = set()
+    if len(gPattern._under_consideration) > 0:
+        fact_uc_pairs, unmatched = match_facts_to_patterns(
+                unmatched,
+                gPattern._under_consideration)
+
+        uc_upd = {ap.update_from(fact) for fact, ap in fact_uc_pairs}
+
+    # create new assertion patterns for unmatched observations
+    ap_new = {AssertionPattern.create_from(rng, fact)
+              for fact in unmatched}
+
+    # update graph pattern with updated and new assertion patterns
+    gp_upd = gPattern.update_from(ap_upd | uc_upd | ap_new)
+
+    return gp_upd
+
+
 class Distribution():
     def __init__(self, rng: np.random.Generator,
                  sample_size: int = -1,
@@ -609,30 +684,36 @@ class GraphPattern():
             t_decay = (self._t + self.decay) % sys.maxsize
             self._decay_tracker[t_decay] = id_lst
 
-    def update(self, aPatterns: Collection[AssertionPattern]) -> None:
-        for ap in aPatterns:
-            if ap._id not in self._freq_tracker.keys():
-                # add unknown assertion for consideration
-                self._under_consideration.append(ap)
-                self._id_to_consideration_map[ap._id]\
-                    = len(self._under_consideration) - 1
-                self._freq_tracker[ap._id] = 0
-            elif ap._id in self._id_to_assertion_map.keys():
-                i = self._id_to_assertion_map[ap._id]
-                self.pattern[i] = ap  # replace with updated ap
-            else:  # under consideration
-                i = self._id_to_assertion_map[ap._id]
-                self._under_consideration[i] = ap
+    def update_from(self, aPatterns: Collection[AssertionPattern])\
+            -> GraphPattern:
+        gp = deepcopy(self)
 
-            self._freq_tracker[ap._id] += 1  # increase count
+        # update assertion patterns
+        for ap in aPatterns:
+            if ap._id not in gp._freq_tracker.keys():
+                # add unknown assertion for consideration
+                gp._under_consideration.append(ap)
+                gp._id_to_consideration_map[ap._id]\
+                    = len(gp._under_consideration) - 1
+                gp._freq_tracker[ap._id] = 0
+            elif ap._id in gp._id_to_assertion_map.keys():
+                i = gp._id_to_assertion_map[ap._id]
+                gp.pattern[i] = ap  # replace with updated ap
+            else:  # under consideration
+                i = gp._id_to_assertion_map[ap._id]
+                gp._under_consideration[i] = ap
+
+            gp._freq_tracker[ap._id] += 1  # increase count
 
         # schedule future decay of assertion patterns
-        if self.decay > 0:
-            t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = {ap._id for ap in aPatterns}
+        if gp.decay > 0:
+            t_decay = (gp._t + gp.decay) % sys.maxsize
+            gp._decay_tracker[t_decay] = {ap._id for ap in aPatterns}
 
         # increment time
-        self._forward()
+        gp._forward()
+
+        return gp
 
     def __len__(self) -> int:
         """ Return the number of assertions
@@ -762,44 +843,6 @@ class PatternVault():
         except KeyError:
             return
 
-    @staticmethod
-    def create_assertion_pattern(rng: np.random.Generator,
-                                 assertion: Statement) -> AssertionPattern:
-        """ Return a new assertion pattern that belongs to the
-            provided assertion. The returned pattern is assigned
-            a unique identifier, and assumes (until observations
-            claim otherwise) that all elements are static.
-
-        :param rng: [TODO:description]
-        :param assertion: [TODO:description]
-        :return: [TODO:description]
-        """
-        return AssertionPattern.create_from(rng=rng, assertion=assertion)
-
-    @staticmethod
-    def create_graph_pattern(rng: np.random.Generator,
-                             facts: Collection[Statement],
-                             anchors: Collection[Resource],
-                             threshold: int = -1,
-                             decay: int = -1) -> GraphPattern:
-        """ Return a new graph pattern from the provided facts
-            and anchors by creating assertion patterns for each
-            fact and by adding these to an empty graph pattern.
-
-        :param rng: [TODO:description]
-        :param facts: [TODO:description]
-        :param anchors: [TODO:description]
-        :param threshold: [TODO:description]
-        :param decay: [TODO:description]
-        :return: [TODO:description]
-        """
-        # create list of assertion patterns from given set of facts
-        pattern = [PatternVault.create_assertion_pattern(rng, assertion)
-                   for assertion in facts]
-
-        return GraphPattern(pattern=pattern, anchors=anchors,
-                            threshold=threshold, decay=decay)
-
     def find_associated_graph_pattern(self, anchors: Collection[Resource])\
             -> GraphPattern | None:
         """ Find and return the most recent associated graph pattern. This
@@ -817,37 +860,6 @@ class PatternVault():
             return None
         finally:
             self._lock.release()
-
-    def update_associated_graph_pattern(self, gPattern: GraphPattern,
-                                        facts: Collection[Statement]) -> None:
-        # determine matching assertions from the associated graph pattern
-        # then copy and update
-
-        # copy graph pattern
-        gp = deepcopy(gPattern)
-
-        # find pairs of facts and associated assertion patterns
-        fact_ap_pairs, unmatched = match_facts_to_patterns(facts, gp.pattern)
-
-        # copy assertion patterns and update copies with new obsercations
-        ap_upd = {ap.update_from(fact) for fact, ap in fact_ap_pairs}
-
-        # find pairs for assertion patterns under consideration 
-        uc_upd = set()
-        if len(gp._under_consideration) > 0:
-            fact_uc_pairs, unmatched = match_facts_to_patterns(
-                    unmatched,
-                    gp._under_consideration)
-
-            uc_upd = {ap.update_from(fact) for fact, ap in fact_uc_pairs}
-
-
-        # create new assertion patterns for unmatched observations
-        ap_new = {AssertionPattern.create_from(rng, fact)
-                  for fact in unmatched}
-
-        # update copy with new assertion patterns
-        gp.update(ap_upd | uc_upd | ap_new)
 
 
 class ValidationReport():
