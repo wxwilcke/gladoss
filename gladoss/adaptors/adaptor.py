@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 import logging
 from typing import Any, Optional, Self
 
+import requests
+
 from rdf.graph import Statement
 from rdf.terms import Resource
 
@@ -27,8 +29,21 @@ class Adaptor(ABC):
         pass
 
     @abstractmethod
-    def get_anchors(self: Self, data: dict[str, Any],
-                    **kwargs: Optional[str]) -> list[Resource]:
+    def cleanup_hook(self: Self) -> None:
+        """ Clean up on exit.
+        """
+        pass
+
+    @abstractmethod
+    def answer_hook(self: Self, endpoint: str,
+                    session: requests.Session, data: dict[str, str]) -> None:
+        """ Optionally send response to poll return.
+        """
+        pass
+
+    @abstractmethod
+    def get_identifier(self: Self, data: dict[str, Any],
+                       **kwargs: Optional[str]) -> str | int:
         pass
 
     @abstractmethod

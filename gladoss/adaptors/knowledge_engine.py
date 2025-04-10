@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import logging
+import json
 import os
 import re
 import toml
-from typing import Any, Self
+from typing import Any, Optional, Self
 
 import requests
 from rdf import IRIRef, Literal, Statement
@@ -29,9 +30,6 @@ FILENAME_CONF = "knowledge_engine.toml"
 CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 
 
-# TODO:
-# - accomodate multiple subscriptions
-
 class KE_Adaptor(Adaptor):
     """ Adaptor to TNO's Knowledge Engine
 
@@ -46,28 +44,157 @@ class KE_Adaptor(Adaptor):
         - [ ... ] a list of measurements from multiple devices in (1, inf)
     """
 
+    def register_kb(self: Self, endpoint: str, kb_id: str, kb_name: str,
+                    kb_desc: str) -> Optional[str]:
+        """ Register knowledge base if it has not been registered yet.
+
+        :param endpoint: [TODO:description]
+        :param kb_id: [TODO:description]
+        :param kb_name: [TODO:description]
+        :param kb_desc: [TODO:description]
+        """
+        endpoint = endpoint + "/sc"
+        headers = {'Knowledge-Base-Id': kb_id}
+
+        response = requests.get(endpoint, headers=headers)
+        if response.status_code == 404:  # kb not registered
+            payload = {'knowledgeBaseId': kb_id,
+                       'knowledgeBaseName': kb_name,
+                       'knowledgeBaseDescription': kb_desc}
+            response = requests.post(endpoint, json=payload)
+
+        if response.status_code == 200:
+            return response.json()['SmartConnector']
+
+    def register_ki(self: Self, endpoint: str, kb_id: str,
+                    ki_payload: dict[str, str]) -> Optional[str]:
+        """ Register knowledge interaction.
+
+        :param endpoint: [TODO:description]
+        :param kb_id: [TODO:description]
+        :param ki_payload: [TODO:description]
+        """
+        endpoint = endpoint + "/sc/ki"
+        headers = {'Knowledge-Base-Id': kb_id}
+
+        response = requests.post(endpoint, headers=headers, json=ki_payload)
+        if response.status_code == 200:
+            return response.json()['KnowledgeInteractionId']
+
+    def deregister_kb(self: Self, endpoint: str, kb_id: str):
+        """ Deregister knowledge base.
+
+        :param endpoint: [TODO:description]
+        :param kb_id: [TODO:description]
+        """
+        endpoint = endpoint + "/sc"
+        headers = {'Knowledge-Base-Id': kb_id}
+
+        response = requests.delete(endpoint, headers=headers)
+
+        return response.status_code == 200
+
+    def deregister_ki(self: Self, endpoint: str, kb_id: str, ki_id: str):
+        """ Deregister knowledge interaction.
+        
+        :param endpoint: [TODO:description]
+        :param kb_id: [TODO:description]
+        :param ki_id: [TODO:description]
+        """
+        endpoint = endpoint + "/sc/ki"
+        headers = {'Knowledge-Base-Id': kb_id,
+                   'Knowledge-Interaction-Id': ki_id}
+
+        response = requests.delete(endpoint, headers=headers)
+
+        return response.status_code == 200
+
+    def cleanup_hook(self: Self):
+        """ Deregister the knowledge base and all associated knowledge
+            interactions.
+        """
+        kb_id = self.context['knowledgeBaseId']
+        for ki_endpoint, ki_set in self.context['knowledgeInteractions']:
+            endpoint = ki_endpoint + "/sc/ki"
+            for ki_id in ki_set:
+                self.deregister_ki(endpoint, kb_id, ki_id)
+
+            self.deregister_kb(endpoint, kb_id)
+
     def init_hook(self: Self) -> None:
+        """ Register the knowledge base and knowledge interactions. The
+            knowledge interactions should be of the type 'react', and
+            will have an empty results graph.
+        """
         conf = dict()
         with open(CONF_PATH, 'rb') as f:
             conf = toml.load(f)
 
+        # use context to share data between hooks
         self.context = dict()
+        self.context['knowledgeInteractions'] = dict()
 
         kb_id = conf['knowledgeBaseId']
         kb_name = conf['knowledgeBaseName']
-        kb_description = conf['knowledgeBaseDescription']
+        kb_desc = conf['knowledgeBaseDescription']
+        for ki in conf['knowledgeInteractions']:  # register all interactions
+            ki_endpoint = ki['knowledgeInteractionEndpoint']
+            if ki_endpoint not in self.context['knowledgeInteractions'].keys():
+                # keep track of registered knowledge interactions
+                self.context['knowledgeInteractions'][ki_endpoint] = set()
+
+            ki_payload = {
+                    'knowledgeInteractionType': "ReactKnowledgeInteraction",
+                    'knowledgeInteractionName': ki['knowledgeInteractionName'],
+                    'argumentGraphPattern': ki['argumentGraphPattern'],
+                    'resultGraphPattern': "",
+                    'prefixes': ki['prefixes']
+                    }
+            try:
+                sc = self.register_kb(ki_endpoint, kb_id, kb_name, kb_desc)
+                if sc is None:
+                    raise Exception("Unable to register knowledge base")
+
+                ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
+                if ki_id is None:
+                    logger.error("Unable to register knowledge interaction")
+
+                    continue
+
+                self.context['knowledgeInteractions'][ki_endpoint].add(ki_id)
+            except Exception as e:
+                logger.error(f"Unable to register at endpoint: {e}.")
+
+        self.context['knowledgeBaseId'] = kb_id
+
+    def answer_hook(self: Self, endpoint: str, session: requests.Session,
+                    data: dict[str, str]) -> None:
+        """ Provide response to react knowledge interaction.
+
+        :param endpoint: [TODO:description]
+        :param session: [TODO:description]
+        :param data: [TODO:description]
+        """
+        endpoint = endpoint + "/sc/handle"
         try:
-            self.context['knowledgeBaseId'] = kb_id
-            self.register(kb_id, kb_name, kb_description)
+            headers = {
+                    'Knowledge-Base-Id': data['requestingKnowledgeBaseId'],
+                    'Knowledge-Interaction-Id': data['knowledgeInteractionId']
+                       }
+            payload = []
 
-            self.context['knowledgeInteractions'] = list()
-            for ki in conf['knowledgeInteraction']:
-                self.context['knowledgeInteractions'].append(ki)
-                
-                # ki_anchors = ki['knowledgeInteractionAnchors']
+            response = requests.post(endpoint, headers=headers, json=payload)
+            assert response.status_code == 200
+        except Exception as e:
+            logger.error(f"Failed to respond to received message: {e}")
 
-        except Exception:
-            pass
+    def get_identifier(self: Self, data: dict[str, Any],
+                       **kwargs: Optional[str]) -> str:
+        try:
+            return data['knowledgeInteractionId']
+        except KeyError as e:
+            logger.warning(f"Failed to retrieve knowledge interaction ID: {e}")
+            return ''
 
     def set_headers(self: Self, **kwargs) -> dict[str, Any]:
         kb_id = self.context['knowledgeBaseId']
@@ -88,36 +215,6 @@ class KE_Adaptor(Adaptor):
                 "prefixes": ki_prefixes}
 
         return body
-
-    def register(self: Self, kb_id: str, kb_name: str,
-                 kb_description: str):
-        """
-        Register a Knowledge Base with the given details at the given endpoint.
-        """
-        body = {"knowledgeBaseId": kb_id,
-                "knowledgeBaseName": kb_name,
-                "knowledgeBaseDescription": kb_description}
-
-        response = requests.post(self.endpoint, json=body)
-        assert response.ok
-
-        logger.info(f"registered {kb_name}")
-
-    def subscribe(self: Self, kb_id: str, ki_name: str, ki_type: str,
-                  triple_pattern: str, prefixes: dict[str, str]) -> str:
-        body = {"knowledgeInteractionName": ki_name,
-                "knowledgeInteractionType": ki_type,
-                "graphPattern": triple_pattern,
-                "prefixes": prefixes}
-
-        response = requests.post(self.endpoint, json=body,
-                                 headers={"Knowledge-Base-Id": kb_id})
-        assert response.ok
-
-        ki_id = response.json()["knowledgeInteractionId"]
-        logger.info(f"received issued knowledge interaction id: {ki_id}")
-
-        return ki_id
 
     def translate(self: Self, data: dict[str, Any], **kwargs)\
             -> tuple[list[Statement], list[IRIRef]]:

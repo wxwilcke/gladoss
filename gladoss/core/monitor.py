@@ -7,6 +7,8 @@ import sys
 from threading import Event
 from typing import Any, Optional, Self
 
+from requests.structures import CaseInsensitiveDict
+
 from rdf import Statement, IRIRef
 from rdf.terms import Resource
 import requests
@@ -60,11 +62,11 @@ class Monitor():
         :param endpoint: HTTP endpoint to listen to
         :return: A tuple with the response HTTP status and the content
         """
-        response = session.post(endpoint, headers=headers, json=data)
+        response = session.get(endpoint, headers=headers, json=data)
 
         return response.status_code, response.text
 
-    def listen(self) -> Iterable[tuple[list[Statement], list[Resource]]]:
+    def listen(self) -> Iterable[tuple[list[Statement], str | int]]:
         """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates
             or retries when receiving a 204 or 408 HTTP status.
@@ -94,9 +96,12 @@ class Monitor():
                     data = json.loads(data_raw)  # dict[str, Any]
 
                     message = self.adaptor.translate(data)
-                    anchors = self.adaptor.get_anchors(data)
+                    message_id = self.adaptor.get_identifier(data)
 
-                    yield (message, anchors)
+                    # Optionally answer the poll response
+                    self.adaptor.answer_hook(endpoint, session, data)
+
+                    yield (message, message_id)
                 except json.JSONDecodeError:
                     logger.exception("JSONDecodeError on {data_raw}")
 
@@ -106,6 +111,10 @@ class Monitor():
 
                     self._wait_on_error(retries)
                     retries += 1
+
+            if status_code == 202:  # poll timeout
+                # renew poll; don't count this as a retry
+                continue
 
             if status_code == 204:  # no content
                 logger.info("Device reports no further content")

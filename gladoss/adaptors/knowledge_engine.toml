@@ -5,9 +5,9 @@ knowledgeBaseName = "GLADoSS"
 knowledgeBaseDescription = "Graph-based Live Anomaly Detection on Semantic Streams"
 
 [[knowledgeInteraction]]
+knowledgeInteractionEndpoint = "http://127.0.0.1:8000"
 knowledgeInteractionName = "Device Observations Request"
-knowledgeInteractionType = "AskKnowledgeInteraction"
-knowledgeInteractionPattern = """
+argumentGraphPattern = """
   ?obs rdf:type saref:Observation .
   ?obs saref:madeBy ?device . 
   ?obs saref:hasTimestamp ?timestamp . 
@@ -17,10 +17,6 @@ knowledgeInteractionPattern = """
   ?result saref:hasValue ?value .
   ?result saref:isMeasuredIn ?unit .
   """
-knowledgeInteractionAnchors = [ # unique and stable nodes which can be used to match graphs to their patterns
-  "?device",
-  "?prop"
-  ]
 [knowledgeInteraction.prefixes]
 rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 saref = "https://saref.etsi.org/core/" 

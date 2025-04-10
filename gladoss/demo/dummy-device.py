@@ -14,39 +14,15 @@ from queue import Queue
 from random import randrange
 from typing import Any
 
-from fastapi import FastAPI, Response, status, HTTPException
+from fastapi import FastAPI, Response, Request, status, HTTPException
 import uvicorn
 
 app = FastAPI()
 logger = logging.getLogger(__name__)
 
 
-@app.post("/")
-def answer(data: dict[str, Any], response: Response) -> dict[str, Any]:
-    global cache
-
-    if depleted:
-        response.status_code = status.HTTP_204_NO_CONTENT
-        return {"detail": "out of items"}
-
-    t0 = time()
-    while time() - t0 < timeout:
-        if not cache.empty():
-            item_cur = cache.get()  # dict[str, str]
-
-            item_cur['metadata'] = data
-
-            return item_cur
-
-        sleep(1)
-
-    logging.debug(f"Request timeout after {timeout} seconds")
-    raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT,
-                        detail="Request timeout")
-
-
 @app.get("/")
-def publish(response: Response) -> dict[str, str]:
+def process_get(request: Request, response: Response) -> dict[str, Any]:
     """ Return published items on request if available. Use long polling to
     return update as soon as it becomes available.
 

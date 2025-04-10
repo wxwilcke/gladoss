@@ -4,6 +4,8 @@ import logging
 import re
 from typing import Any, Self
 
+import requests
+
 from rdf import IRIRef, Literal, Statement
 from rdf.terms import Resource
 
@@ -35,32 +37,27 @@ class DummyAdaptor(Adaptor):
     def init_hook(self: Self) -> None:
         return super().init_hook()
 
+    def cleanup_hook(self: Self) -> None:
+        return super().cleanup_hook()
+
+    def answer_hook(self: Self, endpoint: str, session: requests.Session,
+                    data: dict[str, str]) -> None:
+        return super().answer_hook(endpoint, session, data)
+
     def set_headers(self: Self, **kwargs) -> dict[str, Any]:
         return {"program": "GLADoSS"}
 
     def set_payload(self: Self, **kwargs) -> dict[str, Any]:
         return {"name": "Dummy"}
 
-    def get_anchors(self: Self, data: dict[str, Any], **kwargs)\
-            -> list[Resource]:
-        anchors = list()
-        for resource in data['anchors']:
-            anchor_literal = re.fullmatch(LITERAL, resource)
-            if anchor_literal:
-                value = anchor_literal.group('value')
-                lang = anchor_literal.group('lang')
-                dtype = anchor_literal.group('dtype')
-
-                if dtype:
-                    dtype = IRIRef(self.process_IRI(dtype))
-
-                anchor = Literal(value, datatype=dtype, language=lang)
-            else:
-                anchor = IRIRef(self.process_IRI(resource))
-
-            anchors.append(anchor)
-
-        return anchors
+    def get_identifier(self: Self, data: dict[str, Any], **kwargs)\
+            -> str:
+        try:
+            message_id = data['graph']
+            return message_id
+        except KeyError:
+            raise KeyError("Expects graph identifier to be specified in "
+                           + "header with key 'graph'")
 
     def translate(self: Self, data: dict[str, str], **kwargs)\
             -> list[Statement]:
