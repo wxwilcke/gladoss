@@ -1,16 +1,11 @@
 #!/usr/bin/env python
 
-from collections.abc import Iterable
 import logging
 import json
 import sys
-from threading import Event
-from typing import Any, Optional, Self
+from typing import Any, Generator, Self
 
-from requests.structures import CaseInsensitiveDict
-
-from rdf import Statement, IRIRef
-from rdf.terms import Resource
+from rdf import Statement
 import requests
 
 from gladoss.adaptors.adaptor import Adaptor
@@ -19,20 +14,32 @@ from gladoss.adaptors.adaptor import Adaptor
 logger = logging.getLogger(__name__)
 
 
-class Monitor():
-    def __init__(self: Self, controller: Event,  adaptor: Adaptor,
+class Connector():
+    def __init__(self: Self, adaptor: Adaptor,
                  endpoint: str = "http://127.0.0.1:8000",
                  continuous: bool = False, num_retries: int = 3,
-                 retry_delay: float = 30., request_delay: float = 0.5) -> None:
+                 retry_delay: float = 30., request_delay: float = 0.5,
+                 return_receipt: bool = False) -> None:
+        """ A connector connects an adaptor to an endpoint and listens
+            for new messages, which get passed to the adaptor for translation
+            before returning the result. Returns a receipt on receiving a
+            new message if requested.
+
+        :param adaptor: [TODO:description]
+        :param endpoint: [TODO:description]
+        :param continuous: [TODO:description]
+        :param num_retries: [TODO:description]
+        :param retry_delay: [TODO:description]
+        :param request_delay: [TODO:description]
+        :param return_receipt: [TODO:description]
+        """
         self.adaptor = adaptor
         self.endpoint = endpoint
         self.continuous = continuous
         self.num_retries = num_retries
         self.retry_delay = retry_delay
         self.request_delay = request_delay
-        self._controller = controller
-
-        adaptor.init_hook()
+        self.return_receipt = return_receipt
 
     def _wait_on_error(self: Self, retries: int) -> None:
         """ Wait a number of seconds after experiencing an error
@@ -49,13 +56,13 @@ class Monitor():
         if delay < 0:
             delay = self.request_delay
 
-        self._controller.wait(delay)
+        self.adaptor._controller.wait(delay)
 
     def poll(self: Self,
              session: requests.Session,
              endpoint: str,
-             headers: dict,
-             data: dict) -> tuple[int, str]:
+             headers: dict[str, Any],
+             data: dict[str, Any]) -> tuple[int, str]:
         """ Poll server exactly once.
 
         :param session: Open session with server
@@ -66,7 +73,22 @@ class Monitor():
 
         return response.status_code, response.text
 
-    def listen(self) -> Iterable[tuple[list[Statement], str | int]]:
+    def push(self: Self,
+             session: requests.Session,
+             endpoint: str,
+             headers: dict[str, Any],
+             data: dict[str, Any]) -> int:
+        """ Push message to server.
+
+        :param session: Open session with server
+        :param endpoint: HTTP endpoint to listen to
+        :return: The response HTTP status
+        """
+        response = session.post(endpoint, headers=headers, json=data)
+
+        return response.status_code
+
+    def listen(self) -> Generator[tuple[str, list[Statement]]]:
         """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates
             or retries when receiving a 204 or 408 HTTP status.
@@ -76,32 +98,40 @@ class Monitor():
         retries = 0
 
         package_headers = self.adaptor.set_headers()
-        package_data = self.adaptor.set_payload()
+        package_payload = self.adaptor.set_payload()
+
         session = requests.Session()
-        while not self._controller.is_set():
+        while not self.adaptor._controller.is_set():
             logging.debug("Polling server")
             try:
                 status_code, data_raw = self.poll(session,
                                                   self.endpoint,
                                                   package_headers,
-                                                  package_data)
+                                                  package_payload)
             except requests.exceptions.RequestException:
                 logging.debug("Connection Error")
                 print("Cannot establish connection to server")
                 sys.exit(1)
 
             logger.debug(f"Responded HTTP status: {status_code}")
-            if status_code == 200:  # OK
+            if status_code == requests.codes.ok:  # 200: ok
                 try:
                     data = json.loads(data_raw)  # dict[str, Any]
 
-                    message = self.adaptor.translate(data)
-                    message_id = self.adaptor.get_identifier(data)
-
                     # Optionally answer the poll response
-                    self.adaptor.answer_hook(endpoint, session, data)
+                    if self.return_receipt:
+                        ack_headers = self.adaptor.set_receipt_headers(data)
+                        ack_payload = self.adaptor.set_receipt_payload(data)
+                        try:
+                            self.push(session,
+                                      self.endpoint,
+                                      ack_headers,
+                                      ack_payload)
+                        except requests.exceptions.RequestException:
+                            logger.warning("Error on sending message receipt")
 
-                    yield (message, message_id)
+                    for message in self.adaptor.translate(data):
+                        yield message
                 except json.JSONDecodeError:
                     logger.exception("JSONDecodeError on {data_raw}")
 
@@ -112,16 +142,16 @@ class Monitor():
                     self._wait_on_error(retries)
                     retries += 1
 
-            if status_code == 202:  # poll timeout
+            if status_code == requests.codes.accepted:  # 202: poll timeout
                 # renew poll; don't count this as a retry
                 continue
 
-            if status_code == 204:  # no content
+            if status_code == requests.codes.no_content:  # 204: no content
                 logger.info("Device reports no further content")
                 if not self.continuous:
                     break
 
-            if status_code >= 400:  # client or server error
+            if status_code >= requests.codes.bad_request:  # 400: server error
                 logger.debug("Error with request or response")
                 if not self.continuous and retries >= self.num_retries:
                     logging.debug("Reached maximum number of retries")
@@ -131,4 +161,4 @@ class Monitor():
 
                 retries += 1
 
-            self._controller.wait(self.request_delay)
+            self.adaptor._controller.wait(self.request_delay)

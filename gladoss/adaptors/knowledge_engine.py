@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import logging
-import json
 import os
 import re
 import toml
@@ -11,6 +10,7 @@ import requests
 from rdf import IRIRef, Literal, Statement
 
 from gladoss.adaptors.adaptor import Adaptor
+from gladoss.core.connector import Connector
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +33,18 @@ CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 class KE_Adaptor(Adaptor):
     """ Adaptor to TNO's Knowledge Engine
 
-        Expects data in the form {"bindingSet": [{ "u": "<IRI>|<Literal>",
+        Expects data in the form {"requestingKnowledgeBaseId": <INT>,
+                                  "knowledgeInteractionId": <INT>,
+                                  "handleRequestId": <INT>,
+                                  "bindingSet": [{ "u": "<IRI>|<Literal>",
                                                    "v": "<IRI>|<Literal>",
                                                    ...},
                                                   ...]
                                  }
         with
         - "u", "v" the variable name, matching "?<var>"
-        - { ... } a single measurement from a specific device
-        - [ ... ] a list of measurements from multiple devices in (1, inf)
+        - { ... } a binding set between the variables and their values
+        - [ ... ] a list of all possible binding sets for this observation
     """
 
     def register_kb(self: Self, endpoint: str, kb_id: str, kb_name: str,
@@ -57,13 +60,13 @@ class KE_Adaptor(Adaptor):
         headers = {'Knowledge-Base-Id': kb_id}
 
         response = requests.get(endpoint, headers=headers)
-        if response.status_code == 404:  # kb not registered
+        if response.status_code == requests.codes.not_found:  # 404: not found
             payload = {'knowledgeBaseId': kb_id,
                        'knowledgeBaseName': kb_name,
                        'knowledgeBaseDescription': kb_desc}
             response = requests.post(endpoint, json=payload)
 
-        if response.status_code == 200:
+        if response.status_code == requests.codes.ok:  # 200: ok
             return response.json()['SmartConnector']
 
     def register_ki(self: Self, endpoint: str, kb_id: str,
@@ -78,7 +81,7 @@ class KE_Adaptor(Adaptor):
         headers = {'Knowledge-Base-Id': kb_id}
 
         response = requests.post(endpoint, headers=headers, json=ki_payload)
-        if response.status_code == 200:
+        if response.status_code == requests.codes.ok:  # 200: ok
             return response.json()['KnowledgeInteractionId']
 
     def deregister_kb(self: Self, endpoint: str, kb_id: str):
@@ -92,11 +95,11 @@ class KE_Adaptor(Adaptor):
 
         response = requests.delete(endpoint, headers=headers)
 
-        return response.status_code == 200
+        return response.status_code == requests.codes.ok  # 200: ok
 
     def deregister_ki(self: Self, endpoint: str, kb_id: str, ki_id: str):
         """ Deregister knowledge interaction.
-        
+
         :param endpoint: [TODO:description]
         :param kb_id: [TODO:description]
         :param ki_id: [TODO:description]
@@ -107,19 +110,7 @@ class KE_Adaptor(Adaptor):
 
         response = requests.delete(endpoint, headers=headers)
 
-        return response.status_code == 200
-
-    def cleanup_hook(self: Self):
-        """ Deregister the knowledge base and all associated knowledge
-            interactions.
-        """
-        kb_id = self.context['knowledgeBaseId']
-        for ki_endpoint, ki_set in self.context['knowledgeInteractions']:
-            endpoint = ki_endpoint + "/sc/ki"
-            for ki_id in ki_set:
-                self.deregister_ki(endpoint, kb_id, ki_id)
-
-            self.deregister_kb(endpoint, kb_id)
+        return response.status_code == requests.codes.ok  # 200: ok
 
     def init_hook(self: Self) -> None:
         """ Register the knowledge base and knowledge interactions. The
@@ -131,7 +122,6 @@ class KE_Adaptor(Adaptor):
             conf = toml.load(f)
 
         # use context to share data between hooks
-        self.context = dict()
         self.context['knowledgeInteractions'] = dict()
 
         kb_id = conf['knowledgeBaseId']
@@ -147,7 +137,7 @@ class KE_Adaptor(Adaptor):
                     'knowledgeInteractionType': "ReactKnowledgeInteraction",
                     'knowledgeInteractionName': ki['knowledgeInteractionName'],
                     'argumentGraphPattern': ki['argumentGraphPattern'],
-                    'resultGraphPattern': "",
+                    'resultGraphPattern': "",  # empty response
                     'prefixes': ki['prefixes']
                     }
             try:
@@ -167,74 +157,112 @@ class KE_Adaptor(Adaptor):
 
         self.context['knowledgeBaseId'] = kb_id
 
-    def answer_hook(self: Self, endpoint: str, session: requests.Session,
-                    data: dict[str, str]) -> None:
-        """ Provide response to react knowledge interaction.
-
-        :param endpoint: [TODO:description]
-        :param session: [TODO:description]
-        :param data: [TODO:description]
+    def cleanup_hook(self: Self):
+        """ Deregister the knowledge base and all associated knowledge
+            interactions.
         """
-        endpoint = endpoint + "/sc/handle"
-        try:
-            headers = {
-                    'Knowledge-Base-Id': data['requestingKnowledgeBaseId'],
-                    'Knowledge-Interaction-Id': data['knowledgeInteractionId']
-                       }
-            payload = []
+        kb_id = self.context['knowledgeBaseId']
+        for ki_endpoint, ki_set in self.context['knowledgeInteractions']:
+            endpoint = ki_endpoint + "/sc/ki"
+            for ki_id in ki_set:
+                self.deregister_ki(endpoint, kb_id, ki_id)
 
-            response = requests.post(endpoint, headers=headers, json=payload)
-            assert response.status_code == 200
-        except Exception as e:
-            logger.error(f"Failed to respond to received message: {e}")
+            self.deregister_kb(endpoint, kb_id)
 
-    def get_identifier(self: Self, data: dict[str, Any],
-                       **kwargs: Optional[str]) -> str:
-        try:
-            return data['knowledgeInteractionId']
-        except KeyError as e:
-            logger.warning(f"Failed to retrieve knowledge interaction ID: {e}")
-            return ''
+    def add_connectors(self: Self) -> None:
+        """ Add connectors to adaptor, one for each different endpoint.
+        """
+        for ki_endpoint in self.context['knowledgeInteractions'].keys():
+            self.connectors.add(Connector(
+                adaptor=self,
+                endpoint=ki_endpoint + "/sc/handle"
+                ))
 
-    def set_headers(self: Self, **kwargs) -> dict[str, Any]:
+    def set_headers(self: Self) -> dict[str, Any]:
+        """ Returns headers for polling the endpoint. Defaults
+            to empty headers
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
         kb_id = self.context['knowledgeBaseId']
 
         return {"Knowledge-Base-Id": kb_id}
 
-    def set_payload(self: Self, **kwargs) -> dict[str, Any]:
-        ki = self.context['knowledgeInteractions'][i]
+    def set_payload(self: Self) -> dict[str, Any]:
+        """ Returns payload for polling the endpoint. Defaults
+            to empty payload.
 
-        ki_name = ki['knowledgeInteractionName']
-        ki_type = ki['knowledgeInteractionType']
-        ki_pattern = ki['knowledgeInteractionPattern']
-        ki_prefixes = ki['prefixes']
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        return super().set_payload()
 
-        body = {"knowledgeInteractionName": ki_name,
-                "knowledgeInteractionType": ki_type,
-                "graphPattern": ki_pattern,
-                "prefixes": ki_prefixes}
+    def set_receipt_headers(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns headers for sending a receipt. Defaults
+            to empty headers.
 
-        return body
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        headers = dict()
+        try:
+            headers = {
+                    'Knowledge-Base-Id': data['requestingKnowledgeBaseId'],
+                    'Knowledge-Interaction-Id': data['knowledgeInteractionId']
+                    }
+        except KeyError:
+            logger.error("Unable to retrieve identifiers from message "
+                         + "payload.")
 
-    def translate(self: Self, data: dict[str, Any], **kwargs)\
-            -> tuple[list[Statement], list[IRIRef]]:
+        return headers
+
+    def set_receipt_payload(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns payload for sending a receipt. Defaults
+            to empty payload.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        payload = dict()
+        try:
+            req_id = data['handleRequestId']
+            payload = {
+                    'handleRequestId': req_id,
+                    'bindingSet': list()  # empty response
+                    }
+        except KeyError:
+            logger.error("Unable to retrieve identifiers from message "
+                         + "payload.")
+
+        return payload
+
+    def translate(self: Self, data: dict[str, Any])\
+            -> list[tuple[str, list[Statement]]]:
         """ Translate binding sets to RDF.
 
         :param data: data received from API
         :return: A list of RDF statements and anchors
         :raises SyntaxWarning: warn if translation fails
         """
-        graph = list()
-        anchors = list()
 
+        data_translated = list()
         if "bindingSet" not in data.keys() or len(data["bindingSet"]) <= 0:
             logging.debug("Missing content in data package")
-            return (graph, anchors)
+            return data_translated
 
+        if "knowledgeInteractionId" not in data.keys():
+            logging.debug("Missing graph identifier in data package")
+            return data_translated
+
+        ki_id = data['knowledgeInteractionId']  # type: str
         bindings = data["bindingSet"]  # type: list[dict[str,str]]
-        try:
+        try:  # TODO
             statements_str = [s.strip() for s in KE_PATTERN.splitlines()]
             for bset in bindings:
+                graph = list()
                 for s in self.instantiate_graph(statements_str, bset):
                     match = re.fullmatch(STATEMENT, s)
                     if match is not None:
@@ -242,12 +270,11 @@ class KE_Adaptor(Adaptor):
 
                         graph.append(fact)
 
-                # TODO: make URIs
-                anchors = [v for v in bset if v in bset.keys()]
+                data_translated.append((ki_id, graph))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {bindings}")
 
-        return (graph, anchors)  # TODO: change to yield?
+        return data_translated
 
     def instantiate_graph(self: Self, statements_str: list[str],
                           bindings: dict[str, str]) -> list[str]:

@@ -10,17 +10,16 @@ from threading import Event
 from typing import Collection
 
 import numpy as np
+from gladoss.core.connector import Connector
 from rdf.graph import Statement
-from rdf.terms import Resource
 
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import timeSpanArg
-from gladoss.core.monitor import Monitor
 from gladoss.core.pattern import (GraphPattern,
                                   PatternVault, ValidationReport,
                                   create_graph_pattern, update_graph_pattern)
-from gladoss.core.utils import import_module, init_rng, match_facts_to_patterns
+from gladoss.core.utils import import_class, init_rng
 
 
 logger = logging.getLogger(__name__)
@@ -55,26 +54,26 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport):
     pass
 
 
-def listener(monitor: Monitor, q: Queue) -> None:
-    for facts, anchors in monitor.listen():
-        q.put((facts, anchors))
+def listener(connector: Connector, q: Queue) -> None:
+    for graph, graph_id in connector.listen():
+        q.put((graph, graph_id))
 
 
 def process_observation(rng: np.random.Generator, pv: PatternVault,
-                        facts: Collection[Statement],
-                        anchors: Collection[Resource],
+                        graph: Collection[Statement],
+                        graph_id: str,
                         threshold: int, decay: int):
-    pattern = pv.find_associated_graph_pattern(anchors)
+    pattern = pv.find_associated_graph_pattern(graph_id)
     if pattern is None:
-        logger.debug(f"Associated pattern not found: {facts}")
-        pattern = create_graph_pattern(rng=rng, facts=facts,
-                                       anchors=anchors,
+        logger.debug(f"Associated pattern not found: {graph}")
+        pattern = create_graph_pattern(rng=rng, graph=graph,
+                                       graph_id=graph_id,
                                        threshold=threshold, decay=decay)
         pv.add_pattern(pattern)
 
-    report = create_validation_report(pattern, facts)
+    report = create_validation_report(pattern, graph)
     if report is None:  # no suspicious behaviour detected
-        gp = update_graph_pattern(rng, pattern, facts)
+        gp = update_graph_pattern(rng, pattern, graph)
         pv.update_pattern(gp)
 
     return report
@@ -84,14 +83,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
          flags: argparse.Namespace) -> None:
     logger.info("Initiating Program")
 
-    adaptor = adaptor_cls()
-    monitor = Monitor(adaptor=adaptor,
-                      endpoint=flags.endpoint,
-                      continuous=flags.continuous,
-                      num_retries=flags.retries,
-                      retry_delay=flags.retry_delay,
-                      request_delay=flags.request_delay,
-                      controller=controller)
+    # setup adaptor to translate incoming messages
+    adaptor = adaptor_cls(controller=controller,
+                          endpoint=flags.endpoint)
 
     pv = PatternVault()
 
@@ -101,9 +95,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
     with ThreadPoolExecutor as executor:
         q = Queue()
-        listener_fs = executor.submit(listener, monitor, q)
 
-        jobs_active = {listener_fs}
+        jobs_active = {executor.submit(listener, connector, q)
+                       for connector in adaptor.connectors}
         while len(jobs_active) > 0:
             # check which jobs have been completed
             jobs_completed, _ = wait(jobs_active, return_when=FIRST_COMPLETED)
@@ -113,9 +107,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                 # spawn a new thread for each
                 job = q.get()
 
-                facts, anchors = job
+                graph, graph_id = job
                 job_fs = executor.submit(process_observation, rng, pv,
-                                         facts, anchors, flags.threshold,
+                                         graph, graph_id, flags.threshold,
                                          flags.decay)
                 jobs_active.add(job_fs)
 
@@ -197,7 +191,7 @@ if __name__ == "__main__":
     rng = init_rng(flags.seed)
 
     # import specified adaptor
-    adaptor = import_module(_ADAPTORS, flags.adaptor)
+    adaptor = import_class(_ADAPTORS, flags.adaptor)
 
     # start main loop
     main(rng, adaptor, flags)

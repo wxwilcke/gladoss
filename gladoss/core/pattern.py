@@ -38,8 +38,8 @@ def create_assertion_pattern(rng: np.random.Generator,
 
 
 def create_graph_pattern(rng: np.random.Generator,
-                         facts: Collection[Statement],
-                         anchors: Collection[Resource],
+                         graph: Collection[Statement],
+                         graph_id: str,
                          threshold: int = -1,
                          decay: int = -1) -> GraphPattern:
     """ Return a new graph pattern from the provided facts
@@ -55,9 +55,9 @@ def create_graph_pattern(rng: np.random.Generator,
     """
     # create list of assertion patterns from given set of facts
     pattern = [create_assertion_pattern(rng, assertion)
-               for assertion in facts]
+               for assertion in graph]
 
-    return GraphPattern(pattern=pattern, anchors=anchors,
+    return GraphPattern(pattern=pattern, identifier=graph_id,
                         threshold=threshold, decay=decay)
 
 
@@ -647,16 +647,10 @@ class GraphPattern():
     track of the connections of these assertions.
     """
     def __init__(self, pattern: Collection[AssertionPattern],
-                 anchors: Collection[Resource], threshold: int,
+                 identifier: str, threshold: int,
                  decay: int) -> None:
         self.pattern = list(pattern)
-        self.anchors = sorted(list(anchors))
-
-        # # track which assertion patterns are connected to one or more anchors
-        # self._anchor_connections_head = {ap._id for ap in self.pattern
-        #                                  if ap.head in self.anchors}
-        # self._anchor_connections_tail = {ap._id for ap in self.pattern
-        #                                  if ap.tail in self.anchors}
+        self._id = identifier
 
         id_lst = [ap._id for ap in self.pattern]
         self._id_to_assertion_map = {_id: i for i, _id in enumerate(id_lst)}
@@ -777,7 +771,7 @@ class GraphPattern():
 
     def __deepcopy__(self, memo) -> GraphPattern:
         gp = GraphPattern(pattern=[ap for ap in self.pattern],
-                          anchors=self.anchors,
+                          identifier=self._id,
                           threshold=self.threshold,
                           decay=self.decay)
 
@@ -817,13 +811,12 @@ class PatternVault():
     def add_pattern(self, pattern: GraphPattern) -> None:
         """ Add new graph pattern to pattern vault, by creating a
             new tree with the given pattern as root. This operation
-            uses the anchors as key for the associated tree,
             includes a timestamp to record the moment of creation,
             and is thread safe.
 
         :param pattern: [TODO:description]
         """
-        key = ''.join(pattern.anchors)
+        key = pattern._id
 
         self._lock.acquire()
         try:
@@ -835,7 +828,7 @@ class PatternVault():
             self._lock.release()
 
     def update_pattern(self, pattern: GraphPattern) -> None:
-        key = ''.join(pattern.anchors)
+        key = pattern._id
         try:
             # TODO: compress old version
             # TODO: add timestamp?
@@ -843,15 +836,13 @@ class PatternVault():
         except KeyError:
             return
 
-    def find_associated_graph_pattern(self, anchors: Collection[Resource])\
+    def find_associated_graph_pattern(self, key: str)\
             -> GraphPattern | None:
         """ Find and return the most recent associated graph pattern. This
-            operation uses the anchors as keys and is thread safe.
+            operation is thread safe.
 
-        :param anchors: [TODO:description]
         :return: [TODO:description]
         """
-        key = ''.join(sorted(list(anchors)))
         self._lock.acquire()
         try:
             pattern, _ = self._polytree[key][-1]

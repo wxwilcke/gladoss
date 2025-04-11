@@ -2,12 +2,10 @@
 
 from abc import ABC, abstractmethod
 import logging
-from typing import Any, Optional, Self
-
-import requests
+from threading import Event
+from typing import Any, Self
 
 from rdf.graph import Statement
-from rdf.terms import Resource
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +16,22 @@ class Adaptor(ABC):
         and to then convert these data to a corresponding RDF graph.
     """
 
-    def __init__(self: Self, **kwargs: Optional[str]) -> None:
-        self.context = kwargs
+    def __init__(self: Self, controller: Event,
+                 endpoint: str = "http://127.0.0.1:8000") -> None:
+        self.endpoint = endpoint  # default endpoint
+        self._controller = controller
+
+        self.context = dict()  # share data between functions
+        self.connectors = set()
+
         self.init_hook()
+
+    @abstractmethod
+    def add_connectors(self: Self) -> None:
+        """ Add connectors to adaptor, one for each different endpoint
+            or request type.
+        """
+        pass
 
     @abstractmethod
     def init_hook(self: Self) -> None:
@@ -30,37 +41,59 @@ class Adaptor(ABC):
 
     @abstractmethod
     def cleanup_hook(self: Self) -> None:
-        """ Clean up on exit.
+        """ Execute additional commands on exit.
         """
         pass
 
     @abstractmethod
-    def answer_hook(self: Self, endpoint: str,
-                    session: requests.Session, data: dict[str, str]) -> None:
-        """ Optionally send response to poll return.
+    def set_headers(self: Self) -> dict[str, Any]:
+        """ Returns headers for polling the endpoint. Defaults
+            to empty headers
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
         """
-        pass
+        return dict()
 
     @abstractmethod
-    def get_identifier(self: Self, data: dict[str, Any],
-                       **kwargs: Optional[str]) -> str | int:
-        pass
+    def set_payload(self: Self) -> dict[str, Any]:
+        """ Returns payload for polling the endpoint. Defaults
+            to empty payload.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        return dict()
 
     @abstractmethod
-    def set_headers(self: Self, **kwargs: Optional[str]) -> dict[str, Any]:
-        pass
+    def set_receipt_headers(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns headers for sending a receipt. Defaults
+            to empty headers.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        return dict()
 
     @abstractmethod
-    def set_payload(self: Self, **kwargs: Optional[str]) -> dict[str, Any]:
-        pass
+    def set_receipt_payload(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns payload for sending a receipt. Defaults
+            to empty payload.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        return dict()
 
     @abstractmethod
-    def translate(self: Self, data: dict[str, Any],
-                  **kwargs: Optional[str]) -> list[Statement]:
+    def translate(self: Self, data: dict[str, Any])\
+            -> list[tuple[str, list[Statement]]]:
         """ Translate the received data to RDF.
 
         :param data: data received from API
         :param kwargs: optional keyword arguments
-        :return: a list with statements and anchors
+        :return: a list with statements and their identifier
         """
-        pass
+        return list()

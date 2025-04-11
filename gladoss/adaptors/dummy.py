@@ -4,10 +4,8 @@ import logging
 import re
 from typing import Any, Self
 
-import requests
-
+from gladoss.core.connector import Connector
 from rdf import IRIRef, Literal, Statement
-from rdf.terms import Resource
 
 from gladoss.adaptors.adaptor import Adaptor
 
@@ -27,7 +25,8 @@ LITERAL = re.compile(r"(?P<value>\".*\")(?:"
 class DummyAdaptor(Adaptor):
     """ Adaptor to dummy device for debugging purposes
 
-        Expects data in the form {"data": "s p o . [...]"},
+        Expects data in the form {"label": <STRING>,
+                                  "data": "s p o . [...]"},
         with
         - s, p, o as 'ex:u' or '<http://www.example.org/u>'
         - or o as 'v', 'v@lang', or 'v^^dt'
@@ -35,53 +34,96 @@ class DummyAdaptor(Adaptor):
     """
 
     def init_hook(self: Self) -> None:
+        """ Execute additional commands on initialisation.
+        """
         return super().init_hook()
 
     def cleanup_hook(self: Self) -> None:
+        """ Execute additional commands on exit.
+        """
         return super().cleanup_hook()
 
-    def answer_hook(self: Self, endpoint: str, session: requests.Session,
-                    data: dict[str, str]) -> None:
-        return super().answer_hook(endpoint, session, data)
+    def set_headers(self: Self) -> dict[str, Any]:
+        """ Returns headers for polling the endpoint. Defaults
+            to empty headers
 
-    def set_headers(self: Self, **kwargs) -> dict[str, Any]:
-        return {"program": "GLADoSS"}
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        return {"adaptor": "dummy"}
 
-    def set_payload(self: Self, **kwargs) -> dict[str, Any]:
-        return {"name": "Dummy"}
+    def set_payload(self: Self) -> dict[str, Any]:
+        """ Returns payload for polling the endpoint. Defaults
+            to empty payload.
 
-    def get_identifier(self: Self, data: dict[str, Any], **kwargs)\
-            -> str:
-        try:
-            message_id = data['graph']
-            return message_id
-        except KeyError:
-            raise KeyError("Expects graph identifier to be specified in "
-                           + "header with key 'graph'")
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
 
-    def translate(self: Self, data: dict[str, str], **kwargs)\
-            -> list[Statement]:
+        return super().set_payload()
+
+    def set_receipt_headers(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns headers for sending a receipt. Defaults
+            to empty headers.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+
+        return super().set_receipt_headers(data)
+
+    def set_receipt_payload(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns payload for sending a receipt. Defaults
+            to empty payload.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+
+        return super().set_receipt_payload(data)
+
+    def add_connectors(self: Self) -> None:
+        """ Add connectors to adaptor, one for each different endpoint
+            or request type.
+        """
+        self.connectors.add(Connector(
+            adaptor=self,
+            endpoint=self.endpoint
+            ))
+
+    def translate(self: Self, data: dict[str, Any])\
+            -> list[tuple[str, list[Statement]]]:
         """ Translate dummy data to RDF.
 
         :param data: data received from API
-        :return: A list of RDF statements and anchors
+        :return: A list of RDF statements and their identifier
         :raises SyntaxWarning: warn if translation fails
         """
-        graph = list()
+        data_translated = list()
         if "data" not in data.keys() or len(data["data"]) <= 0:
             logging.debug("Missing content in data package")
-            return graph
+            return data_translated
 
-        graph_str = data["data"].strip()
+        if "label" not in data.keys():
+            logging.debug("Missing graph identifier in data package")
+            return data_translated
+
+        graph_id = data['label']  # type: str
+        graph_str = data['data'].strip()  # tyoe: str
         try:
+            graph = list()
             for match in re.finditer(STATEMENT, graph_str):
                 logging.debug(match.groupdict())
                 fact = self.process_fact(match)
                 graph.append(fact)
+
+            data_translated.append((graph_id, graph))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {graph_str}")
 
-        return graph
+        return data_translated
 
     def process_fact(self: Self, match: re.Match) -> Statement:
         """ Process single string-encoded fact and return a RDF statement.
