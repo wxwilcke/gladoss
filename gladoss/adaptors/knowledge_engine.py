@@ -123,6 +123,7 @@ class KE_Adaptor(Adaptor):
 
         # use context to share data between hooks
         self.context['knowledgeInteractions'] = dict()
+        self.context['argumentGraphPatterns'] = dict()
 
         kb_id = conf['knowledgeBaseId']
         kb_name = conf['knowledgeBaseName']
@@ -133,10 +134,11 @@ class KE_Adaptor(Adaptor):
                 # keep track of registered knowledge interactions
                 self.context['knowledgeInteractions'][ki_endpoint] = set()
 
+            ki_pattern = ki['argumentGraphPattern']
             ki_payload = {
                     'knowledgeInteractionType': "ReactKnowledgeInteraction",
                     'knowledgeInteractionName': ki['knowledgeInteractionName'],
-                    'argumentGraphPattern': ki['argumentGraphPattern'],
+                    'argumentGraphPattern': ki_pattern,
                     'resultGraphPattern': "",  # empty response
                     'prefixes': ki['prefixes']
                     }
@@ -152,10 +154,14 @@ class KE_Adaptor(Adaptor):
                     continue
 
                 self.context['knowledgeInteractions'][ki_endpoint].add(ki_id)
+                self.context['argumentGraphPatterns'][ki_id] = ki_pattern
             except Exception as e:
                 logger.error(f"Unable to register at endpoint: {e}.")
 
         self.context['knowledgeBaseId'] = kb_id
+
+        # necessary for knowledge engine
+        self.config.return_receipt = True
 
     def cleanup_hook(self: Self):
         """ Deregister the knowledge base and all associated knowledge
@@ -175,7 +181,12 @@ class KE_Adaptor(Adaptor):
         for ki_endpoint in self.context['knowledgeInteractions'].keys():
             self.connectors.add(Connector(
                 adaptor=self,
-                endpoint=ki_endpoint + "/sc/handle"
+                endpoint=ki_endpoint + "/sc/handle",
+                continuous=self.config.continues,
+                num_retries=self.config.retries,
+                retry_delay=self.config.retry_delay,
+                request_delay=self.config.request_delay,
+                return_receipt=self.config.return_receipt
                 ))
 
     def set_headers(self: Self) -> dict[str, Any]:
@@ -258,9 +269,15 @@ class KE_Adaptor(Adaptor):
             return data_translated
 
         ki_id = data['knowledgeInteractionId']  # type: str
+        if ki_id not in self.context['argumentGraphPatterns'].keys():
+            logging.debug("Unable to find argument graph pattern associated "
+                          + f"with knowledge interaction {ki_id}")
+            return data_translated
+
+        ki_pattern = self.context['argumentGraphPatterns'][ki_id]  # type: str
         bindings = data["bindingSet"]  # type: list[dict[str,str]]
-        try:  # TODO
-            statements_str = [s.strip() for s in KE_PATTERN.splitlines()]
+        try:
+            statements_str = [s.strip() for s in ki_pattern.splitlines()]
             for bset in bindings:
                 graph = list()
                 for s in self.instantiate_graph(statements_str, bset):

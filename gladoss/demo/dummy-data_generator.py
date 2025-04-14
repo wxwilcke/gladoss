@@ -11,7 +11,7 @@ import tomllib
 import numpy as np
 import scipy as sp
 
-from gladoss.core.utils import init_rng
+from gladoss.core.utils import init_rng, gen_id
 
 
 # TODO: Add ability to inject anomalies into the generated data
@@ -25,25 +25,6 @@ FILENAME_CONF = "dummy-data.toml"
 FILENAME_DATA = "dummy-data.json"
 
 XSD_NS = "http://www.w3.org/2001/XMLSchema#"
-
-
-def gen_id(rng: np.random.Generator) -> str:
-    """ Generate a random alphanumeric identifier.
-
-    :param rng: [TODO:description]
-    :return: [TODO:description]
-    """
-    a, z = 97, 122
-    i_l, i_h = 48, 57
-
-    # generate vocabulary
-    ascii_lst = [chr(i) for i in range(a, z+1)]\
-        + [chr(i) for i in range(i_l, i_h+1)]
-
-    # sample vocabulary
-    id_lst = rng.choice(ascii_lst, size=20)
-
-    return 'U' + ''.join(id_lst)
 
 
 def mkstatic(rng: np.random.Generator, conf: list[dict[str, Any]],
@@ -214,7 +195,7 @@ def mkdynamic(rng: np.random.Generator, conf: list[dict[str, Any]],
     return out
 
 
-def mkdata(pattern: str, anchors: dict[str, str],
+def mkdata(label: str, pattern: str, anchors: dict[str, str],
            variables: dict[str, list[str]], samplesize: int)\
                    -> list[dict[str, str]]:
     """ Combine generated data with provided pattern by replacing
@@ -235,7 +216,7 @@ def mkdata(pattern: str, anchors: dict[str, str],
         for var, binding_lst in variables.items():
             g = g.replace('?'+var, binding_lst[i])
 
-        out.append({"data": g.strip()})
+        out.append({'label': label, 'data': g.strip()})
 
     return out
 
@@ -257,18 +238,16 @@ def main(conf: dict[str, Any], flags: argparse.Namespace)\
         static_nodes = entry['static']
         namespace = entry['namespace']
 
+        # generate graph label
+        label = gen_id(rng)
+
         # generate values
         anchors = mkstatic(rng, static_nodes, namespace)
         variables = mkdynamic(rng, dynamic_nodes, namespace, samplesize)
 
         # generate data
         pattern = entry['pattern']
-        samples = mkdata(pattern, anchors, variables, samplesize)
-
-        # add anchers
-        anchors_value = list(anchors.values())
-        for sample in samples:
-            sample.update({"anchors": anchors_value})
+        samples = mkdata(label, pattern, anchors, variables, samplesize)
 
         data.append(samples)
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+from argparse import Namespace
 from datetime import timedelta
 import re
+from types import SimpleNamespace
 
 
 def integerRangeArg(arg: str) -> range:
@@ -63,3 +65,16 @@ def timeSpanArg(arg: str) -> timedelta:
         raise Exception()
 
     return delta
+
+
+def create_namespace_subset(namespace: Namespace,
+                            members: list) -> SimpleNamespace:
+    """ Return a subset of the provided namespace which only
+        holds the specified members (if present).
+
+    :param namespace: [TODO:description]
+    :param members: [TODO:description]
+    :return: [TODO:description]
+    """
+    return SimpleNamespace(**{arg: getattr(namespace, arg, None)
+                              for arg in members})

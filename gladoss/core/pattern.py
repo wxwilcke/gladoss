@@ -8,6 +8,7 @@ from enum import Enum, auto
 from threading import Lock
 import logging
 import sys
+from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional, Collection, Set, Union
 
 import numpy as np
@@ -54,15 +55,16 @@ def create_graph_pattern(rng: np.random.Generator,
     :return: [TODO:description]
     """
     # create list of assertion patterns from given set of facts
-    pattern = [create_assertion_pattern(rng, assertion)
-               for assertion in graph]
+    gpattern = [create_assertion_pattern(rng, assertion)
+                for assertion in graph]
 
-    return GraphPattern(pattern=pattern, identifier=graph_id,
+    return GraphPattern(pattern=gpattern, identifier=graph_id,
                         threshold=threshold, decay=decay)
 
 
 def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
-                         facts: Collection[Statement]) -> GraphPattern:
+                         facts: Collection[Statement],
+                         config: SimpleNamespace) -> GraphPattern:
     """ Return an updated copy of the provided graph pattern by
         first pairing the provided statements with their associated
         assertion patterns, and by then updating these patterns
@@ -76,7 +78,7 @@ def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
     fact_ap_pairs, unmatched = match_facts_to_patterns(
             facts,
             gPattern.pattern)
-    ap_upd = {ap.update_from(fact) for fact, ap in fact_ap_pairs}
+    ap_upd = {ap.update_from(fact, config) for fact, ap in fact_ap_pairs}
 
     # find pairs for assertion patterns under consideration
     # only consider the facts that haven't been matched in the previous step
@@ -86,7 +88,7 @@ def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
                 unmatched,
                 gPattern._under_consideration)
 
-        uc_upd = {ap.update_from(fact) for fact, ap in fact_uc_pairs}
+        uc_upd = {ap.update_from(fact, config) for fact, ap in fact_uc_pairs}
 
     # create new assertion patterns for unmatched observations
     ap_new = {AssertionPattern.create_from(rng, fact)
@@ -135,8 +137,8 @@ class Distribution():
 
     @staticmethod
     def create_from(rng: np.random.Generator,
-                    resource: Resource, sample_size: int,
-                    decay: int) -> Distribution:
+                    resource: Resource, samplesize: int,
+                    decay: int, resolution: int) -> Distribution:
         """ Create new distribution from the given resource. Infers
             datatype from semantic annotations or, if unavailable,
             using python heuristics. Once created, the given resource
@@ -156,12 +158,13 @@ class Distribution():
             # creae new distribution
             if dtype in XSD_CONTINUOUS:
                 dist = ContinuousDistribution(rng=rng,
-                                              sample_size=sample_size,
+                                              samplesize=samplesize,
+                                              resolution=resolution,
                                               decay=decay,
                                               dtype=dtype)
             elif dtype in XSD_DISCRETE:
                 dist = DiscreteDistribution(rng=rng,
-                                            sample_size=sample_size,
+                                            samplesize=samplesize,
                                             decay=decay,
                                             dtype=dtype)
             else:
@@ -169,12 +172,12 @@ class Distribution():
 
             # cast value to appropriate format and add to distribution
             value = cast_literal(dtype, resource.value)
-            dist.addSample(value)
+            dist.addSample(value)  # type: ignore
 
         else:  # IRIRef
             # create a new distribution and add values
             dist = DiscreteDistribution(rng=rng,
-                                        sample_size=sample_size,
+                                        samplesize=samplesize,
                                         decay=decay)
 
             dist.addSample(resource)
@@ -227,14 +230,14 @@ class ContinuousDistribution(Distribution):
     _N = "\N{MATHEMATICAL BOLD SCRIPT CAPITAL N}"
 
     def __init__(self, rng: np.random.Generator, decay: int = -1,
-                 sample_size: int = 10, resolution: int = -1,
+                 samplesize: int = 10, resolution: int = -1,
                  dtype: Optional[IRIRef] = None) -> None:
         """ Continuous distribution over Real numbers.
 
         :param decay: time until seen sample is forgotten
         :param resolution: number of significant figures
         """
-        super().__init__(rng, sample_size, decay, dtype)
+        super().__init__(rng, samplesize, decay, dtype)
         self.resolution = resolution
 
         self.shape = tuple()
@@ -339,7 +342,7 @@ class ContinuousDistribution(Distribution):
         :return: [TODO:description]
         """
         dist = ContinuousDistribution(rng=self._rng, decay=self.decay,
-                                      sample_size=self.sample_size,
+                                      samplesize=self.samplesize,
                                       resolution=self.resolution)
 
         dist.samples = Counter(self.samples.elements())
@@ -359,13 +362,13 @@ class ContinuousDistribution(Distribution):
 
 
 class DiscreteDistribution(Distribution):
-    def __init__(self, rng: np.random.Generator, sample_size: int = 10,
+    def __init__(self, rng: np.random.Generator, samplesize: int = 10,
                  decay: int = -1, dtype: Optional[IRIRef] = None) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
         """
-        super().__init__(rng, sample_size, decay, dtype)
+        super().__init__(rng, samplesize, decay, dtype)
 
         self.n = 0
         self.k = list()
@@ -445,7 +448,7 @@ class DiscreteDistribution(Distribution):
         :return: [TODO:description]
         """
         dist = DiscreteDistribution(rng=self._rng,
-                                    sample_size=self.sample_size,
+                                    samplesize=self.samplesize,
                                     decay=self.decay)
 
         dist.samples = Counter(self.samples.elements())
@@ -535,8 +538,8 @@ class AssertionPattern():
                                 identifier=gen_id(rng))
 
     def update_from(self, rng: np.random.Generator,
-                    assertion: Statement, sample_size: int,
-                    decay: int) -> AssertionPattern:
+                    assertion: Statement, config: SimpleNamespace)\
+            -> AssertionPattern:
         """ Update the assertion pattern with a new observation
             by copying the pattern and updating its head and/or
             tail elements. Creates a new distribution on the head
@@ -566,9 +569,11 @@ class AssertionPattern():
             dist = reference
             if not isinstance(reference, Distribution):
                 # create a new distribution and add values
-                dist = Distribution.create_from(rng=rng, resource=reference,
-                                                sample_size=sample_size,
-                                                decay=decay)
+                dist = Distribution.create_from(
+                        rng=rng, resource=reference,
+                        samplesize=config.pattern_samplesize,
+                        decay=config.pattern_decay,
+                        resolution=config.pattern_resolution)
             if isinstance(resource, Literal):
                 dtype = infer_datatype(resource)
                 assert dist.dtype == dtype
@@ -590,7 +595,7 @@ class AssertionPattern():
             ap_upd.head = update_element(ap_upd.head, assertion.subject)
 
         # evaluate tail if necessary
-        if not (type(ap_upd.tail) is type(assertion.obbject)
+        if not (type(ap_upd.tail) is type(assertion.object)
                 and ap_upd.tail == assertion.object):
             ap_upd.tail = update_element(ap_upd.tail, assertion.object)
 
@@ -649,9 +654,15 @@ class GraphPattern():
     def __init__(self, pattern: Collection[AssertionPattern],
                  identifier: str, threshold: int,
                  decay: int) -> None:
-        self.pattern = list(pattern)
+        self.pattern = sorted(list(pattern))
         self._id = identifier
 
+        # keep track of time
+        # time is incremented on update or manually
+        self._t = 0
+
+        # identifiers of the assertion patterns that make up the graph pattern
+        # track location in list for fast retrieval
         id_lst = [ap._id for ap in self.pattern]
         self._id_to_assertion_map = {_id: i for i, _id in enumerate(id_lst)}
 
@@ -663,9 +674,6 @@ class GraphPattern():
         # removing it from the pattern of nominal behaviour
         self.decay = decay
 
-        self._t = 0
-        self._decay_tracker = dict()
-
         # track frequencyof assertions by their identifiers
         self._freq_tracker = Counter(id_lst)
 
@@ -674,27 +682,37 @@ class GraphPattern():
         self._id_to_consideration_map = dict()
 
         # schedule future decay of assertion patterns
+        self._decay_tracker = dict()
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
             self._decay_tracker[t_decay] = id_lst
 
     def update_from(self, aPatterns: Collection[AssertionPattern])\
             -> GraphPattern:
+        """ Return a copy of this graph pattern that has been updated
+            with the provided assertion patterns (new observations).
+            The updated graph pattern will be fowarded in time by
+            a single epoch.
+
+        :param aPatterns: [TODO:description]
+        :return: [TODO:description]
+        """
         gp = deepcopy(self)
 
         # update assertion patterns
         for ap in aPatterns:
             if ap._id not in gp._freq_tracker.keys():
-                # add unknown assertion for consideration
+                # unknown assertion pattern: add for consideration
                 gp._under_consideration.append(ap)
                 gp._id_to_consideration_map[ap._id]\
                     = len(gp._under_consideration) - 1
                 gp._freq_tracker[ap._id] = 0
             elif ap._id in gp._id_to_assertion_map.keys():
+                # known member of the current graph pattern
                 i = gp._id_to_assertion_map[ap._id]
                 gp.pattern[i] = ap  # replace with updated ap
-            else:  # under consideration
-                i = gp._id_to_assertion_map[ap._id]
+            else:  # known assertion pattern under consideration
+                i = gp._id_to_consideration_map[ap._id]
                 gp._under_consideration[i] = ap
 
             gp._freq_tracker[ap._id] += 1  # increase count
@@ -808,7 +826,7 @@ class PatternVault():
         self._polytree = dict()
         self._lock = Lock()
 
-    def add_pattern(self, pattern: GraphPattern) -> None:
+    def add_graph_pattern(self, pattern: GraphPattern) -> None:
         """ Add new graph pattern to pattern vault, by creating a
             new tree with the given pattern as root. This operation
             includes a timestamp to record the moment of creation,
@@ -823,18 +841,68 @@ class PatternVault():
             assert key not in self._polytree.keys()
             self._polytree[key] = [(pattern, datetime.now())]
         except Exception as e:
-            logger.error(f"Unable to add new pattern to pattern vault: {e}")
+            logger.error(f"Unable to add new pattern vault entry: {e}")
         finally:
             self._lock.release()
 
-    def update_pattern(self, pattern: GraphPattern) -> None:
+    def rmv_graph_pattern(self, pattern: GraphPattern) -> None:
+        """ Remove registered graph pattern from the vault. This
+            operation removes the entire tree and is thread safe.
+
+        :param pattern: [TODO:description]
+        """
         key = pattern._id
+
+        self._lock.acquire()
+        try:
+            assert key in self._polytree.keys()
+            del self._polytree[key]
+        except Exception as e:
+            logger.error(f"Unable to remove pattern vault entry: {e}")
+        finally:
+            self._lock.release()
+
+    def prune_graph_pattern(self, pattern: Optional[GraphPattern]) -> None:
+        """ Prune the tree of the provided graph pattern by replacing
+            the entire tree with a new tree that only contains the
+            most recent graph pattern. Do this for all registered
+            graph patterns if none is provided. This operation is
+            thread safe
+
+        :param pattern: [TODO:description]
+        """
+        prune_lst = [pattern]
+        if pattern is None:
+            prune_lst = [pattern._id for pattern in self._polytree.keys()]
+
+        self._lock.acquire()
+        try:
+            for key in prune_lst:
+                assert key in self._polytree.keys()
+                self._polytree[key] = [self._polytree[key][-1]]
+        except Exception as e:
+            logger.error(f"Unable to prune pattern vault entry: {e}")
+        finally:
+            self._lock.release()
+
+    def update_graph_pattern(self, pattern: GraphPattern) -> None:
+        """ Update registered graph pattern by adding the updated
+            pattern as a new leaf to the tree. The previous version
+            of the pattern automatically becomes a non-terminal
+            vertex in the tree. This operation is thread safe.
+
+        :param pattern: [TODO:description]
+        """
+        key = pattern._id
+
+        self._lock.acquire()
         try:
             # TODO: compress old version
-            # TODO: add timestamp?
             self._polytree[key].append((pattern, datetime.now()))
-        except KeyError:
-            return
+        except Exception as e:
+            logger.error(f"Unable to update pattern vault entry: {e}")
+        finally:
+            self._lock.release()
 
     def find_associated_graph_pattern(self, key: str)\
             -> GraphPattern | None:
@@ -851,6 +919,9 @@ class PatternVault():
             return None
         finally:
             self._lock.release()
+
+    def __len__(self) -> int:
+        return len(self._polytree.keys())
 
 
 class ValidationReport():

@@ -1,18 +1,13 @@
 #!/usr/bin/env python
 
 from collections import Counter
-import operator
 import importlib
 import logging
-from queue import Queue
 import sys
-from types import ModuleType
-from typing import Collection, Optional, Sequence
+from typing import Collection, Optional
 
 import numpy as np
-import scipy as sp
 from gladoss.adaptors.adaptor import Adaptor
-from gladoss.core.pattern import AssertionPattern, GraphPattern
 from rdf import Statement, IRIRef, RDF, Literal
 
 logger = logging.getLogger(__name__)
@@ -108,7 +103,7 @@ logger = logging.getLogger(__name__)
 
 def match_facts_to_patterns(
         facts: Collection[Statement],
-        aPatterns: Collection[AssertionPattern])\
+        aPatterns: Collection['AssertionPattern'])\
                 -> tuple[list[tuple], set]:
     """ Find pairs of facts with associated assertion patterns
         by first trying to match on relations, iff unique, and
@@ -136,6 +131,7 @@ def match_facts_to_patterns(
                     matches.append(ap)
                 elif ap.strong_match(fact):
                     # match on relation-object value
+                    # TODO: implement
                     matches.append(ap)
             else:  # one-on-one match with relations
                 if ap.relation == fact.predicate:

@@ -90,7 +90,12 @@ class DummyAdaptor(Adaptor):
         """
         self.connectors.add(Connector(
             adaptor=self,
-            endpoint=self.endpoint
+            endpoint=self.config.endpoint,
+            continuous=self.config.continues,
+            num_retries=self.config.retries,
+            retry_delay=self.config.retry_delay,
+            request_delay=self.config.request_delay,
+            return_receipt=self.config.return_receipt
             ))
 
     def translate(self: Self, data: dict[str, Any])\

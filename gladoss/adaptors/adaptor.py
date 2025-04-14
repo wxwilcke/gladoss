@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 import logging
 from threading import Event
+from types import SimpleNamespace
 from typing import Any, Self
 
 from rdf.graph import Statement
@@ -17,14 +18,17 @@ class Adaptor(ABC):
     """
 
     def __init__(self: Self, controller: Event,
-                 endpoint: str = "http://127.0.0.1:8000") -> None:
-        self.endpoint = endpoint  # default endpoint
+                 config: SimpleNamespace) -> None:
+
+        self.config = config
         self._controller = controller
 
         self.context = dict()  # share data between functions
         self.connectors = set()
 
         self.init_hook()
+
+        self.add_connectors()
 
     @abstractmethod
     def add_connectors(self: Self) -> None:
