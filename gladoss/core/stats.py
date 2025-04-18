@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from collections import Counter
+from enum import Enum, auto
 import logging
 from typing import Any, Optional
 import sys
@@ -197,10 +198,6 @@ class ContinuousDistribution(Distribution):
 
         return float(f"%.{self.resolution}g" % sample)
 
-    def fit(self) -> None:
-        samples = np.array(list(self.samples.elements()))
-        bs_result = sp.stats.bootstrap
-
 #    def fit(self, num_samples: int = 100) -> None:
 #        """ Compute distribution parameters for a randomly selected
 #            subset of observed samples. Note that the results are
@@ -312,72 +309,72 @@ class DiscreteDistribution(Distribution):
         self.k = list()
         self.p = 0.
 
-    def fit(self) -> None:
-        # FIXME: check if needed (why not on the fly?)
-        # fit multinomial distribution (k >=2, n >= 1)
-
-        # FIXME: Placeholder
-        self.n = self.samplesize
-        self.k = self.samples
-        self.p = [k/self.n for k in self.k]
-
-    def prob(self, sample: Any) -> tuple[float, tuple[float, float]]:
-        """ Compute probability P of observing sample s given
-            distribution parameters theta and past W observed
-            samples, with W the sample_size size.
-
-        :param sample: [TODO:description]
-        :return: [TODO:description]
-        """
-        if sample not in self.samples.keys():
-            logger.info("Provides sample is out-of-distribution")
-            return 0., (0., 0.)
-        if self.samples.total() < self.samplesize:
-            logger.info("sample_size size exceeds number of observed samples")
-
-        # time window and corresponding samples TODO: disconnect from decay
-        t_max = max(self._decay_tracker.keys())
-        window = [t for t in self._decay_tracker.keys()
-                  if t in range(t_max-self.samplesize, t_max+1)]
-        samples = [v for t in window for v in self._decay_tracker[t]]
-
-        # add observed sample
-        samples.append(sample)
-
-        # compute counts and probabilities
-        samples_counter = Counter(samples)
-        x, p = list(), list()
-        sample_i = -1
-        for i, (value, freq) in enumerate(samples_counter.items()):
-            x.append(freq)
-            p.append(freq/self.samplesize)
-
-            if value == sample:
-                # keep track of sample index
-                sample_i = i
-
-        # compute probability
-        prob = sp.stats.multinomial.pmf(x=x, n=len(samples), p=p)
-        # FIXME: idea: compare to ideal prob?
-
-        # compute confidence interval - recast problem as computing
-        # binomial CI of observing vs not observing sample
-        binom_result = sp.stats.binomtest(k=x[sample_i],
-                                          n=self.samplesize,
-                                          p=p[sample_i])
-        ci_lb, ci_hb = binom_result.proportion_ci(confidence_level=0.95,
-                                                  method='wilsoncc')
-
-        return prob, (ci_lb, ci_hb)
-
-    def loglikelihood(self) -> float:
-        """ Return log likelihood L of the distribution parameters theta
-            given the observed samples S: L(theta|S)
-
-        :return: a goodness of fit measurement
-        """
-        pass
-
+#     def fit(self) -> None:
+#         # FIXME: check if needed (why not on the fly?)
+#         # fit multinomial distribution (k >=2, n >= 1)
+# 
+#         # FIXME: Placeholder
+#         self.n = self.samplesize
+#         self.k = self.samples
+#         self.p = [k/self.n for k in self.k]
+# 
+#     def prob(self, sample: Any) -> tuple[float, tuple[float, float]]:
+#         """ Compute probability P of observing sample s given
+#             distribution parameters theta and past W observed
+#             samples, with W the sample_size size.
+# 
+#         :param sample: [TODO:description]
+#         :return: [TODO:description]
+#         """
+#         if sample not in self.samples.keys():
+#             logger.info("Provides sample is out-of-distribution")
+#             return 0., (0., 0.)
+#         if self.samples.total() < self.samplesize:
+#             logger.info("sample_size size exceeds number of observed samples")
+# 
+#         # time window and corresponding samples TODO: disconnect from decay
+#         t_max = max(self._decay_tracker.keys())
+#         window = [t for t in self._decay_tracker.keys()
+#                   if t in range(t_max-self.samplesize, t_max+1)]
+#         samples = [v for t in window for v in self._decay_tracker[t]]
+# 
+#         # add observed sample
+#         samples.append(sample)
+# 
+#         # compute counts and probabilities
+#         samples_counter = Counter(samples)
+#         x, p = list(), list()
+#         sample_i = -1
+#         for i, (value, freq) in enumerate(samples_counter.items()):
+#             x.append(freq)
+#             p.append(freq/self.samplesize)
+# 
+#             if value == sample:
+#                 # keep track of sample index
+#                 sample_i = i
+# 
+#         # compute probability
+#         prob = sp.stats.multinomial.pmf(x=x, n=len(samples), p=p)
+#         # FIXME: idea: compare to ideal prob?
+# 
+#         # compute confidence interval - recast problem as computing
+#         # binomial CI of observing vs not observing sample
+#         binom_result = sp.stats.binomtest(k=x[sample_i],
+#                                           n=self.samplesize,
+#                                           p=p[sample_i])
+#         ci_lb, ci_hb = binom_result.proportion_ci(confidence_level=0.95,
+#                                                   method='wilsoncc')
+# 
+#         return prob, (ci_lb, ci_hb)
+# 
+#     def loglikelihood(self) -> float:
+#         """ Return log likelihood L of the distribution parameters theta
+#             given the observed samples S: L(theta|S)
+# 
+#         :return: a goodness of fit measurement
+#         """
+#         pass
+# 
     def __deepcopy__(self, memo) -> DiscreteDistribution:
         """ Create a copy which deepcopies only the dynamic
             elements whereas it creates references to static
@@ -405,29 +402,92 @@ class DiscreteDistribution(Distribution):
     def __str__(self) -> str:
         pass
 
-def test_statistic_discrete(samples: np.ndarray, **kwargs) -> np.ndarray:
-    key_index = kwargs['key_index']
+
+def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\
+        -> np.ndarray:
+    """ Compute proportions for each unique sample in the data.
+        Adds NaN for elements that are present in the population
+        (and thus in the provided sample index) yet which are absent
+        from the provided sample. The output is ordered as specified
+        in the provided sample index.
+
+    :param samples: [TODO:description]
+    :param samples_idx: [TODO:description]
+    :return: [TODO:description]
+    """
     counter = Counter([v for v in samples])
 
     n = len(samples)
-    proportions = np.zeros(len(key_index), dtype=float)
+    proportions = np.array([np.nan] * len(samples_idx), dtype=float)
     for k in counter.keys():
         p = counter[k] / n  # proportion in sample
 
-        proportions[key_index[k]] = p  # TODO: as Python object
+        proportions[samples_idx[k]] = p
 
-    return proportions
+    return proportions  # TODO: add stdev?
 
-def test_statistic_continuous(samples: np.ndarray, **kwargs) -> np.ndarray:
-    return np.mean(samples), np.median(samples), np.var(samples)
+
+def test_statistic_continuous(samples: np.ndarray, samples_idx: dict) ->\
+        tuple[np.floating, np.floating, np.floating]:
+    """ Compute the mean, median, and sample standard deviation
+        for the provided sample.
+
+    :param samples: [TODO:description]
+    :return: [TODO:description]
+    """
+    mean = np.mean(samples)
+    stdev = np.std(samples, mean=mean, ddof=1)  # sample stdev
+    median = np.median(samples)
+
+    return mean, stdev, median
+
+
+class HypothesisTest(Enum):
+    REJECT_H0 = auto()
+    NOT_REJECT_H0 = auto()
+
+
+def two_sample_hypothesis_test(rng: np.random.Generator,
+                               sample_a: np.ndarray,
+                               sample_b: np.ndarray,
+                               test_statistic_func,
+                               num_samples: int,
+                               num_resamples: int,
+                               alpha: float) -> HypothesisTest:
+    """ Compute the p-values for a two-sample hypothesis test via
+        the bootstrap method, and return a majority vote over the
+        test statistics that either support rejecting or not
+        rejecting the null hypothesis at the provided significance
+        level alpha.
+
+    :param rng: [TODO:description]
+    :param sample_a: [TODO:description]
+    :param sample_b: [TODO:description]
+    :param test_statistic_func [TODO:type]: [TODO:description]
+    :param num_samples: [TODO:description]
+    :param num_resamples: [TODO:description]
+    :param alpha: [TODO:description]
+    :return: [TODO:description]
+    """
+    # compute p-values via bootstrap method
+    p_values = two_sample_bootstrap_hypothesis_test(rng, sample_a, sample_b,
+                                                    test_statistic_func,
+                                                    num_samples, num_resamples)
+
+    # majority vote over test statistics
+    reject_h0_lst = (p_values < alpha/2) | (p_values > 1 - alpha/2)
+    reject_h0 = (reject_h0_lst.sum() / len(reject_h0_lst)) > 0.5
+
+    return HypothesisTest.REJECT_H0 if reject_h0\
+        else HypothesisTest.NOT_REJECT_H0
+
 
 def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
                                          sample_a: np.ndarray,
                                          sample_b: np.ndarray,
                                          test_statistic_func,
                                          num_samples: int,
-                                         num_resamples: int,
-                                         **kwargs) -> np.ndarray:
+                                         num_resamples: int) -> np.ndarray:
     """ Compute the p-values for a two-sample hypothesis test. The Bootstrap
         method is used to generate an emperical discrete distribution as an
         approximation of the actual distribution, from which the test
@@ -450,6 +510,13 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
     :param num_resamples: [TODO:description]
     :return: [TODO:description]
     """
+    # TODO: reuse results from previous calls if provided?
+
+    # generate index for unique elements
+    samples_uniq = np.union1d(np.unique(sample_a), np.unique(sample_b))
+    samples_idx = {sample: i for i, sample in enumerate(samples_uniq)}
+
+    # bootstrap method
     results_a, results_b = list(), list()
     for samples, results in [(sample_a, results_a),
                              (sample_b, results_b)]:
@@ -458,10 +525,30 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
             sample_hat = rng.choice(samples, size=num_samples, replace=True)
 
             # compute test statistics and store the results
-            results.append(test_statistic_func(sample_hat, **kwargs))
+            results.append(test_statistic_func(sample_hat, samples_idx))
 
-    # compute p-values
-    results = np.array(results_a) < np.array(results_b)
-    results = results.sum(axis=0) / num_resamples
+    # convert to <num resamples> x <num test statistics> arrays
+    results_a = np.array(results_a)
+    results_b = np.array(results_b)
 
-    return results
+    # Count number of invalid comparisons (where either or both are NaN)
+    # for each test statistic separately.
+    num_nan = np.count_nonzero(np.isnan(results_a) | np.isnan(results_b),
+                               axis=0)
+
+    # Test hypothesis and aAggregate results per test statistic.
+    # Remove zeros if present (caused by values in A yet not in B)
+    results = (results_a < results_b).sum(axis=0)
+    nonzero_mask = results.nonzero()
+    results = results[nonzero_mask]  # omit zeros
+
+    # Subtract invalid comparisons per statistic from the denominator since
+    # these should not impact the final proportion.
+    num_tests = results_a.shape[1]  # number of test statistics per row
+    num_resamples_adjusted = np.tile(num_resamples, reps=num_tests) - num_nan
+    num_resamples_adjusted = num_resamples_adjusted[nonzero_mask]
+
+    # Compute p-values by counting the proportion of values that support H0.
+    p_values = results / num_resamples_adjusted
+
+    return p_values
