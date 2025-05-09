@@ -70,6 +70,28 @@ class Adaptor(ABC):
         return dict()
 
     @abstractmethod
+    def set_report_headers(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns headers for publishing the validation report
+            to the endpoint. Defaults to empty headers
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        return dict()
+
+    @abstractmethod
+    def set_report_payload(self: Self, data: dict[str, Any])\
+            -> dict[str, Any]:
+        """ Returns payload for publishing the validation report
+            to the endpoint. Defaults to empty payload.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+        return dict()
+
+    @abstractmethod
     def set_receipt_headers(self: Self, data: dict[str, Any])\
             -> dict[str, Any]:
         """ Returns headers for sending a receipt. Defaults

@@ -334,19 +334,19 @@ class GraphPattern():
 
         # update assertion patterns
         for ap in aPatterns:
-            if ap._id not in gp._freq_tracker.keys():
-                # unknown assertion pattern: add for consideration
+            if ap._id in gp._id_to_assertion_map.keys():
+                # known member of the current graph pattern
+                i = gp._id_to_assertion_map[ap._id]
+                gp.pattern[i] = ap  # replace with updated ap
+            elif ap._id in gp._id_to_consideration_map.keys():
+                # known assertion pattern under consideration
+                i = gp._id_to_consideration_map[ap._id]
+                gp._under_consideration[i] = ap
+            else:  # unknown assertion pattern: add for consideration
                 gp._under_consideration.append(ap)
                 gp._id_to_consideration_map[ap._id]\
                     = len(gp._under_consideration) - 1
                 gp._freq_tracker[ap._id] = 0
-            elif ap._id in gp._id_to_assertion_map.keys():
-                # known member of the current graph pattern
-                i = gp._id_to_assertion_map[ap._id]
-                gp.pattern[i] = ap  # replace with updated ap
-            else:  # known assertion pattern under consideration
-                i = gp._id_to_consideration_map[ap._id]
-                gp._under_consideration[i] = ap
 
             gp._freq_tracker[ap._id] += 1  # increase count
 

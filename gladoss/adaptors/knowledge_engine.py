@@ -48,7 +48,7 @@ class KE_Adaptor(Adaptor):
     """
 
     def register_kb(self: Self, endpoint: str, kb_id: str, kb_name: str,
-                    kb_desc: str) -> Optional[str]:
+                    kb_desc: str) -> Optional[dict[str, Any]]:
         """ Register knowledge base if it has not been registered yet.
 
         :param endpoint: [TODO:description]
@@ -67,7 +67,9 @@ class KE_Adaptor(Adaptor):
             response = requests.post(endpoint, json=payload)
 
         if response.status_code == requests.codes.ok:  # 200: ok
-            return response.json()['SmartConnector']
+            smartconnectors = response.json()  # type: list
+            assert len(smartconnectors) == 1, "Expects exactly one SC"
+            return smartconnectors.pop()  # type: dict[str, Any]
 
     def register_ki(self: Self, endpoint: str, kb_id: str,
                     ki_payload: dict[str, str]) -> Optional[str]:
@@ -82,7 +84,7 @@ class KE_Adaptor(Adaptor):
 
         response = requests.post(endpoint, headers=headers, json=ki_payload)
         if response.status_code == requests.codes.ok:  # 200: ok
-            return response.json()['KnowledgeInteractionId']
+            return response.json()['KnowledgeInteractionId']  # type: str
 
     def deregister_kb(self: Self, endpoint: str, kb_id: str):
         """ Deregister knowledge base.
@@ -163,6 +165,19 @@ class KE_Adaptor(Adaptor):
         # necessary for knowledge engine
         self.config.return_receipt = True
 
+    # def register_report_publication(self: Self) -> None:
+    #     i = 0
+    #     for ki_endpoint in self.context['knowledgeInteractions'].keys():
+    #         ki_pattern = ...
+    #         ki_payload = {
+    #                 'knowledgeInteractionType': "PostKnowledgeInteraction",
+    #                 'knowledgeInteractionName': f'ki-{i}',
+    #                 'argumentGraphPattern': ki_pattern,
+    #                 'resultGraphPattern': "",  # empty response
+    #                 'prefixes': ki['prefixes']
+    #                 }
+
+
     def cleanup_hook(self: Self):
         """ Deregister the knowledge base and all associated knowledge
             interactions.
@@ -208,6 +223,26 @@ class KE_Adaptor(Adaptor):
         :return: [TODO:description]
         """
         return super().set_payload()
+
+    def set_report_headers(self: Self, data: dict[str, Any]) -> dict[str, Any]:
+        """ Returns headers for publishing the validation report
+            to the endpoint. Defaults to empty headers
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+
+        return super().set_report_headers(data)
+
+    def set_report_payload(self: Self, data: dict[str, Any]) -> dict[str, Any]:
+        """ Returns payload for publishing the validation report
+            to the endpoint. Defaults to empty payload.
+
+        :param self: [TODO:description]
+        :return: [TODO:description]
+        """
+
+        return super().set_report_payload(data)
 
     def set_receipt_headers(self: Self, data: dict[str, Any])\
             -> dict[str, Any]:

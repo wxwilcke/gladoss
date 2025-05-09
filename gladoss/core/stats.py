@@ -8,7 +8,6 @@ from typing import Any, Optional
 import sys
 
 import numpy as np
-import scipy as sp
 from rdf.terms import IRIRef, Literal, Resource
 
 from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
@@ -111,6 +110,16 @@ class Distribution():
 
         return dist
 
+    @property
+    def data(self) -> list:
+        return list(self.samples.elements())
+
+    def lastn(self, n: Optional[int] = None) -> list:
+        # return last n samples
+        if n is None:
+            n = self.samplesize
+        pass
+
     def _forward(self):
         """ Update the distribution by a single epoch. Update the
             decay tracker.
@@ -141,9 +150,6 @@ class Distribution():
                 # clean up decay tracker
                 del self._decay_tracker[self._t]
 
-    def fit(self) -> None:
-        pass
-
     def __repr__(self) -> str:
         return ", ".join(sorted(list(self.samples.elements())))
 
@@ -158,8 +164,6 @@ class Distribution():
 
 
 class ContinuousDistribution(Distribution):
-    _N = "\N{MATHEMATICAL BOLD SCRIPT CAPITAL N}"
-
     def __init__(self, rng: np.random.Generator, decay: int = -1,
                  samplesize: int = 10, resolution: int = -1,
                  dtype: Optional[IRIRef] = None) -> None:
@@ -172,11 +176,6 @@ class ContinuousDistribution(Distribution):
         """
         super().__init__(rng, samplesize, decay, dtype)
         self.resolution = resolution
-
-        # distribution parameters
-        self.shape = tuple()
-        self.loc = 0.  # mu
-        self.scale = 0.  # sigma
 
     def addSample(self, sample: float) -> None:
         """ Add a single sample to the distribution.
@@ -198,76 +197,6 @@ class ContinuousDistribution(Distribution):
 
         return float(f"%.{self.resolution}g" % sample)
 
-#    def fit(self, num_samples: int = 100) -> None:
-#        """ Compute distribution parameters for a randomly selected
-#            subset of observed samples. Note that the results are
-#            estimated using Maximum Likelihood Estimation.
-#
-#        :param num_samples: size of subset to compute estimate on.
-#        """
-#        # fit Gaussian
-#        # (alt: test which dist?: https://stackoverflow.com/questions/6620471/fitting-empirical-distribution-to-theoretical-ones-with-scipy-python)
-#        # branch off when multiple modes are found (using GMM)
-#
-#        if self.samples.total() < num_samples:
-#            logger.warning("Number of observed samples is less than "
-#                           "specified sample size. This can reduce "
-#                           "the precision of the fitted distribution.")
-#
-#            if self.samples.total() <= 1:
-#                logger.info("To few samples observed to fit distribution")
-#                return
-#
-#        # random sample (with repetition) to fit distribution to
-#        subsample = self._rng.choice(list(self.samples.elements()),
-#                                     size=num_samples)
-#
-#        try:
-#            # fit distribution
-#            params = sp.stats.norm.fit(subsample)
-#
-#            # split parameter components
-#            self.shape = params[:-2]
-#            self.loc = params[-2]
-#            self.scale = params[-1]
-#        except Exception as e:
-#            logger.warning(f"Experienced error when fitting distribution: {e}")
-#            return
-#
-#    def prob(self, sample: float) -> float:
-#        """ Return the probability P of observing the given sample s
-#            given distribution parameters theta: P(s|theta). Since
-#            we cannot compute a point on a continuous distribution,
-#            we just check for left or right-tailed probabilities.
-#
-#        :param sample: a real number to compute the probability for
-#        :return: the left or right-tailed probability
-#        """
-#        # TODO: include sample_size over time
-#        # TODO: check if correct
-#        p_ltail = 2 * sp.stats.norm.cdf(sample, loc=self.loc, scale=self.scale)
-#        if sample < self.loc:
-#            return p_ltail
-#        elif sample > self.loc:
-#            return 1 - p_ltail  # right tail
-#        else:
-#            return 1.0
-#
-#        # TODO: alternative idea: check if value falls outside .95 or .99
-#        # confidence interval
-#        # sp.stats.norm(mu, sigma).interval(CI_level)
-#
-#    def loglikelihood(self) -> float:
-#        """ Return log likelihood L of the distribution parameters theta
-#            given the observed samples S: L(theta|S)
-#
-#        :return: a goodness of fit measurement
-#        """
-#        return float(
-#            np.sum(np.log(sp.stats.norm.pdf(list(self.samples.elements()),
-#                                            self.loc,
-#                                            self.scale))))
-
     def __deepcopy__(self, memo) -> ContinuousDistribution:
         """ Create a copy which deepcopies only the dynamic
             elements whereas it creates references to static
@@ -285,15 +214,10 @@ class ContinuousDistribution(Distribution):
         dist._t = self._t
         dist._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
 
-        dist.shape = self.shape
-        dist.loc = self.loc
-        dist.scale = self.scale
-
         return dist
 
     def __str__(self) -> str:
-        return f"{ContinuousDistribution._N}({self.loc}, "\
-               + f"{self.scale}\N{SUPERSCRIPT TWO})"
+        pass
 
 
 class DiscreteDistribution(Distribution):
@@ -305,76 +229,6 @@ class DiscreteDistribution(Distribution):
         """
         super().__init__(rng, samplesize, decay, dtype)
 
-        self.n = 0
-        self.k = list()
-        self.p = 0.
-
-#     def fit(self) -> None:
-#         # FIXME: check if needed (why not on the fly?)
-#         # fit multinomial distribution (k >=2, n >= 1)
-# 
-#         # FIXME: Placeholder
-#         self.n = self.samplesize
-#         self.k = self.samples
-#         self.p = [k/self.n for k in self.k]
-# 
-#     def prob(self, sample: Any) -> tuple[float, tuple[float, float]]:
-#         """ Compute probability P of observing sample s given
-#             distribution parameters theta and past W observed
-#             samples, with W the sample_size size.
-# 
-#         :param sample: [TODO:description]
-#         :return: [TODO:description]
-#         """
-#         if sample not in self.samples.keys():
-#             logger.info("Provides sample is out-of-distribution")
-#             return 0., (0., 0.)
-#         if self.samples.total() < self.samplesize:
-#             logger.info("sample_size size exceeds number of observed samples")
-# 
-#         # time window and corresponding samples TODO: disconnect from decay
-#         t_max = max(self._decay_tracker.keys())
-#         window = [t for t in self._decay_tracker.keys()
-#                   if t in range(t_max-self.samplesize, t_max+1)]
-#         samples = [v for t in window for v in self._decay_tracker[t]]
-# 
-#         # add observed sample
-#         samples.append(sample)
-# 
-#         # compute counts and probabilities
-#         samples_counter = Counter(samples)
-#         x, p = list(), list()
-#         sample_i = -1
-#         for i, (value, freq) in enumerate(samples_counter.items()):
-#             x.append(freq)
-#             p.append(freq/self.samplesize)
-# 
-#             if value == sample:
-#                 # keep track of sample index
-#                 sample_i = i
-# 
-#         # compute probability
-#         prob = sp.stats.multinomial.pmf(x=x, n=len(samples), p=p)
-#         # FIXME: idea: compare to ideal prob?
-# 
-#         # compute confidence interval - recast problem as computing
-#         # binomial CI of observing vs not observing sample
-#         binom_result = sp.stats.binomtest(k=x[sample_i],
-#                                           n=self.samplesize,
-#                                           p=p[sample_i])
-#         ci_lb, ci_hb = binom_result.proportion_ci(confidence_level=0.95,
-#                                                   method='wilsoncc')
-# 
-#         return prob, (ci_lb, ci_hb)
-# 
-#     def loglikelihood(self) -> float:
-#         """ Return log likelihood L of the distribution parameters theta
-#             given the observed samples S: L(theta|S)
-# 
-#         :return: a goodness of fit measurement
-#         """
-#         pass
-# 
     def __deepcopy__(self, memo) -> DiscreteDistribution:
         """ Create a copy which deepcopies only the dynamic
             elements whereas it creates references to static
@@ -392,11 +246,6 @@ class DiscreteDistribution(Distribution):
         dist._t = self._t
         dist._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
 
-        # distribution-specific parameters
-        dist.n = self.n
-        dist.k = self.k
-        dist.p = self.p
-
         return dist
 
     def __str__(self) -> str:
@@ -411,6 +260,10 @@ def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\
         from the provided sample. The output is ordered as specified
         in the provided sample index.
 
+        Note that other discrete test statistics (eg mode and frequency)
+        are omitted since these co-vary with proportion and thus not
+        tell us anything more.
+
     :param samples: [TODO:description]
     :param samples_idx: [TODO:description]
     :return: [TODO:description]
@@ -424,7 +277,7 @@ def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\
 
         proportions[samples_idx[k]] = p
 
-    return proportions  # TODO: add stdev?
+    return proportions
 
 
 def test_statistic_continuous(samples: np.ndarray, samples_idx: dict) ->\
@@ -501,6 +354,10 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
         necessarily the case for time series data (eg temperature), but
         which can still be assumed to hold to an extent in those cases when
         the temporal resolution is sufficiently low.
+
+        Accomodate for NaN values by omitting these entries from affecting
+        the computed p-values, by reducing the denominator by an equal
+        amount. This only concerns discrete data.
 
     :param rng: [TODO:description]
     :param sample_a: [TODO:description]
