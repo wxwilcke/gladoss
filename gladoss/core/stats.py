@@ -16,10 +16,11 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
 
 logger = logging.getLogger(__name__)
 
+# TODO: change each dist to trend analysis?
+
 
 class Distribution():
     def __init__(self, rng: np.random.Generator,
-                 samplesize: int = -1,
                  decay: int = -1,
                  dtype: Optional[IRIRef] = None) -> None:
         """ Statistical distribution over samples of a specific
@@ -34,7 +35,6 @@ class Distribution():
         :param decay: time until seen sample is forgotten
         """
         self._rng = rng
-        self.samplesize = samplesize
         self.decay = decay
         self.dtype = dtype
 
@@ -42,7 +42,7 @@ class Distribution():
         self.samples = Counter()  # keep track of samples and their frequency
         self._decay_tracker = dict()  # keep track of decay
 
-    def addSample(self, sample: Any) -> None:
+    def addSample(self, sample: str | float) -> None:
         """ Add a single sample to the distribution and push
             the time forward by steps.
 
@@ -54,16 +54,15 @@ class Distribution():
         self.samples[sample] += 1
 
         # schedule future decay of sample
-        if self.decay > 0:
-            t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = [sample]
+        t_decay = (self._t + self.decay) % sys.maxsize
+        self._decay_tracker[t_decay] = [sample]
 
         # increment time
         self._forward()
 
     @staticmethod
     def create_from(rng: np.random.Generator,
-                    resource: Resource, samplesize: int,
+                    resource: Resource,
                     decay: int, resolution: int) -> Distribution:
         """ Create new distribution from the given resource. Infers
             datatype from semantic annotations or, if unavailable,
@@ -84,13 +83,11 @@ class Distribution():
             # creae new distribution
             if dtype in XSD_CONTINUOUS:
                 dist = ContinuousDistribution(rng=rng,
-                                              samplesize=samplesize,
                                               resolution=resolution,
                                               decay=decay,
                                               dtype=dtype)
             elif dtype in XSD_DISCRETE:
                 dist = DiscreteDistribution(rng=rng,
-                                            samplesize=samplesize,
                                             decay=decay,
                                             dtype=dtype)
             else:
@@ -103,7 +100,6 @@ class Distribution():
         else:  # IRIRef
             # create a new distribution and add values
             dist = DiscreteDistribution(rng=rng,
-                                        samplesize=samplesize,
                                         decay=decay)
 
             dist.addSample(resource)
@@ -112,13 +108,22 @@ class Distribution():
 
     @property
     def data(self) -> list:
+        """ Return all samples in the current population. A deterministic
+            ordering between calls is not guaranteed.
+
+        :param self [TODO:type]: [TODO:description]
+        :return: [TODO:description]
+        """
         return list(self.samples.elements())
 
-    def lastn(self, n: Optional[int] = None) -> list:
-        # return last n samples
-        if n is None:
-            n = self.samplesize
-        pass
+    def lastn(self, n: int) -> list:
+        """ Return the *n* most recently observed samples, ordered from
+            oldest to most recent.
+
+        :param n: [TODO:description]
+        :return: [TODO:description]
+        """
+        return self.data[-n:]
 
     def _forward(self):
         """ Update the distribution by a single epoch. Update the
@@ -151,7 +156,7 @@ class Distribution():
                 del self._decay_tracker[self._t]
 
     def __repr__(self) -> str:
-        return ", ".join(sorted(list(self.samples.elements())))
+        return ", ".join(sorted(self.data))
 
     def __hash__(self) -> int:
         return hash(repr(self))
@@ -165,7 +170,7 @@ class Distribution():
 
 class ContinuousDistribution(Distribution):
     def __init__(self, rng: np.random.Generator, decay: int = -1,
-                 samplesize: int = 10, resolution: int = -1,
+                 resolution: int = -1,
                  dtype: Optional[IRIRef] = None) -> None:
         """ Continuous distribution over Real numbers. A
             resolution above zero will truncate the samples
@@ -174,7 +179,7 @@ class ContinuousDistribution(Distribution):
         :param decay: time until seen sample is forgotten
         :param resolution: number of significant figures
         """
-        super().__init__(rng, samplesize, decay, dtype)
+        super().__init__(rng, decay, dtype)
         self.resolution = resolution
 
     def addSample(self, sample: float) -> None:
@@ -206,7 +211,6 @@ class ContinuousDistribution(Distribution):
         :return: [TODO:description]
         """
         dist = ContinuousDistribution(rng=self._rng, decay=self.decay,
-                                      samplesize=self.samplesize,
                                       resolution=self.resolution)
 
         dist.samples = Counter(self.samples.elements())
@@ -221,13 +225,22 @@ class ContinuousDistribution(Distribution):
 
 
 class DiscreteDistribution(Distribution):
-    def __init__(self, rng: np.random.Generator, samplesize: int = 10,
+    def __init__(self, rng: np.random.Generator,
                  decay: int = -1, dtype: Optional[IRIRef] = None) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
         """
-        super().__init__(rng, samplesize, decay, dtype)
+        super().__init__(rng, decay, dtype)
+
+    def addSample(self, sample: str) -> None:
+        """ Add a single sample to the distribution.
+
+        :param sample: a string value
+        """
+        sample = sample.strip().lower()  # standardize sample
+
+        return super().addSample(sample)
 
     def __deepcopy__(self, memo) -> DiscreteDistribution:
         """ Create a copy which deepcopies only the dynamic
@@ -238,7 +251,6 @@ class DiscreteDistribution(Distribution):
         :return: [TODO:description]
         """
         dist = DiscreteDistribution(rng=self._rng,
-                                    samplesize=self.samplesize,
                                     decay=self.decay)
 
         dist.samples = Counter(self.samples.elements())
@@ -305,8 +317,8 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
                                sample_b: np.ndarray,
                                test_statistic_func,
                                num_samples: int,
-                               num_resamples: int,
-                               alpha: float) -> HypothesisTest:
+                               num_resamples: int = 1000,
+                               alpha: float = 0.05) -> HypothesisTest:
     """ Compute the p-values for a two-sample hypothesis test via
         the bootstrap method, and return a majority vote over the
         test statistics that either support rejecting or not
@@ -330,6 +342,7 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
     # majority vote over test statistics
     reject_h0_lst = (p_values < alpha/2) | (p_values > 1 - alpha/2)
     reject_h0 = (reject_h0_lst.sum() / len(reject_h0_lst)) > 0.5
+    # FIXME: also eval at a=.10? to see suspicious behaviour?
 
     return HypothesisTest.REJECT_H0 if reject_h0\
         else HypothesisTest.NOT_REJECT_H0

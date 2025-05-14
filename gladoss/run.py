@@ -17,9 +17,9 @@ from rdf.graph import Statement
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, timeSpanArg
-from gladoss.core.pattern import (GraphPattern,
-                                  PatternVault, ValidationReport,
+from gladoss.core.pattern import (GraphPattern, PatternVault,
                                   create_graph_pattern, update_graph_pattern)
+from gladoss.core.validator import ValidationReport, validate_state_graph
 from gladoss.core.utils import import_class, init_rng
 
 
@@ -47,8 +47,10 @@ def signal_handler(signum, frame):
 
 
 def create_validation_report(pattern: GraphPattern,
-                             facts: Collection[Statement])\
-                                     -> ValidationReport:
+                             facts: Collection[Statement],
+                             econf: SimpleNamespace) -> ValidationReport:
+    report = validate_state_graph(pattern, facts, econf)
+
     # TODO Placeholder
     report = ValidationReport(pattern=pattern, facts=facts,
                               timestamp=datetime.now(),
@@ -75,7 +77,9 @@ def listener(connector: Connector, q: Queue) -> None:
 
 def process_observation(rng: np.random.Generator, pv: PatternVault,
                         graph: Collection[Statement],
-                        graph_id: str, config: SimpleNamespace):
+                        graph_id: str, pconf: SimpleNamespace,
+                        econf: SimpleNamespace)\
+        -> Optional[ValidationReport]:
     """ Process an incoming message by finding the associated graph
         pattern, then evaluating the message with respect to this
         pattern, and, if OK, use the message to update the pattern.
@@ -93,13 +97,14 @@ def process_observation(rng: np.random.Generator, pv: PatternVault,
         logger.debug(f"Associated pattern not found: {graph}")
         gpattern = create_graph_pattern(rng=rng, graph=graph,
                                         graph_id=graph_id,
-                                        threshold=config.pattern_threshold,
-                                        decay=config.pattern_decay)
+                                        threshold=pconf.pattern_threshold,
+                                        decay=pconf.pattern_decay)
         pv.add_graph_pattern(gpattern)
 
-    report = create_validation_report(gpattern, graph)
-    if report is None:  # no suspicious behaviour detected
-        gpattern_upd = update_graph_pattern(rng, gpattern, graph, config)
+    report = create_validation_report(gpattern, graph, econf)
+    if report.status_code == ValidationReport.StatusCode.PASSED:
+        # no suspicious behaviour detected
+        gpattern_upd = update_graph_pattern(rng, gpattern, graph, pconf)
         pv.update_graph_pattern(gpattern_upd)
 
     return report
@@ -107,7 +112,7 @@ def process_observation(rng: np.random.Generator, pv: PatternVault,
 
 def main(rng: np.random.Generator, adaptor_cls: Adaptor,
          flags: argparse.Namespace, cconf: SimpleNamespace,
-         pconf: SimpleNamespace) -> None:
+         pconf: SimpleNamespace, econf: SimpleNamespace) -> None:
     logger.info("Initiating Program")
 
     # setup adaptor to manage communication and to translate incoming messages
@@ -137,7 +142,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
                 graph, graph_id = job
                 job_fs = executor.submit(process_observation, rng, pv,
-                                         graph, graph_id, pconf)
+                                         graph, graph_id, pconf, econf)
 
                 jobs_active.add(job_fs)  # type: ignore
 
@@ -212,14 +217,51 @@ if __name__ == "__main__":
                              "passed until an new pattern component is "
                              "added to the pattern. A negative value disables"
                              " this feature entirely.", type=int, default=-1)
-    parser_patt.add_argument("--pattern_samplesize", help="Number of samples "
-                             "to draw from distribution when evaluating a new "
-                             "sample. A negative sample will result in the "
-                             "use of all past samples.", type=int, default=10)
     parser_patt.add_argument("--pattern_resolution", help="Number of "
                              "significant figures to take into account when "
                              "evaluating a new sample. A negative value "
                              "disables this feature.", type=int, default=-1)
+
+    parser_eval = parser.add_argument_group('Anomaly Detection Settings')
+    parser_eval.add_argument("--significance_level_critical",
+                             help="Significance level (alpha) for the test "
+                             "statistic. A p-value less than this level will "
+                             "trigger a critical warning.", type=float,
+                             default=0.05)
+    parser_eval.add_argument("--significance_level_suspicious",
+                             help="Significance level (alpha) for the test "
+                             "statistic. A p-value less than this level will "
+                             "trigger a warning.", type=float, default=0.10)
+    parser_eval.add_argument("--evaluate_structure", help="Evaluate the "
+                             "structure of the observed state graph against "
+                             "the associated graph pattern.", type=bool,
+                             action=argparse.BooleanOptionalAction,
+                             default=True)
+    parser_eval.add_argument("--evaluate_data", help="Evaluate the "
+                             "data of the observed state graph against "
+                             "the associated graph pattern.", type=bool,
+                             action=argparse.BooleanOptionalAction,
+                             default=True)
+    parser_eval.add_argument("--samplesize", help="Number of samples to draw "
+                             "from the population and to evaluate against "
+                             "the distribution underlying that population. "
+                             "Samples are drawn in chronologically reversed "
+                             "order such that the result contains the most "
+                             "recent n samples.", type=int, default=50)
+    parser_eval.add_argument("--samplegap", help="Number of samples to skip "
+                             "between the population and test sample when "
+                             "sorted in chronological ordered. This can create "
+                             "a stronger distinction between distributions.",
+                             type=int, default=10)
+    parser_eval.add_argument("--match_cwa", help="If enabled, employ the "
+                             "Closed World Assumption during the evaluation "
+                             "of an observed state graph: expected yet "
+                             "missing triples will now trigger a warning.",
+                             type=bool, action='store_true', default=False)
+    parser_eval.add_argument("--match_exact", help="If enabled, any missing "
+                             "or extra triples in the observed state graph "
+                             "will trigger a warning.", type=bool,
+                             action='store_true', default=False)
 
     flags = parser.parse_args()
 
@@ -230,8 +272,15 @@ if __name__ == "__main__":
                                             'return_receipt'])
     pconf = create_namespace_subset(flags, ['pattern_decay',
                                             'pattern_threshold',
-                                            'pattern_samplesize',
                                             'pattern_resolution'])
+    econf = create_namespace_subset(flags, ['significance_level_critical',
+                                            'significance_level_suspicious',
+                                            'evaluate_structure',
+                                            'evaluate_data',
+                                            'samplesize',
+                                            'samplegap',
+                                            'match_cwa',
+                                            'match_exact'])
 
     # set log level
     log_level = logging.NOTSET
@@ -259,4 +308,4 @@ if __name__ == "__main__":
     adaptor = import_class(_ADAPTORS, flags.adaptor)
 
     # start main loop
-    main(rng, adaptor, flags, cconf, pconf)
+    main(rng, adaptor, flags, cconf, pconf, econf)

@@ -4,7 +4,6 @@ from __future__ import annotations
 from collections import Counter
 from copy import deepcopy
 from datetime import datetime
-from enum import Enum, auto
 from threading import Lock
 import logging
 import sys
@@ -132,10 +131,16 @@ class AssertionPattern():
             and (isinstance(self.head, DiscreteDistribution)
                  or (isinstance(self.head, IRIRef)
                      and self.head == fact.subject))\
-            and ((isinstance(self.tail, Resource)
-                  and infer_datatype(self.tail) == infer_datatype(fact.object))
+            and (isinstance(self.tail, IRIRef)
+                 or (isinstance(self.tail, Literal)
+                     and infer_datatype(self.tail)
+                     == infer_datatype(fact.object))
                  or (isinstance(self.tail, DiscreteDistribution)
-                     and isinstance(fact.object, IRIRef))
+                     and ((isinstance(fact.object, IRIRef)
+                           and self.tail.dtype is None)
+                          or (isinstance(fact.object, Literal)
+                              and infer_datatype(fact.object)
+                              == self.tail.dtype)))
                  or (isinstance(self.tail, ContinuousDistribution)
                      and isinstance(fact.object, Literal)
                      and infer_datatype(fact.object) == self.tail.dtype))
@@ -144,12 +149,22 @@ class AssertionPattern():
         """ Check if the provided fact is a likely match to
             this assertion pattern, by comparing whether
             elements are the same or if the values fall
-            within the distributions, if present.
+            within the distributions, if present. To reduce
+            computation complexity, here the distributions
+            tests are simplified by checking if the supplied
+            values are within the same range.
 
         :param other: [TODO:description]
         :return: [TODO:description]
         """
-        return self.weak_match(fact)  # TODO
+        return self.weak_match(fact)\
+            and ((isinstance(self.tail, Resource)
+                  and self.tail == fact.object)
+                 or (isinstance(self.tail, DiscreteDistribution)
+                     and fact.object in self.tail.data)
+                 or (isinstance(self.tail, ContinuousDistribution)
+                     and float(fact.object) in range(min(self.tail.data),
+                                                     max(self.tail.data))))
 
     @staticmethod
     def create_from(rng: np.random.Generator,
@@ -204,7 +219,6 @@ class AssertionPattern():
                 # create a new distribution and add values
                 dist = Distribution.create_from(
                         rng=rng, resource=reference,
-                        samplesize=config.pattern_samplesize,
                         decay=config.pattern_decay,
                         resolution=config.pattern_resolution)
             if isinstance(resource, Literal):
@@ -566,20 +580,3 @@ class PatternVault():
 
     def __len__(self) -> int:
         return len(self._polytree.keys())
-
-
-class ValidationReport():
-
-    class Grade(Enum):
-        FAILED = auto()
-        SUSPICIOUS = auto()
-        PASSED = auto()
-
-    def __init__(self, pattern: GraphPattern, facts: Collection[Statement],
-                 timestamp: datetime, grade: Grade, metadata: dict[str, str])\
-            -> None:
-        self.pattern = pattern
-        self.facts = facts
-        self.timestamp = timestamp
-        self.grade = grade
-        self.metadata = metadata

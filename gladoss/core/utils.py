@@ -8,7 +8,7 @@ from typing import Collection, Optional
 
 import numpy as np
 from gladoss.adaptors.adaptor import Adaptor
-from rdf import Statement, IRIRef, RDF, Literal
+from rdf import Statement
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,6 @@ def match_facts_to_patterns(
                     matches.append(ap)
                 elif ap.strong_match(fact):
                     # match on relation-object value
-                    # TODO: implement
                     matches.append(ap)
             else:  # one-on-one match with relations
                 if ap.relation == fact.predicate:

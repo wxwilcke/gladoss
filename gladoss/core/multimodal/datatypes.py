@@ -120,19 +120,19 @@ def cast_literal(dtype: IRIRef, value: str) -> str | int | float:
     value = str(value)
     try:
         if dtype in {XSD + 'date', XSD + 'dateTime'}:
-            value = datetime.fromisoformat(value)
+            value = int(datetime.fromisoformat(value))
         elif dtype == XSD + 'gMonthDay':
             # return as number of days
             m, d = value.split('-')
             v = datetime(year=1970, month=int(m), day=int(d), hour=1)
 
-            value = (v - EPOCH_TIME).days
+            value = int((v - EPOCH_TIME).days)
         elif dtype == XSD + 'gYearMonth':
             # return as number of months
             y, m = value.split('-')
             v = datetime(year=int(y), month=int(m), day=1, hour=1)
 
-            value = abs((v - EPOCH_TIME).days * DAYS_PER_YEAR)
+            value = int(abs((v - EPOCH_TIME).days * DAYS_PER_YEAR))
         elif dtype in XSD_CONTINUOUS:
             value = float(value)
         elif dtype in XSD_DISCRETE & XSD_NUMERIC:
