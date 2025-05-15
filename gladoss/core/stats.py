@@ -9,6 +9,7 @@ import sys
 
 import numpy as np
 from rdf.terms import IRIRef, Literal, Resource
+from rdf.namespaces import RDFS
 
 from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
                                                cast_literal, infer_datatype)
@@ -30,7 +31,7 @@ class Distribution():
             parameters (a negative value implies the use of all
             past samples). An optional (data) type can be given
             to validate new samples (a distribution of IRIs
-            has None as datatype).
+            has rdfs:Resource as datatype).
 
         :param decay: time until seen sample is forgotten
         """
@@ -100,7 +101,8 @@ class Distribution():
         else:  # IRIRef
             # create a new distribution and add values
             dist = DiscreteDistribution(rng=rng,
-                                        decay=decay)
+                                        decay=decay,
+                                        dtype=RDFS+'Resource')
 
             dist.addSample(resource)
 

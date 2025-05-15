@@ -8,7 +8,7 @@ from queue import Queue
 import signal
 from threading import Event
 from types import SimpleNamespace
-from typing import Collection
+from typing import Collection, Optional
 
 import numpy as np
 from gladoss.core.connector import Connector
@@ -79,7 +79,7 @@ def process_observation(rng: np.random.Generator, pv: PatternVault,
                         graph: Collection[Statement],
                         graph_id: str, pconf: SimpleNamespace,
                         econf: SimpleNamespace)\
-        -> Optional[ValidationReport]:
+        -> ValidationReport:
     """ Process an incoming message by finding the associated graph
         pattern, then evaluating the message with respect to this
         pattern, and, if OK, use the message to update the pattern.
@@ -102,8 +102,12 @@ def process_observation(rng: np.random.Generator, pv: PatternVault,
         pv.add_graph_pattern(gpattern)
 
     report = create_validation_report(gpattern, graph, econf)
-    if report.status_code == ValidationReport.StatusCode.PASSED:
-        # no suspicious behaviour detected
+    if report.status_code == ValidationReport.StatusCode.ERROR:
+        logger.warning("Unable to validate observed state graph")
+
+    if report.status_code != ValidationReport.StatusCode.FAILED:
+        # either the state graph passed the validation check
+        # or a (still) non-critical deviation has been detected
         gpattern_upd = update_graph_pattern(rng, gpattern, graph, pconf)
         pv.update_graph_pattern(gpattern_upd)
 
@@ -148,19 +152,17 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
             # process output of completed jobs
             for job_fs in jobs_completed:
-                report = None
                 try:
-                    report = job_fs.result()
+                    report = job_fs.result()  # type: ValidationReport
+
+                    # send report if requested by the report level
+                    if report.status_code < econf.report_level:
+                        publish_validation_report(adaptor, report)
                 except Exception as e:
                     logger.error(f"Job execution raised execption: {e}")
-
-                    continue
-
-                if report is not None:  # suspicious behaviour detected
-                    publish_validation_report(adaptor, report)
-
-                # remove finished jobs
-                jobs_active.remove(job_fs)
+                finally:
+                    # remove finished jobs
+                    jobs_active.remove(job_fs)
 
     bckmgr.disable_auto_backup()
     bckmgr.create_backup()  # emergency backup
@@ -250,9 +252,9 @@ if __name__ == "__main__":
                              "recent n samples.", type=int, default=50)
     parser_eval.add_argument("--samplegap", help="Number of samples to skip "
                              "between the population and test sample when "
-                             "sorted in chronological ordered. This can create "
-                             "a stronger distinction between distributions.",
-                             type=int, default=10)
+                             "sorted in chronological ordered. This can "
+                             "create a stronger distinction between "
+                             "distributions.", type=int, default=10)
     parser_eval.add_argument("--match_cwa", help="If enabled, employ the "
                              "Closed World Assumption during the evaluation "
                              "of an observed state graph: expected yet "
@@ -262,6 +264,12 @@ if __name__ == "__main__":
                              "or extra triples in the observed state graph "
                              "will trigger a warning.", type=bool,
                              action='store_true', default=False)
+    parser_eval.add_argument("--report_level", help="Reports of which level "
+                             "and below will be send to the endpoint. "
+                             "Critical warnings (1), suspicious warnings (2), "
+                             "successful validations (3), or validation "
+                             "errors (4). Value zero (0) will disable report "
+                             "publications.", type=int, default=2)
 
     flags = parser.parse_args()
 
@@ -280,7 +288,8 @@ if __name__ == "__main__":
                                             'samplesize',
                                             'samplegap',
                                             'match_cwa',
-                                            'match_exact'])
+                                            'match_exact',
+                                            'report_level'])
 
     # set log level
     log_level = logging.NOTSET
