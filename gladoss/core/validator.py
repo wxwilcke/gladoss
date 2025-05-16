@@ -90,6 +90,17 @@ def validate_graph_data(rng: np.random.Generator,
 def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
                                  dtype_observed: Optional[IRIRef])\
         -> tuple[bool, list[str]]:
+    """ Evaluate whether the provided resource fits to the associated discrete
+        distribution, by checking resource type, data type, and the category of
+        the data type against that of the expected distribution. This fuction
+        does not test whether the observed value might have been drawn from the
+        distribution that underlines the population.
+
+    :param fact: [TODO:description]
+    :param ap: [TODO:description]
+    :param dtype_observed: [TODO:description]
+    :return: [TODO:description]
+    """
     valid = True
     status_msg_long_lst = list()
     if isinstance(fact.object, IRIRef) and ap.tail.dtype != RDFS+'Resource':
@@ -134,6 +145,18 @@ def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
 def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
                                    dtype_observed: Optional[IRIRef])\
         -> tuple[bool, list[str]]:
+    """ Evaluate whether the provided resource fits to the associated
+        continuous distribution, by checking resource type, data type, and the
+        category of the data type against that of the expected distribution.
+        This fuction does not test whether the observed value might have been
+        drawn from the distribution that underlines the population.
+
+    :param fact: [TODO:description]
+    :param ap: [TODO:description]
+    :param dtype_observed: [TODO:description]
+    :return: [TODO:description]
+    """
+
     valid = True
     status_msg_long_lst = list()
     if not isinstance(fact.object, Literal):
@@ -177,44 +200,43 @@ def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
 def validate_graph_data_distribution(rng: np.random.Generator,
                                      fact: Statement, ap: AssertionPattern,
                                      samplesize: int, interruption: int):
+    value_new = None
     dtype_observed = None
     if isinstance(fact.object, Literal):
         dtype_observed = infer_datatype(fact.object)
 
-    value_new = None
-    test_statistic = None
-    if isinstance(ap.tail, DiscreteDistribution):
-        valid, msg_long_lst\
-                = validate_graph_data_discrete(fact, ap, dtype_observed)
-
-        test_statistic = test_statistic_discrete
-        if isinstance(fact.object, Literal):
-            # cast value to appropriate format
-            value_new = cast_literal(dtype_observed, fact.object.value)
-        else:  # IRI
-            value_new = fact.object
-
-    elif isinstance(ap.tail, ContinuousDistribution):
-        valid, msg_long_lst\
-                = validate_graph_data_continuous(fact, ap, dtype_observed)
-
-        test_statistic = test_statistic_continuous
-
         # cast value to appropriate format
         value_new = cast_literal(dtype_observed, fact.object.value)
+    else:  # IRI
+        value_new = fact.object
+
+    test_statistic = None
+    if isinstance(ap.tail, DiscreteDistribution):
+        test_statistic = test_statistic_discrete
+
+        valid, msg_long_lst\
+            = validate_graph_data_discrete(fact, ap, dtype_observed)
+    elif isinstance(ap.tail, ContinuousDistribution):
+        test_statistic = test_statistic_continuous
+
+        valid, msg_long_lst\
+            = validate_graph_data_continuous(fact, ap, dtype_observed)
     else:
         raise NotImplementedError()
+
+    if not valid:
+        return valid, msg_long_lst
 
     # obtain most recent n samples and append the newly observed sample.
     # The result will be regarded as a sample of the population  that
     # will be evaluated against the true distribution.
-    sample = ap.tail.lastn(n=samplesize) + [value_new]
+    sample = np.array(ap.tail.lastn(n=samplesize) + [value_new])
 
     # obtain all samples that are older than the most recent n samples,
     # with or without a brief interval in between to strengthen the
     # difference between these subsets. The result will be regarded as the
     # true distribution of the population.
-    population = ap.tail.data[:-samplesize - interruption]
+    population = np.array(ap.tail.data[:-samplesize - interruption])
 
     # test whether the sample might have been drawn from the same
     # distribution as the one underlying the population.
@@ -226,9 +248,9 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 def validate_graph_data_resource(fact: Statement, ap: AssertionPattern)\
         -> tuple[bool, list[str]]:
     """ Evaluate the resources of the observed state graph against the expected
-        resources of the associated graph pattern, by checking the resource type,
-        data type (in case of Literal), and exact value. This function is only
-        called when the pattern has no distribution at this position.
+        resources of the associated graph pattern, by checking the resource
+        type, data type (in case of Literal), and exact value. This function is
+        only called when the pattern has no distribution at this position.
 
     :param fact: [TODO:description]
     :param ap: [TODO:description]

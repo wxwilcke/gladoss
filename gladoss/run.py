@@ -229,11 +229,12 @@ if __name__ == "__main__":
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
                              "trigger a critical warning.", type=float,
-                             default=0.05)
+                             default=0.05, dest='alpha_crit')
     parser_eval.add_argument("--significance_level_suspicious",
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
-                             "trigger a warning.", type=float, default=0.10)
+                             "trigger a warning.", type=float, default=0.10,
+                             dest='alpha_susp')
     parser_eval.add_argument("--evaluate_structure", help="Evaluate the "
                              "structure of the observed state graph against "
                              "the associated graph pattern.", type=bool,

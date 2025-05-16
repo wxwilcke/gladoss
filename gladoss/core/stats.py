@@ -320,7 +320,9 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
                                test_statistic_func,
                                num_samples: int,
                                num_resamples: int = 1000,
-                               alpha: float = 0.05) -> HypothesisTest:
+                               alpha_critical: float = 0.05,
+                               alpha_suspicious: float = 0.10)\
+        -> HypothesisTest:
     """ Compute the p-values for a two-sample hypothesis test via
         the bootstrap method, and return a majority vote over the
         test statistics that either support rejecting or not
@@ -342,8 +344,9 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
                                                     num_samples, num_resamples)
 
     # majority vote over test statistics
-    reject_h0_lst = (p_values < alpha/2) | (p_values > 1 - alpha/2)
-    reject_h0 = (reject_h0_lst.sum() / len(reject_h0_lst)) > 0.5
+    for alpha in [alpha_critical, alpha_suspicious]:
+        reject_h0_lst = (p_values < alpha/2) | (p_values > 1 - alpha/2)
+        reject_h0 = (reject_h0_lst.sum() / len(reject_h0_lst)) > 0.5
     # FIXME: also eval at a=.10? to see suspicious behaviour?
 
     return HypothesisTest.REJECT_H0 if reject_h0\
