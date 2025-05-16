@@ -199,6 +199,8 @@ def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
 
 def validate_graph_data_distribution(rng: np.random.Generator,
                                      fact: Statement, ap: AssertionPattern,
+                                     alpha_critical: float,
+                                     alpha_suspicious: float,
                                      samplesize: int, interruption: int):
     value_new = None
     dtype_observed = None
@@ -241,8 +243,13 @@ def validate_graph_data_distribution(rng: np.random.Generator,
     # test whether the sample might have been drawn from the same
     # distribution as the one underlying the population.
     num_samples = int(len(sample) * 0.67)
-    test = two_sample_hypothesis_test(rng, population, sample,
-                                      test_statistic, num_samples)
+    test = two_sample_hypothesis_test(rng, 
+                                      sample_a=population,
+                                      sample_b=sample,
+                                      test_statistic_func=test_statistic,
+                                      num_samples=num_samples,
+                                      alpha_critical=alpha_critical,
+                                      alpha_suspicious=alpha_suspicious)
 
 
 def validate_graph_data_resource(fact: Statement, ap: AssertionPattern)\
