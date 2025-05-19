@@ -34,7 +34,7 @@ def create_assertion_pattern(rng: np.random.Generator,
     :param assertion: [TODO:description]
     :return: [TODO:description]
     """
-    return AssertionPattern.create_from(rng=rng, assertion=assertion)
+    return AssertionPattern.create_from(gen_id(rng), assertion=assertion)
 
 
 def create_graph_pattern(rng: np.random.Generator,
@@ -77,7 +77,8 @@ def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
     fact_ap_pairs, unmatched = match_facts_to_patterns(
             facts,
             gPattern.pattern)
-    ap_upd = {ap.update_from(fact, config) for fact, ap in fact_ap_pairs}
+    ap_upd = {ap.update_from(fact, config)
+              for fact, ap in fact_ap_pairs}
 
     # find pairs for assertion patterns under consideration
     # only consider the facts that haven't been matched in the previous step
@@ -87,10 +88,11 @@ def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
                 unmatched,
                 gPattern._under_consideration)
 
-        uc_upd = {ap.update_from(fact, config) for fact, ap in fact_uc_pairs}
+        uc_upd = {ap.update_from(fact, config)
+                  for fact, ap in fact_uc_pairs}
 
     # create new assertion patterns for unmatched observations
-    ap_new = {AssertionPattern.create_from(rng, fact)
+    ap_new = {AssertionPattern.create_from(gen_id(rng), fact)
               for fact in unmatched}
 
     # update graph pattern with updated and new assertion patterns
@@ -103,7 +105,7 @@ class AssertionPattern():
     def __init__(self,  head: IRIRef | DiscreteDistribution,
                  relation: IRIRef,
                  tail: IRIRef | Literal | Distribution,
-                 identifier: str) -> None:
+                 identifier: str, _t: Optional[int] = None) -> None:
         """ Initialize a new AssertionPattern.
 
         :param head: the subject of an assertion or its distribution
@@ -114,6 +116,7 @@ class AssertionPattern():
         self.relation = relation
         self.tail = tail
         self._id = identifier
+        self._t = 1 if _t is None else _t
 
     def weak_match(self, fact: Statement) -> bool:
         """ Check if the provided fact is a likely match to
@@ -167,7 +170,7 @@ class AssertionPattern():
                                                      max(self.tail.data))))
 
     @staticmethod
-    def create_from(rng: np.random.Generator,
+    def create_from(identifier: str,
                     assertion: Statement) -> AssertionPattern:
         """ Create a new assertion pattern from the provided
             assertion. This assumes that all three elements
@@ -183,10 +186,10 @@ class AssertionPattern():
         tail = assertion.object
 
         return AssertionPattern(head, relation, tail,
-                                identifier=gen_id(rng))
+                                identifier=identifier)
 
-    def update_from(self, rng: np.random.Generator,
-                    assertion: Statement, config: SimpleNamespace)\
+    def update_from(self, assertion: Statement,
+                    config: SimpleNamespace)\
             -> AssertionPattern:
         """ Update the assertion pattern with a new observation
             by copying the pattern and updating its head and/or
@@ -215,21 +218,28 @@ class AssertionPattern():
             :return: [TODO:description]
             """
             dist = reference
+            num_times = 1
             if not isinstance(reference, Distribution):
                 # create a new distribution and add values
                 dist = Distribution.create_from(
-                        rng=rng, resource=reference,
+                        resource=reference,
                         decay=config.pattern_decay,
                         resolution=config.pattern_resolution)
+
+                # add old value this number of times, which equals the
+                # contiguous stretch of time that this value was seen
+                num_times = self._t
             if isinstance(resource, Literal):
                 dtype = infer_datatype(resource)
                 assert dist.dtype == dtype
 
                 # cast value to appropriate format and add to distribution
                 value = cast_literal(dtype, resource.value)
-                dist.addSample(value)
+                for _ in range(num_times):
+                    dist.addSample(value)
             else:  # IRIRef
-                dist.addSample(resource)
+                for _ in range(num_times):
+                    dist.addSample(resource)
 
             return dist  # set distribution
 
@@ -246,7 +256,16 @@ class AssertionPattern():
                 and ap_upd.tail == assertion.object):
             ap_upd.tail = update_element(ap_upd.tail, assertion.object)
 
+        ap_upd._forward()  # forward time by one step
+
         return ap_upd
+
+    def _forward(self):
+        """ Forward the pattern by a single time step.
+        """
+        self._t += 1
+        if self._t == sys.maxsize:
+            self._t = 0
 
     def __deepcopy__(self, memo) -> AssertionPattern:
         """ Create a deep copy of this assertion pattern which
@@ -266,7 +285,7 @@ class AssertionPattern():
             tail = deepcopy(self.tail)
 
         return AssertionPattern(head=head, relation=self.relation, tail=tail,
-                                identifier=self._id)
+                                identifier=self._id, _t=self._t)
 
     def __eq__(self, other: Any) -> bool:
         return self._id == other._id

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class Distribution():
-    def __init__(self, rng: np.random.Generator,
+    def __init__(self,
                  decay: int = -1,
                  dtype: Optional[IRIRef] = None) -> None:
         """ Statistical distribution over samples of a specific
@@ -35,7 +35,6 @@ class Distribution():
 
         :param decay: time until seen sample is forgotten
         """
-        self._rng = rng
         self.decay = decay
         self.dtype = dtype
 
@@ -62,8 +61,7 @@ class Distribution():
         self._forward()
 
     @staticmethod
-    def create_from(rng: np.random.Generator,
-                    resource: Resource,
+    def create_from(resource: Resource,
                     decay: int, resolution: int) -> Distribution:
         """ Create new distribution from the given resource. Infers
             datatype from semantic annotations or, if unavailable,
@@ -83,13 +81,11 @@ class Distribution():
 
             # creae new distribution
             if dtype in XSD_CONTINUOUS:
-                dist = ContinuousDistribution(rng=rng,
-                                              resolution=resolution,
+                dist = ContinuousDistribution(resolution=resolution,
                                               decay=decay,
                                               dtype=dtype)
             elif dtype in XSD_DISCRETE:
-                dist = DiscreteDistribution(rng=rng,
-                                            decay=decay,
+                dist = DiscreteDistribution(decay=decay,
                                             dtype=dtype)
             else:
                 raise NotImplementedError(f"Datatype not supported: {dtype}")
@@ -100,8 +96,7 @@ class Distribution():
 
         else:  # IRIRef
             # create a new distribution and add values
-            dist = DiscreteDistribution(rng=rng,
-                                        decay=decay,
+            dist = DiscreteDistribution(decay=decay,
                                         dtype=RDFS+'Resource')
 
             dist.addSample(resource)
@@ -171,7 +166,7 @@ class Distribution():
 
 
 class ContinuousDistribution(Distribution):
-    def __init__(self, rng: np.random.Generator, decay: int = -1,
+    def __init__(self, decay: int = -1,
                  resolution: int = -1,
                  dtype: Optional[IRIRef] = None) -> None:
         """ Continuous distribution over Real numbers. A
@@ -181,7 +176,7 @@ class ContinuousDistribution(Distribution):
         :param decay: time until seen sample is forgotten
         :param resolution: number of significant figures
         """
-        super().__init__(rng, decay, dtype)
+        super().__init__(decay, dtype)
         self.resolution = resolution
 
     def addSample(self, sample: float) -> None:
@@ -212,7 +207,7 @@ class ContinuousDistribution(Distribution):
         :param memo [TODO:type]: [TODO:description]
         :return: [TODO:description]
         """
-        dist = ContinuousDistribution(rng=self._rng, decay=self.decay,
+        dist = ContinuousDistribution(decay=self.decay,
                                       resolution=self.resolution)
 
         dist.samples = Counter(self.samples.elements())
@@ -227,13 +222,13 @@ class ContinuousDistribution(Distribution):
 
 
 class DiscreteDistribution(Distribution):
-    def __init__(self, rng: np.random.Generator,
+    def __init__(self,
                  decay: int = -1, dtype: Optional[IRIRef] = None) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
         """
-        super().__init__(rng, decay, dtype)
+        super().__init__(decay, dtype)
 
     def addSample(self, sample: str) -> None:
         """ Add a single sample to the distribution.
@@ -252,8 +247,7 @@ class DiscreteDistribution(Distribution):
         :param memo [TODO:type]: [TODO:description]
         :return: [TODO:description]
         """
-        dist = DiscreteDistribution(rng=self._rng,
-                                    decay=self.decay)
+        dist = DiscreteDistribution(decay=self.decay)
 
         dist.samples = Counter(self.samples.elements())
 
@@ -322,7 +316,7 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
                                num_resamples: int = 1000,
                                alpha_critical: float = 0.05,
                                alpha_suspicious: float = 0.10)\
-        -> list[tuple[float, HypothesisTest]]:
+        -> list[HypothesisTest]:
     """ Compute the p-values for a two-sample hypothesis test via
         the bootstrap method, and return a majority vote over the
         test statistics that either support rejecting or not
@@ -355,7 +349,7 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
         outcomes[i] = HypothesisTest.REJECT_H0 if reject_h0\
             else HypothesisTest.NOT_REJECT_H0
 
-    return list(zip(levels, outcomes))
+    return outcomes
 
 
 def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
