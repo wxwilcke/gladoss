@@ -156,7 +156,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                     report = job_fs.result()  # type: ValidationReport
 
                     # send report if requested by the report level
-                    if report.status_code < econf.report_level:
+                    if report.status_code >= econf.report_level:
                         publish_validation_report(adaptor, report)
                 except Exception as e:
                     logger.error(f"Job execution raised execption: {e}")
@@ -229,12 +229,12 @@ if __name__ == "__main__":
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
                              "trigger a critical warning.", type=float,
-                             default=0.05, dest='alpha_crit')
+                             default=0.05, dest='alpha_critical')
     parser_eval.add_argument("--significance_level_suspicious",
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
                              "trigger a warning.", type=float, default=0.10,
-                             dest='alpha_susp')
+                             dest='alpha_suspicious')
     parser_eval.add_argument("--evaluate_structure", help="Evaluate the "
                              "structure of the observed state graph against "
                              "the associated graph pattern.", type=bool,
@@ -265,12 +265,12 @@ if __name__ == "__main__":
                              "or extra triples in the observed state graph "
                              "will trigger a warning.", type=bool,
                              action='store_true', default=False)
-    parser_eval.add_argument("--report_level", help="Reports of which level "
-                             "and below will be send to the endpoint. "
-                             "Critical warnings (1), suspicious warnings (2), "
-                             "successful validations (3), or validation "
-                             "errors (4). Value zero (0) will disable report "
-                             "publications.", type=int, default=2)
+    parser_eval.add_argument("--report_level", help="Reports of equal level "
+                             "and higher will be published to the endpoint: "
+                             "NOMINAL behaviour (0), generic ERRORS (1), "
+                             "semantic INCONSISTENCIES (2), SUSPICIOUS "
+                             "warnings (3), and CRITICAL warnings (4)",
+                             type=int, default=4)
 
     flags = parser.parse_args()
 
@@ -282,8 +282,8 @@ if __name__ == "__main__":
     pconf = create_namespace_subset(flags, ['pattern_decay',
                                             'pattern_threshold',
                                             'pattern_resolution'])
-    econf = create_namespace_subset(flags, ['significance_level_critical',
-                                            'significance_level_suspicious',
+    econf = create_namespace_subset(flags, ['alpha_critical',
+                                            'alpha_suspicious',
                                             'evaluate_structure',
                                             'evaluate_data',
                                             'samplesize',

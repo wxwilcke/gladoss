@@ -34,6 +34,7 @@ def validate_state_graph(rng: np.random.Generator,
     fact_ap_pairs, unmatched = match_facts_to_patterns(
             graph, gpattern.pattern)
 
+    # check if the state graph can successfully be mapped to its pattern
     if len(fact_ap_pairs) < len(gpattern) and len(unmatched) > 0:
         status_msg_long = "Unable to map all components of the observed "\
                           "state graph to their association substructure "\
@@ -49,44 +50,94 @@ def validate_state_graph(rng: np.random.Generator,
                                 status_msg="Mapping Error",
                                 status_msg_long=status_msg_long)
 
+    valid_lst = list()
     status_msg_lst = list()
     status_msg_long_lst = list()
     if config.evaluate_structure:
         # validate the structure of the state graph
-        msg_lst, msg_long_lst = validate_graph_structure(gpattern,
-                                                         fact_ap_pairs,
-                                                         unmatched,
-                                                         config.match_cwa,
-                                                         config.match_exact)
+        valid_semantics, status_msg_lst, status_msg_long_lst\
+                = validate_graph_structure(gpattern,
+                                           fact_ap_pairs,
+                                           unmatched,
+                                           config.match_cwa,
+                                           config.match_exact)
 
-        status_msg_lst.extend(msg_lst)
-        status_msg_long_lst.extend(msg_long_lst)
+        valid_lst.append(valid_semantics)
+        status_msg_lst.extend(status_msg_lst)
+        status_msg_long_lst.extend(status_msg_long_lst)
 
-    # TODO: skip is dist size is too low
+    # TODO: skip if dist size is too low
+    passed_critical, passed_suspicious = True, True
     if config.evaluate_data:
+        # validate the data of the state graph, per component
         for fact, ap in fact_ap_pairs:
-            valid, status_msg_long = validate_graph_data(rng, fact, ap,
-                                                         config.samplesize,
-                                                         config.samplegap)
+            valid_semantics, passed_critical, passed_suspicious, \
+                    status_msg_lst, status_msg_long_lst\
+                    = validate_graph_data(rng, fact, ap,
+                                          config.alpha_critical,
+                                          config.alpha_suspicious,
+                                          config.samplesize,
+                                          config.samplegap)
 
-    return report
+            valid_lst.append(valid_semantics)
+            status_msg_lst.extend(status_msg_lst)
+            status_msg_long_lst.extend(status_msg_long_lst)
+
+    # aggregate validation failures: fail if at least one test did not pass
+    status_code = ValidationReport.StatusCode.NOMINAL
+    if not passed_critical:
+        status_code = ValidationReport.StatusCode.CRITICAL
+    elif not passed_suspicious:
+        status_code = ValidationReport.StatusCode.SUSPICIOUS
+    elif False in valid_lst:
+        status_code = ValidationReport.StatusCode.INCONSISTENCY
+
+    return ValidationReport(pattern=gpattern,
+                            graph=graph,
+                            timestamp=datetime.now(),
+                            status_code=status_code,
+                            status_msg=status_msg_lst,
+                            status_msg_long=status_msg_long_lst)
 
 
 def validate_graph_data(rng: np.random.Generator,
                         fact: Statement, ap: AssertionPattern,
+                        alpha_critical: float, alpha_suspicious: float,
                         samplesize: int, interruption: int)\
-        -> tuple[bool, str]:
-    valid = True
-    msg = ""
-    msg_long_lst = list()
+        -> tuple[bool, bool, bool, list[str], list[str]]:
+    """ Validate the data of a single fact by checking resource and data types,
+        comparing provided and expected values, and performing statistical
+        tests. Mutiple validation checks are performed to provide a complete
+        picture (even if one failed) expect for mutually exclusive ones.
 
+    :param rng: [TODO:description]
+    :param fact: [TODO:description]
+    :param ap: [TODO:description]
+    :param alpha_critical: [TODO:description]
+    :param alpha_suspicious: [TODO:description]
+    :param samplesize: [TODO:description]
+    :param interruption: [TODO:description]
+    :return: [TODO:description]
+    """
+    valid_semantics = True
+    passed_critical = True
+    passed_suspicious = True
+
+    status_msg_lst = list()
+    status_msg_long_lst = list()
     if isinstance(ap.tail, Resource):
-        valid, msg_long_lst = validate_graph_data_resource(fact, ap)
-        if not valid:
-            msg = "Resource Failed Validation"
+        valid_semantics, status_msg_lst, status_msg_long_lst\
+                = validate_graph_data_resource(fact, ap)
     elif isinstance(ap.tail, Distribution):
-        x = validate_graph_data_distribution(rng, fact, ap,
-                                             samplesize, interruption)
+        valid_semantics, passed_critical, passed_suspicious, \
+                status_msg_lst, status_msg_long_lst\
+                = validate_graph_data_distribution(rng, fact, ap,
+                                                   alpha_critical,
+                                                   alpha_suspicious,
+                                                   samplesize, interruption)
+
+    return valid_semantics, passed_critical, passed_suspicious, \
+        status_msg_lst, status_msg_long_lst
 
 
 def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
@@ -211,7 +262,20 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                                      fact: Statement, ap: AssertionPattern,
                                      alpha_critical: float,
                                      alpha_suspicious: float,
-                                     samplesize: int, interruption: int):
+                                     samplesize: int, interruption: int)\
+        -> tuple[bool, bool, bool, list[str], list[str]]:
+    """ Validate various aspects of a newly observed value against the
+        distribution that belongs to the associated pattern.
+
+    :param rng: [TODO:description]
+    :param fact: [TODO:description]
+    :param ap: [TODO:description]
+    :param alpha_critical: [TODO:description]
+    :param alpha_suspicious: [TODO:description]
+    :param samplesize: [TODO:description]
+    :param interruption: [TODO:description]
+    :raises NotImplementedError: [TODO:description]
+    """
     # cast value to a suitable Python representation and infer data type
     value_new = None
     dtype_observed = None
@@ -224,24 +288,27 @@ def validate_graph_data_distribution(rng: np.random.Generator,
         value_new = fact.object
 
     # evaluate distribution types via meta data
+    valid_semantics = True
     test_statistic = None
     if isinstance(ap.tail, DiscreteDistribution):
         test_statistic = test_statistic_discrete
 
-        valid, msg_lst, msg_long_lst\
+        valid_semantics, status_msg_lst, status_msg_long_lst\
             = validate_graph_data_discrete(fact, ap, dtype_observed)
     elif isinstance(ap.tail, ContinuousDistribution):
         test_statistic = test_statistic_continuous
 
-        valid, msg_lst, msg_long_lst\
+        valid_semantics, status_msg_lst, status_msg_long_lst\
             = validate_graph_data_continuous(fact, ap, dtype_observed)
     else:
         raise NotImplementedError()
 
     # evaluate whether the new sample could've come from the same distribution
     # as the previously observed samples
-    if valid:  # if no previous violations have been detected
-        valid, msg_lst, msg_long_lst\
+    passed_critical, passed_suspicious = True, True
+    if valid_semantics:  # if no previous violations have been detected
+        passed_critical, passed_suspicious, \
+                status_msg_lst, status_msg_long_lst\
                 = validate_graph_data_distribution_fit(rng, fact, ap,
                                                        value_new,
                                                        test_statistic,
@@ -250,7 +317,8 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                                                        samplesize,
                                                        interruption)
 
-    return valid, msg_lst, msg_long_lst
+    return valid_semantics, passed_critical, passed_suspicious, \
+        status_msg_lst, status_msg_long_lst
 
 
 def validate_graph_data_distribution_fit(rng: np.random.Generator,
@@ -261,7 +329,25 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
                                          alpha_critical: float,
                                          alpha_suspicious: float,
                                          samplesize: int, interruption: int)\
-        -> tuple[bool, list[str], list[str]]:
+        -> tuple[bool, bool, list[str], list[str]]:
+    """ Test whether the n most recently observed values, including the newly
+        observed value, follow the same underlying distribution as the oldest
+        N - n observed values. The outcome of this test will be negative if the
+        evidence suggests that the distributions differ at a critical
+        significance level, and will be positive otherwise. Failure to pass at
+        a suspicious significance level will trigger a warning.
+
+    :param rng: [TODO:description]
+    :param fact: [TODO:description]
+    :param ap: [TODO:description]
+    :param value_new: [TODO:description]
+    :param test_statistic: [TODO:description]
+    :param alpha_critical: [TODO:description]
+    :param alpha_suspicious: [TODO:description]
+    :param samplesize: [TODO:description]
+    :param interruption: [TODO:description]
+    :return: [TODO:description]
+    """
     # obtain most recent n samples and append the newly observed sample.
     # The result will be regarded as a sample of the population  that
     # will be evaluated against the true distribution.
@@ -285,14 +371,15 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
                                      alpha_suspicious=alpha_suspicious)
 
     # infer validity from test results
-    valid = True
+    passed_critical = True
+    passed_suspicious = True
     status_msg = ""
     status_msg_long = ""
     if test_critical == HypothesisTest.REJECT_H0:
         # enough evidence to reject the zero hypothesis that both samples were
         # drawn from the same underlying distribution at the critical level:
         # this suggests the presence of a critical anomaly
-        valid = False
+        passed_critical = False
 
         status_msg = "Critical Value Violation"
         status_msg_long = "Evidence from the statistical evaluation suggests "\
@@ -304,6 +391,8 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
         # enough evidence to reject the zero hypothesis that both samples were
         # drawn from the same underlying distribution at the suspicious level:
         # this might suggest the presence of an anomaly
+        passed_suspicious = False
+
         status_msg = "Suspicious Value Violation"
         status_msg_long = "Evidence from the statistical evaluation suggests "\
                           "that this component of the observed state graph "\
@@ -312,7 +401,9 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
                           f"({alpha_suspicious}):"\
                           f"\n Observed: {str(fact)}"
 
-    return valid, [status_msg], [status_msg_long]
+    logger.info(status_msg_long)
+
+    return passed_critical, passed_suspicious, [status_msg], [status_msg_long]
 
 
 def validate_graph_data_resource(fact: Statement, ap: AssertionPattern)\
@@ -330,50 +421,51 @@ def validate_graph_data_resource(fact: Statement, ap: AssertionPattern)\
     status_msg_lst = list()
     status_msg_long_lst = list()
     if type(ap.tail) is not type(fact.object):
-        status_msg = "Observed resource type differs from expected resource "\
-                     "type."\
-                     f"\n Expected: {type(ap.tail)}"\
-                     f"\n Observed: {type(fact.object)}"
-        status_msg_long_lst.append(status_msg)
+        status_msg_long = "Observed resource type differs from expected "\
+                          "resource type."\
+                          f"\n Expected: {type(ap.tail)}"\
+                          f"\n Observed: {type(fact.object)}"
+        status_msg_long_lst.append(status_msg_long)
         valid = False
 
         status_msg_lst.append("Resource Type Violation")
-        logger.info(status_msg)
+        logger.info(status_msg_long)
     if isinstance(ap.tail, IRIRef) and ap.tail != fact.object:
-        status_msg = "Observed IRI value differs from expected IRI value."\
-                     f"\n Expected: {ap.tail}"\
-                     f"\n Observed: {fact}"
-        status_msg_long_lst.append(status_msg)
+        status_msg_long = "Observed IRI value differs from expected IRI "\
+                          "value."\
+                          f"\n Expected: {ap.tail}"\
+                          f"\n Observed: {fact}"
+        status_msg_long_lst.append(status_msg_long)
         valid = False
 
         status_msg_lst.append("Value Equality Violation")
-        logger.info(status_msg)
+        logger.info(status_msg_long)
     elif isinstance(ap.tail, Literal):
         dtype_observed = infer_datatype(fact.object)
         if dtype_observed != ap.tail.dtype:
-            status_msg = "Observed Literal value data type differs from "\
-                         "expected Literal value data type."\
-                         f"\n Expected: {'Unknown' if ap.tail.dtype is
-                                         None else ap.tail.dtype}"\
-                         f"\n Observed: {'Unknown' if dtype_observed is
-                                         None else dtype_observed}"
-            status_msg_long_lst.append(status_msg)
+            status_msg_long = "Observed Literal value data type differs from "\
+                              "expected Literal value data type."\
+                              f"\n Expected: {'Unknown' if ap.tail.dtype is
+                                              None else ap.tail.dtype}"\
+                              f"\n Observed: {'Unknown' if dtype_observed is
+                                              None else dtype_observed}"
+            status_msg_long_lst.append(status_msg_long)
             valid = False
 
             status_msg_lst.append("Data Type Violation")
-            logger.info(status_msg)
+            logger.info(status_msg_long)
         if fact.object != ap.tail:
-            status_msg = "Observed Literal value differs from expected "\
-                         "Literal value."\
-                         f"\n Expected: {ap.tail}"\
-                         f"\n Observed: {fact}"
-            status_msg_long_lst.append(status_msg)
+            status_msg_long = "Observed Literal value differs from expected "\
+                              "Literal value."\
+                              f"\n Expected: {ap.tail}"\
+                              f"\n Observed: {fact}"
+            status_msg_long_lst.append(status_msg_long)
             valid = False
 
             status_msg_lst.append("Value Equality Violation")
-            logger.info(status_msg)
+            logger.info(status_msg_long)
 
-    return valid, status_msg_long_lst, status_msg_lst
+    return valid, status_msg_lst, status_msg_long_lst
 
 
 def validate_graph_structure(gPattern: GraphPattern,
@@ -431,10 +523,11 @@ def validate_graph_structure(gPattern: GraphPattern,
 
 class ValidationReport():
     class StatusCode(Enum):
-        FAILED = 1  # p-value under critical significance level
-        SUSPICIOUS = 2  # p-value under non-critical significance level
-        PASSED = 3  # p-value above non-critical significance level
-        ERROR = 4  # error during evaluation
+        NOMINAL = 0  # p-value above non-critical significance level
+        ERROR = 1  # error during evaluation
+        INCONSISTENCY = 2  # structural or semantic inconsistency
+        SUSPICIOUS = 3  # p-value under non-critical significance level
+        CRITICAL = 4  # p-value under critical significance level
 
     def __init__(self, pattern: GraphPattern, graph: Collection[Statement],
                  timestamp: datetime, status_code: StatusCode,
