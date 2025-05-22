@@ -8,22 +8,21 @@ from threading import Lock
 import logging
 import sys
 from types import SimpleNamespace
-from typing import Any, Optional, Collection
+from typing import Any, Callable, Optional, Collection
 
-import numpy as np
 from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal, Resource
 
 from gladoss.core.multimodal.datatypes import cast_literal, infer_datatype
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 Distribution)
-from gladoss.core.utils import gen_id, match_facts_to_patterns
+from gladoss.core.utils import match_facts_to_patterns
 
 
 logger = logging.getLogger(__name__)
 
 
-def create_assertion_pattern(rng: np.random.Generator,
+def create_assertion_pattern(mkid: Callable,
                              assertion: Statement) -> AssertionPattern:
     """ Return a new assertion pattern that belongs to the
         provided assertion. The returned pattern is assigned
@@ -34,10 +33,10 @@ def create_assertion_pattern(rng: np.random.Generator,
     :param assertion: [TODO:description]
     :return: [TODO:description]
     """
-    return AssertionPattern.create_from(gen_id(rng), assertion=assertion)
+    return AssertionPattern.create_from(mkid(), assertion=assertion)
 
 
-def create_graph_pattern(rng: np.random.Generator,
+def create_graph_pattern(mkid: Callable,
                          graph: Collection[Statement],
                          graph_id: str,
                          threshold: int = -1,
@@ -54,14 +53,15 @@ def create_graph_pattern(rng: np.random.Generator,
     :return: [TODO:description]
     """
     # create list of assertion patterns from given set of facts
-    gpattern = [create_assertion_pattern(rng, assertion)
+    # FIXME: link connected assertions
+    gpattern = [create_assertion_pattern(mkid, assertion)
                 for assertion in graph]
 
     return GraphPattern(pattern=gpattern, identifier=graph_id,
                         threshold=threshold, decay=decay)
 
 
-def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
+def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
                          facts: Collection[Statement],
                          config: SimpleNamespace) -> GraphPattern:
     """ Return an updated copy of the provided graph pattern by
@@ -92,7 +92,7 @@ def update_graph_pattern(rng: np.random.Generator, gPattern: GraphPattern,
                   for fact, ap in fact_uc_pairs}
 
     # create new assertion patterns for unmatched observations
-    ap_new = {AssertionPattern.create_from(gen_id(rng), fact)
+    ap_new = {AssertionPattern.create_from(mkid(), fact)
               for fact in unmatched}
 
     # update graph pattern with updated and new assertion patterns
@@ -207,6 +207,7 @@ class AssertionPattern():
         """
         ap_upd = deepcopy(self)
 
+        # FIXME: link distributions of connected assertions
         def update_element(reference: IRIRef | Literal | Distribution,
                            resource: Resource) -> Distribution:
             """ Add the given value to an appropriate distribution.

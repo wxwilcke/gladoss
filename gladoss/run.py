@@ -3,12 +3,13 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
+import functools
 import logging
 from queue import Queue
 import signal
 from threading import Event
 from types import SimpleNamespace
-from typing import Collection, Optional
+from typing import Callable, Collection
 
 import numpy as np
 from gladoss.core.connector import Connector
@@ -20,7 +21,7 @@ from gladoss.data.utils import create_namespace_subset, timeSpanArg
 from gladoss.core.pattern import (GraphPattern, PatternVault,
                                   create_graph_pattern, update_graph_pattern)
 from gladoss.core.validator import ValidationReport, validate_state_graph
-from gladoss.core.utils import import_class, init_rng
+from gladoss.core.utils import gen_id, import_class, init_rng
 
 
 logger = logging.getLogger(__name__)
@@ -46,22 +47,44 @@ def signal_handler(signum, frame):
     controller.set()
 
 
-def create_validation_report(pattern: GraphPattern,
-                             facts: Collection[Statement],
-                             econf: SimpleNamespace) -> ValidationReport:
-    report = validate_state_graph(pattern, facts, econf)
+def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
+                              mkid: Callable):
+    # represent validation report as graph
+    report_graph = report.to_graph(mkid)
 
-    # TODO Placeholder
-    report = ValidationReport(pattern=pattern, facts=facts,
-                              timestamp=datetime.now(),
-                              grade=ValidationReport.Grade.PASSED,
-                              metadata={})
+    # publish report to endpoint
+    pass
+
+
+def create_validation_report(rng: np.random.Generator,
+                             pattern: GraphPattern,
+                             graph: Collection[Statement],
+                             econf: SimpleNamespace) -> ValidationReport:
+    """ Generate a validation report for the observed state graph given
+        the associated graph pattern. This will start the validation
+        procedure.
+
+    :param rng: [TODO:description]
+    :param pattern: [TODO:description]
+    :param graph: [TODO:description]
+    :param econf: [TODO:description]
+    :return: [TODO:description]
+    """
+    try:
+        logger.debug("Creating validation report")
+        report = validate_state_graph(rng, pattern, graph, econf)
+    except Exception as err:
+        logger.error(err)
+
+        status_msg = "Validation Malfunction"
+        status_code = ValidationReport.StatusCode.ERROR
+        report = ValidationReport(pattern=pattern, graph=graph,
+                                  timestamp=datetime.now(),
+                                  status_code=status_code,
+                                  status_msg=status_msg,
+                                  status_msg_long=f"{err}")
 
     return report
-
-
-def publish_validation_report(adaptor: Adaptor, report: ValidationReport):
-    pass
 
 
 def listener(connector: Connector, q: Queue) -> None:
@@ -75,8 +98,8 @@ def listener(connector: Connector, q: Queue) -> None:
         q.put((graph, graph_id))
 
 
-def process_observation(rng: np.random.Generator, pv: PatternVault,
-                        graph: Collection[Statement],
+def process_observation(rng: np.random.Generator, mkid: Callable,
+                        pv: PatternVault, graph: Collection[Statement],
                         graph_id: str, pconf: SimpleNamespace,
                         econf: SimpleNamespace)\
         -> ValidationReport:
@@ -92,23 +115,23 @@ def process_observation(rng: np.random.Generator, pv: PatternVault,
     :param graph_id: [TODO:description]
     :param config: [TODO:description]
     """
-    gpattern = pv.find_associated_graph_pattern(graph_id)
-    if gpattern is None:
+    pattern = pv.find_associated_graph_pattern(graph_id)
+    if pattern is None:
         logger.debug(f"Associated pattern not found: {graph}")
-        gpattern = create_graph_pattern(rng=rng, graph=graph,
-                                        graph_id=graph_id,
-                                        threshold=pconf.pattern_threshold,
-                                        decay=pconf.pattern_decay)
-        pv.add_graph_pattern(gpattern)
+        pattern = create_graph_pattern(mkid=mkid, graph=graph,
+                                       graph_id=graph_id,
+                                       threshold=pconf.pattern_threshold,
+                                       decay=pconf.pattern_decay)
+        pv.add_graph_pattern(pattern)
 
-    report = create_validation_report(gpattern, graph, econf)
+    report = create_validation_report(rng, pattern, graph, econf)
     if report.status_code == ValidationReport.StatusCode.ERROR:
         logger.warning("Unable to validate observed state graph")
-
-    if report.status_code != ValidationReport.StatusCode.FAILED:
+    elif report.status_code in [ValidationReport.StatusCode.NOMINAL,
+                                ValidationReport.StatusCode.SUSPICIOUS]:
         # either the state graph passed the validation check
         # or a (still) non-critical deviation has been detected
-        gpattern_upd = update_graph_pattern(rng, gpattern, graph, pconf)
+        gpattern_upd = update_graph_pattern(mkid, pattern, graph, pconf)
         pv.update_graph_pattern(gpattern_upd)
 
     return report
@@ -117,7 +140,27 @@ def process_observation(rng: np.random.Generator, pv: PatternVault,
 def main(rng: np.random.Generator, adaptor_cls: Adaptor,
          flags: argparse.Namespace, cconf: SimpleNamespace,
          pconf: SimpleNamespace, econf: SimpleNamespace) -> None:
+    """ Initalise adaptor and one or more connections, the pattern vault,
+        and backup manager, and start several parallel jobs which are to
+        listen for new incoming messages from the connection(s). Once such
+        a message has been received, a new thread will be spawned that
+        further processes this message, returning a validation report upon
+        completion. The report will be published to the endpoint if requested.
+
+        The main loop of this procedure will continue indefinitely, only to
+        stop upon a keyboard interrupt or a fatal connection error.
+
+    :param rng: [TODO:description]
+    :param adaptor_cls: [TODO:description]
+    :param flags: [TODO:description]
+    :param cconf: [TODO:description]
+    :param pconf: [TODO:description]
+    :param econf: [TODO:description]
+    """
     logger.info("Initiating Program")
+
+    # create callable to avoid importing numpy everywhere
+    mkid = functools.partial(gen_id, rng)
 
     # setup adaptor to manage communication and to translate incoming messages
     adaptor = adaptor_cls(controller=controller,  # type: ignore
@@ -145,7 +188,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                 job = q.get()
 
                 graph, graph_id = job
-                job_fs = executor.submit(process_observation, rng, pv,
+                job_fs = executor.submit(process_observation, rng, mkid, pv,
                                          graph, graph_id, pconf, econf)
 
                 jobs_active.add(job_fs)  # type: ignore
@@ -153,11 +196,17 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             # process output of completed jobs
             for job_fs in jobs_completed:
                 try:
-                    report = job_fs.result()  # type: ValidationReport
+                    # wait until a new report comes in
+                    report = job_fs.result()
+                    if report is None:
+                        logger.debug("A listener job has ended")
 
-                    # send report if requested by the report level
+                        continue
+
+                    # publish report if requested by the report level
+                    assert isinstance(report, ValidationReport)
                     if report.status_code >= econf.report_level:
-                        publish_validation_report(adaptor, report)
+                        publish_validation_report(adaptor, report, mkid)
                 except Exception as e:
                     logger.error(f"Job execution raised execption: {e}")
                 finally:

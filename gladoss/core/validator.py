@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import Any, Callable, Collection, Optional
 
 import numpy as np
+from gladoss.data.converter import report_to_graph
 from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal, Resource
 from rdf.namespaces import RDFS
@@ -16,7 +17,8 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
                                                cast_literal, infer_datatype)
 from gladoss.core.pattern import AssertionPattern, GraphPattern
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
-                                Distribution, HypothesisTest, test_statistic_continuous,
+                                Distribution, HypothesisTest,
+                                test_statistic_continuous,
                                 test_statistic_discrete,
                                 two_sample_hypothesis_test)
 from gladoss.core.utils import match_facts_to_patterns
@@ -29,27 +31,81 @@ def validate_state_graph(rng: np.random.Generator,
                          gpattern: GraphPattern,
                          graph: Collection[Statement],
                          config: SimpleNamespace)\
-        -> Optional[ValidationReport]:
+        -> ValidationReport:
+    """ Map all components of the observed state graph to the appropriate
+        substructures in the associated pattern, and evaluate these components
+        against the expected values or distributions.
+
+    :param rng: [TODO:description]
+    :param gpattern: [TODO:description]
+    :param graph: [TODO:description]
+    :param config: [TODO:description]
+    :return: [TODO:description]
+    """
     # find pairs of facts and associated assertion patterns
+    # TODO: this is done earlier on as well
     fact_ap_pairs, unmatched = match_facts_to_patterns(
             graph, gpattern.pattern)
 
+    # default values
+    status_msg_lst = list()
+    status_msg_long_lst = list()
+    status_code = ValidationReport.StatusCode.NOMINAL
+
     # check if the state graph can successfully be mapped to its pattern
+    complete_map = True
     if len(fact_ap_pairs) < len(gpattern) and len(unmatched) > 0:
-        status_msg_long = "Unable to map all components of the observed "\
-                          "state graph to their association substructure "\
-                          "patterns. Skipping further evaluation. "\
-                          f"Unmapped components: {', '.join(unmatched)}."
-        logger.warning(status_msg_long)
+        status_msg_lst = ["Mapping Error"]
+        status_msg_long_lst = ["Unable to map all components of the "
+                               "observed state graph to their association "
+                               "substructure patterns. Skipping further "
+                               "evaluation.\n Unmapped components: "
+                               f"{', '.join(unmatched)}"]
+        logger.warning(status_msg_long_lst[0])
 
-        # skip further evaluation
-        return ValidationReport(pattern=gpattern,
-                                graph=graph,
-                                timestamp=datetime.now(),
-                                status_code=ValidationReport.StatusCode.ERROR,
-                                status_msg="Mapping Error",
-                                status_msg_long=status_msg_long)
+        complete_map = False
+        status_code = ValidationReport.StatusCode.ERROR
 
+    # validate structure, semantics, and data
+    if complete_map:
+        valid_semantics, passed_critical, passed_suspicious, \
+            status_msg_lst, status_msg_long_lst\
+            = validate_state_graph_components(rng, gpattern,
+                                              fact_ap_pairs,
+                                              unmatched, config)
+
+        # order by most serious violation
+        if not passed_critical:
+            status_code = ValidationReport.StatusCode.CRITICAL
+        elif not passed_suspicious:
+            status_code = ValidationReport.StatusCode.SUSPICIOUS
+        elif not valid_semantics:
+            status_code = ValidationReport.StatusCode.INCONSISTENCY
+
+    return ValidationReport(pattern=gpattern,
+                            graph=graph,
+                            timestamp=datetime.now(),
+                            status_code=status_code,
+                            status_msg=status_msg_lst,
+                            status_msg_long=status_msg_long_lst)
+
+
+def validate_state_graph_components(rng: np.random.Generator,
+                                    gpattern: GraphPattern,
+                                    fact_ap_pairs: list[tuple],
+                                    unmatched: set,
+                                    config: SimpleNamespace)\
+        -> tuple[bool, bool, bool, list[str], list[str]]:
+    """ Validate all aspects of the observed state graph against the
+        associated pattern.
+
+    :param rng: [TODO:description]
+    :param gpattern: [TODO:description]
+    :param fact_ap_pairs: [TODO:description]
+    :param unmatched: [TODO:description]
+    :param config: [TODO:description]
+    :return: [TODO:description]
+    """
     valid_lst = list()
     status_msg_lst = list()
     status_msg_long_lst = list()
@@ -66,7 +122,6 @@ def validate_state_graph(rng: np.random.Generator,
         status_msg_lst.extend(status_msg_lst)
         status_msg_long_lst.extend(status_msg_long_lst)
 
-    # TODO: skip if dist size is too low
     passed_critical, passed_suspicious = True, True
     if config.evaluate_data:
         # validate the data of the state graph, per component
@@ -84,20 +139,10 @@ def validate_state_graph(rng: np.random.Generator,
             status_msg_long_lst.extend(status_msg_long_lst)
 
     # aggregate validation failures: fail if at least one test did not pass
-    status_code = ValidationReport.StatusCode.NOMINAL
-    if not passed_critical:
-        status_code = ValidationReport.StatusCode.CRITICAL
-    elif not passed_suspicious:
-        status_code = ValidationReport.StatusCode.SUSPICIOUS
-    elif False in valid_lst:
-        status_code = ValidationReport.StatusCode.INCONSISTENCY
+    valid_semantics = False in valid_lst
 
-    return ValidationReport(pattern=gpattern,
-                            graph=graph,
-                            timestamp=datetime.now(),
-                            status_code=status_code,
-                            status_msg=status_msg_lst,
-                            status_msg_long=status_msg_long_lst)
+    return valid_semantics, passed_critical, passed_suspicious, \
+        status_msg_lst, status_msg_long_lst
 
 
 def validate_graph_data(rng: np.random.Generator,
@@ -124,17 +169,28 @@ def validate_graph_data(rng: np.random.Generator,
     passed_suspicious = True
 
     status_msg_lst = list()
-    status_msg_long_lst = list()
+    status_msg_long_lst = list() 
+    # FIXME: check subject (+all subfunctions)
     if isinstance(ap.tail, Resource):
         valid_semantics, status_msg_lst, status_msg_long_lst\
                 = validate_graph_data_resource(fact, ap)
     elif isinstance(ap.tail, Distribution):
+        if ap.tail.num_samples < samplesize * 2:
+            msg = "Insufficient Data"
+            msg_long = "Insufficient samples have yet been observed for this "\
+                       "component of the observed state graph to establish "\
+                       "nominal behaviour or deviations thereof."\
+                       f"\n Observed: {str(fact)}"
+            logger.info(msg_long)
+
+            return True, True, True, [msg], [msg_long]  # skip evaluation
+
         valid_semantics, passed_critical, passed_suspicious, \
-                status_msg_lst, status_msg_long_lst\
-                = validate_graph_data_distribution(rng, fact, ap,
-                                                   alpha_critical,
-                                                   alpha_suspicious,
-                                                   samplesize, interruption)
+            status_msg_lst, status_msg_long_lst\
+            = validate_graph_data_distribution(rng, fact, ap,
+                                               alpha_critical,
+                                               alpha_suspicious,
+                                               samplesize, interruption)
 
     return valid_semantics, passed_critical, passed_suspicious, \
         status_msg_lst, status_msg_long_lst
@@ -551,6 +607,9 @@ class ValidationReport():
             if isinstance(status_msg, str) else status_msg
         self.status_msg_long = [status_msg_long]\
             if isinstance(status_msg_long, str) else status_msg_long
+
+    def to_graph(self, mkid: Callable) -> set[Statement]:
+        return report_to_graph(self, mkid)
 
     def __hash__(self):
         return hash(str(self.pattern)

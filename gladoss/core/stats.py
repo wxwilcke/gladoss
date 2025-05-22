@@ -104,6 +104,16 @@ class Distribution():
         return dist
 
     @property
+    def num_samples(self) -> int:
+        """ Return the total number of samples that make up the
+            distribution.
+
+        :param self [TODO:type]: [TODO:description]
+        :return: [TODO:description]
+        """
+        return len(self.data)
+
+    @property
     def data(self) -> list:
         """ Return all samples in the current population. A deterministic
             ordering between calls is not guaranteed.
