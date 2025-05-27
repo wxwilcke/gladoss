@@ -23,17 +23,54 @@ logger = logging.getLogger(__name__)
 
 
 def create_assertion_pattern(mkid: Callable,
-                             assertion: Statement) -> AssertionPattern:
+                             assertion: Statement,
+                             align_to: list[AssertionPattern])\
+        -> AssertionPattern:
     """ Return a new assertion pattern that belongs to the
         provided assertion. The returned pattern is assigned
         a unique identifier, and assumes (until observations
         claim otherwise) that all elements are static.
 
+        Coalesces head and/or tail resources if the same resource
+        is already part of an assertion pattern provided in the
+        alignment list.
+
     :param rng: [TODO:description]
     :param assertion: [TODO:description]
     :return: [TODO:description]
     """
-    return AssertionPattern.create_from(mkid(), assertion=assertion)
+    ap = AssertionPattern.create_from(mkid(), assertion=assertion)
+
+    # check if the assertion is connected to another assertion
+    # via head or tail and, if so, coalesce the two resources
+    for ap_other in align_to:
+        if ap.head == ap_other.head:
+            # <- ->
+            ap.head = ap_other.head
+
+            ap._connections_head.append(ap_other)
+            ap_other._connections_head.append(ap)
+        if isinstance(ap.tail, IRIRef):
+            if ap.tail == ap_other.head:
+                # -> ->
+                ap.tail = ap_other.head
+
+                ap._connections_tail.append(ap_other)
+                ap_other._connections_head.append(ap)
+            if isinstance(ap_other.tail, IRIRef) and ap.tail == ap_other.tail:
+                # -> <-
+                ap.tail = ap_other.tail
+
+                ap._connections_tail.append(ap_other)
+                ap_other._connections_tail.append(ap)
+        if isinstance(ap_other.tail, IRIRef) and ap.head == ap_other.tail:
+            # <- <-
+            ap.head = ap_other.tail
+
+            ap._connections_head.append(ap_other)
+            ap_other._connections_tail.append(ap)
+
+    return ap
 
 
 def create_graph_pattern(mkid: Callable,
@@ -53,9 +90,10 @@ def create_graph_pattern(mkid: Callable,
     :return: [TODO:description]
     """
     # create list of assertion patterns from given set of facts
-    # FIXME: link connected assertions
-    gpattern = [create_assertion_pattern(mkid, assertion)
-                for assertion in graph]
+    gpattern = list()
+    for assertion in graph:
+        ap = create_assertion_pattern(mkid, assertion, gpattern)
+        gpattern.append(ap)
 
     return GraphPattern(pattern=gpattern, identifier=graph_id,
                         threshold=threshold, decay=decay)
@@ -116,6 +154,8 @@ class AssertionPattern():
         self.relation = relation
         self.tail = tail
         self._id = identifier
+        self._connections_head = list()
+        self._connections_tail = list()
         self._t = 1 if _t is None else _t
 
     def weak_match(self, fact: Statement) -> bool:
@@ -285,8 +325,13 @@ class AssertionPattern():
         if isinstance(self.tail, Distribution):
             tail = deepcopy(self.tail)
 
-        return AssertionPattern(head=head, relation=self.relation, tail=tail,
-                                identifier=self._id, _t=self._t)
+        ap = AssertionPattern(head=head, relation=self.relation, tail=tail,
+                              identifier=self._id, _t=self._t)
+
+        ap._connections_head = [ap for ap in self._connections_head]
+        ap._connections_tail = [ap for ap in self._connections_tail]
+
+        return ap
 
     def __eq__(self, other: Any) -> bool:
         return self._id == other._id
