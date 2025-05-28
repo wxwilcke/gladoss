@@ -23,54 +23,18 @@ logger = logging.getLogger(__name__)
 
 
 def create_assertion_pattern(mkid: Callable,
-                             assertion: Statement,
-                             align_to: list[AssertionPattern])\
+                             assertion: Statement)\
         -> AssertionPattern:
     """ Return a new assertion pattern that belongs to the
         provided assertion. The returned pattern is assigned
         a unique identifier, and assumes (until observations
         claim otherwise) that all elements are static.
 
-        Coalesces head and/or tail resources if the same resource
-        is already part of an assertion pattern provided in the
-        alignment list.
-
     :param rng: [TODO:description]
     :param assertion: [TODO:description]
     :return: [TODO:description]
     """
-    ap = AssertionPattern.create_from(mkid(), assertion=assertion)
-
-    # check if the assertion is connected to another assertion
-    # via head or tail and, if so, coalesce the two resources
-    for ap_other in align_to:
-        if ap.head == ap_other.head:
-            # <- ->
-            ap.head = ap_other.head
-
-            ap._connections_head.append(ap_other)
-            ap_other._connections_head.append(ap)
-        if isinstance(ap.tail, IRIRef):
-            if ap.tail == ap_other.head:
-                # -> ->
-                ap.tail = ap_other.head
-
-                ap._connections_tail.append(ap_other)
-                ap_other._connections_head.append(ap)
-            if isinstance(ap_other.tail, IRIRef) and ap.tail == ap_other.tail:
-                # -> <-
-                ap.tail = ap_other.tail
-
-                ap._connections_tail.append(ap_other)
-                ap_other._connections_tail.append(ap)
-        if isinstance(ap_other.tail, IRIRef) and ap.head == ap_other.tail:
-            # <- <-
-            ap.head = ap_other.tail
-
-            ap._connections_head.append(ap_other)
-            ap_other._connections_tail.append(ap)
-
-    return ap
+    return AssertionPattern.create_from(mkid(), assertion=assertion)
 
 
 def create_graph_pattern(mkid: Callable,
@@ -82,20 +46,24 @@ def create_graph_pattern(mkid: Callable,
         and anchors by creating assertion patterns for each
         fact and by adding these to an empty graph pattern.
 
-    :param rng: [TODO:description]
+         Coalesces head and/or tail resources if the same resource
+        is already part of an assertion pattern provided in the
+        alignment list.
+
+   :param rng: [TODO:description]
     :param facts: [TODO:description]
     :param anchors: [TODO:description]
     :param threshold: [TODO:description]
     :param decay: [TODO:description]
     :return: [TODO:description]
     """
-    # create list of assertion patterns from given set of facts
-    gpattern = list()
+    # create assertion patterns from given set of facts
+    structure = GraphPattern.Structure()
     for assertion in graph:
-        ap = create_assertion_pattern(mkid, assertion, gpattern)
-        gpattern.append(ap)
+        ap = create_assertion_pattern(mkid, assertion)
+        structure.add_arc(ap)
 
-    return GraphPattern(pattern=gpattern, identifier=graph_id,
+    return GraphPattern(structure=structure, identifier=graph_id,
                         threshold=threshold, decay=decay)
 
 
@@ -112,9 +80,10 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     """
     # find pairs of facts and associated assertion patterns
     # next update copies thereof with new observations
-    fact_ap_pairs, unmatched = match_facts_to_patterns(
-            facts,
-            gPattern.pattern)
+    pattern_components = [gPattern.structure.map[k]['about']
+                          for k in gPattern.structure.keys]
+    fact_ap_pairs, unmatched\
+        = match_facts_to_patterns(facts, pattern_components)
     ap_upd = {ap.update_from(fact, config)
               for fact, ap in fact_ap_pairs}
 
@@ -122,9 +91,8 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     # only consider the facts that haven't been matched in the previous step
     uc_upd = set()
     if len(gPattern._under_consideration) > 0:
-        fact_uc_pairs, unmatched = match_facts_to_patterns(
-                unmatched,
-                gPattern._under_consideration)
+        fact_uc_pairs, unmatched\
+            = match_facts_to_patterns(unmatched, gPattern._under_consideration)
 
         uc_upd = {ap.update_from(fact, config)
                   for fact, ap in fact_uc_pairs}
@@ -154,8 +122,6 @@ class AssertionPattern():
         self.relation = relation
         self.tail = tail
         self._id = identifier
-        self._connections_head = list()
-        self._connections_tail = list()
         self._t = 1 if _t is None else _t
 
     def weak_match(self, fact: Statement) -> bool:
@@ -328,9 +294,6 @@ class AssertionPattern():
         ap = AssertionPattern(head=head, relation=self.relation, tail=tail,
                               identifier=self._id, _t=self._t)
 
-        ap._connections_head = [ap for ap in self._connections_head]
-        ap._connections_tail = [ap for ap in self._connections_tail]
-
         return ap
 
     def __eq__(self, other: Any) -> bool:
@@ -363,20 +326,15 @@ class GraphPattern():
     Holds all assertions of a graph pattern and keeps
     track of the connections of these assertions.
     """
-    def __init__(self, pattern: Collection[AssertionPattern],
+    def __init__(self, structure: Structure,
                  identifier: str, threshold: int,
                  decay: int) -> None:
-        self.pattern = sorted(list(pattern))
+        self.structure = structure
         self._id = identifier
 
         # keep track of time
         # time is incremented on update or manually
         self._t = 0
-
-        # identifiers of the assertion patterns that make up the graph pattern
-        # track location in list for fast retrieval
-        id_lst = [ap._id for ap in self.pattern]
-        self._id_to_assertion_map = {_id: i for i, _id in enumerate(id_lst)}
 
         # number of time steps (with decay) that an assertion is present
         # before including it into the pattern of nominal behaviour.
@@ -387,7 +345,7 @@ class GraphPattern():
         self.decay = decay
 
         # track frequencyof assertions by their identifiers
-        self._freq_tracker = Counter(id_lst)
+        self._freq_tracker = Counter(self.structure.keys)
 
         # track newly observed assertions (added on reaching threshold)
         self._under_consideration = list()
@@ -397,7 +355,7 @@ class GraphPattern():
         self._decay_tracker = dict()
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = id_lst
+            self._decay_tracker[t_decay] = self.structure.keys
 
     def update_from(self, aPatterns: Collection[AssertionPattern])\
             -> GraphPattern:
@@ -413,10 +371,9 @@ class GraphPattern():
 
         # update assertion patterns
         for ap in aPatterns:
-            if ap._id in gp._id_to_assertion_map.keys():
+            if ap._id in gp.structure.keys:
                 # known member of the current graph pattern
-                i = gp._id_to_assertion_map[ap._id]
-                gp.pattern[i] = ap  # replace with updated ap
+                gp.structure.replace_arc(ap)
             elif ap._id in gp._id_to_consideration_map.keys():
                 # known assertion pattern under consideration
                 i = gp._id_to_consideration_map[ap._id]
@@ -444,7 +401,7 @@ class GraphPattern():
 
         :rtype: int
         """
-        return len(self.pattern)
+        return len(self.structure.keys)
 
     def _forward(self):
         """ Update the distribution by a single time step.
@@ -466,9 +423,8 @@ class GraphPattern():
         for ap in self._under_consideration:
             if ap._id in self._freq_tracker.keys():
                 if self._freq_tracker[ap._id] >= self.threshold:
-                    # add assertion to pattern
-                    self.pattern.append(ap)
-                    self._id_to_assertion_map[ap._id] = len(self.pattern) - 1
+                    # add assertion pattern to graph pattern structure
+                    self.structure.add_arc(ap)
 
                     remove_set.add(ap._id)
                     del self._id_to_consideration_map[ap._id]
@@ -495,12 +451,13 @@ class GraphPattern():
                 if self._freq_tracker[ap._id] <= 0:
                     # remove sample from index
                     del self._freq_tracker[ap._id]
+                    self.structure.rmv_arc(ap)
 
                 # clean up decay tracker
                 del self._decay_tracker[self._t]
 
     def __deepcopy__(self, memo) -> GraphPattern:
-        gp = GraphPattern(pattern=[ap for ap in self.pattern],
+        gp = GraphPattern(structure=deepcopy(self.structure),
                           identifier=self._id,
                           threshold=self.threshold,
                           decay=self.decay)
@@ -537,11 +494,290 @@ class GraphPattern():
 
         :rtype: str
         """
-        return "{" + "; ".join([str(assertion) for assertion in
-                                self.pattern]) + "}"
+        return "{" + "; ".join([str(self.structure.map[k]['about']) for k in
+                                sorted(self.structure.keys)]) + "}"
 
     def __hash__(self) -> int:
         return hash(str(self))
+
+    class Structure:
+        def __init__(self) -> None:
+            self.map = dict()
+            # TODO: this currently does not keep track of patterns in the
+            # connections. We might want to include this in case the topology
+            # changes
+
+        def add_arc(self, ap: AssertionPattern) -> None:
+            self.map[ap._id] = {'about': ap,
+                                'head': set(),
+                                'tail': set()
+                                }
+            self._align(ap)
+
+        def replace_arc(self, ap: AssertionPattern) -> None:
+            assert ap._id in self.map.keys()
+            self.map[ap._id]['about'] = ap
+
+            # self._align(ap)  # TODO: see above
+
+        def rmv_arc(self, ap: AssertionPattern) -> None:
+            assert ap._id in self.map.keys()
+
+            self._unalign(ap)
+
+        def _unalign(self, ap: AssertionPattern) -> None:
+            del self.map[ap._id]
+            for connections in self.map.values():
+                if ap._id in connections['head']:
+                    del connections['head'][ap._id]
+                if ap._id in connections['tail']:
+                    del connections['tail'][ap._id]
+
+        def _align(self, ap: AssertionPattern) -> None:
+            # check if the assertion is connected to another assertion
+            # via head or tail and, if so, coalesce the two resources
+            for ap_other_id, connections in self.map.items():
+                if ap._id == ap_other_id:
+                    continue
+
+                ap_other = connections['about']
+                if ap.head == ap_other.head:
+                    # <- ->
+                    ap.head = ap_other.head
+
+                    self.map[ap._id]['head'].add(ap_other._id)
+                    self.map[ap_other._id]['head'].add(ap._id)
+                if isinstance(ap.tail, IRIRef):
+                    if ap.tail == ap_other.head:
+                        # -> ->
+                        ap.tail = ap_other.head
+
+                        self.map[ap._id]['tail'].add(ap_other._id)
+                        self.map[ap_other._id]['head'].add(ap._id)
+                    if isinstance(ap_other.tail, IRIRef)\
+                            and ap.tail == ap_other.tail:
+                        # -> <-
+                        ap.tail = ap_other.tail
+
+                        self.map[ap._id]['tail'].add(ap_other._id)
+                        self.map[ap_other._id]['tail'].add(ap._id)
+                if isinstance(ap_other.tail, IRIRef)\
+                        and ap.head == ap_other.tail:
+                    # <- <-
+                    ap.head = ap_other.tail
+
+                    self.map[ap._id]['head'].add(ap_other._id)
+                    self.map[ap_other._id]['tail'].addd(ap._id)
+
+        @property
+        def keys(self) -> list[str]:
+            return sorted(self.map.keys())
+
+        def __deepcopy__(self, memo) -> GraphPattern.Structure:
+            struct = GraphPattern.Structure()
+            for k, v in self.map.items():
+                struct.map[k] = {'about': v['about'],
+                                 'head': {s for s in v['head']},
+                                 'tail': {s for s in v['tail']}}
+
+            return struct
+
+        def __hash__(self) -> int:
+            return hash('; '.join(str(self.map[k]['about'])
+                                  + '.'.join(sorted(self.map[k]['head']))
+                                  + '.'.join(sorted(self.map[k]['tail']))
+                                  for k in sorted(self.map.keys())))
+
+        def __str__(self) -> str:
+            return '; '.join(str(self.map[k]['about'])
+                             for k in sorted(self.map.keys()))
+
+
+# class GraphPattern():
+#     """ GraphPattern class
+# 
+#     Holds all assertions of a graph pattern and keeps
+#     track of the connections of these assertions.
+#     """
+#     def __init__(self, pattern: Collection[AssertionPattern],
+#                  identifier: str, threshold: int,
+#                  decay: int) -> None:
+#         self.pattern = sorted(list(pattern))
+#         self._id = identifier
+# 
+#         # keep track of time
+#         # time is incremented on update or manually
+#         self._t = 0
+# 
+#         # identifiers of the assertion patterns that make up the graph pattern
+#         # track location in list for fast retrieval
+#         id_lst = [ap._id for ap in self.pattern]
+#         self._id_to_assertion_map = {_id: i for i, _id in enumerate(id_lst)}
+# 
+#         # number of time steps (with decay) that an assertion is present
+#         # before including it into the pattern of nominal behaviour.
+#         self.threshold = threshold
+# 
+#         # number of time steps that an existin assertion is absent before
+#         # removing it from the pattern of nominal behaviour
+#         self.decay = decay
+# 
+#         # track frequencyof assertions by their identifiers
+#         self._freq_tracker = Counter(id_lst)
+# 
+#         # track newly observed assertions (added on reaching threshold)
+#         self._under_consideration = list()
+#         self._id_to_consideration_map = dict()
+# 
+#         # schedule future decay of assertion patterns
+#         self._decay_tracker = dict()
+#         if self.decay > 0:
+#             t_decay = (self._t + self.decay) % sys.maxsize
+#             self._decay_tracker[t_decay] = id_lst
+# 
+#     def update_from(self, aPatterns: Collection[AssertionPattern])\
+#             -> GraphPattern:
+#         """ Return a copy of this graph pattern that has been updated
+#             with the provided assertion patterns (new observations).
+#             The updated graph pattern will be fowarded in time by
+#             a single epoch.
+# 
+#         :param aPatterns: [TODO:description]
+#         :return: [TODO:description]
+#         """
+#         gp = deepcopy(self)
+# 
+#         # update assertion patterns
+#         for ap in aPatterns:
+#             if ap._id in gp._id_to_assertion_map.keys():
+#                 # known member of the current graph pattern
+#                 i = gp._id_to_assertion_map[ap._id]
+#                 gp.pattern[i] = ap  # replace with updated ap
+#             elif ap._id in gp._id_to_consideration_map.keys():
+#                 # known assertion pattern under consideration
+#                 i = gp._id_to_consideration_map[ap._id]
+#                 gp._under_consideration[i] = ap
+#             else:  # unknown assertion pattern: add for consideration
+#                 gp._under_consideration.append(ap)
+#                 gp._id_to_consideration_map[ap._id]\
+#                     = len(gp._under_consideration) - 1
+#                 gp._freq_tracker[ap._id] = 0
+# 
+#             gp._freq_tracker[ap._id] += 1  # increase count
+# 
+#         # schedule future decay of assertion patterns
+#         if gp.decay > 0:
+#             t_decay = (gp._t + gp.decay) % sys.maxsize
+#             gp._decay_tracker[t_decay] = {ap._id for ap in aPatterns}
+# 
+#         # increment time
+#         gp._forward()
+# 
+#         return gp
+# 
+#     def __len__(self) -> int:
+#         """ Return the number of assertions
+# 
+#         :rtype: int
+#         """
+#         return len(self.pattern)
+# 
+#     def _forward(self):
+#         """ Update the distribution by a single time step.
+#         """
+#         self._t += 1
+#         if self._t == sys.maxsize:
+#             self._t = 0
+# 
+#         if self.threshold > 0:
+#             self._consider()
+# 
+#         if self.decay > 0:
+#             self._decay()
+# 
+#     def _consider(self) -> None:
+#         """ Add new assertions which have reached the threshold.
+#         """
+#         remove_set = set()
+#         for ap in self._under_consideration:
+#             if ap._id in self._freq_tracker.keys():
+#                 if self._freq_tracker[ap._id] >= self.threshold:
+#                     # add assertion to pattern
+#                     self.pattern.append(ap)
+#                     self._id_to_assertion_map[ap._id] = len(self.pattern) - 1
+# 
+#                     remove_set.add(ap._id)
+#                     del self._id_to_consideration_map[ap._id]
+# 
+#                     continue
+# 
+#                 if self._freq_tracker[ap._id] <= 0:
+#                     # assertion decayed
+#                     remove_set.add(ap._id)
+#                     del self._id_to_consideration_map[ap._id]
+# 
+#         self._under_consideration = [ap for ap in self._under_consideration
+#                                      if ap._id not in remove_set]
+# 
+#     def _decay(self) -> None:
+#         """ Forget about assertions that have exceeded their decay period.
+#         """
+#         if self._t in self._decay_tracker.keys():
+#             for ap in self._decay_tracker[self._t]:
+#                 if ap._id in self._freq_tracker.keys():
+#                     # decrease sample count
+#                     self._freq_tracker[ap._id] -= 1
+# 
+#                 if self._freq_tracker[ap._id] <= 0:
+#                     # remove sample from index
+#                     del self._freq_tracker[ap._id]
+# 
+#                 # clean up decay tracker
+#                 del self._decay_tracker[self._t]
+# 
+#     def __deepcopy__(self, memo) -> GraphPattern:
+#         gp = GraphPattern(pattern=[ap for ap in self.pattern],
+#                           identifier=self._id,
+#                           threshold=self.threshold,
+#                           decay=self.decay)
+# 
+#         gp._t = self._t
+#         gp._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
+#         gp._freq_tracker = Counter(self._freq_tracker.elements())
+#         gp._under_consideration = [gp for gp in self._under_consideration]
+#         gp._id_to_consideration_map\
+#             = {gp._id: i for i, gp in enumerate(gp._under_consideration)}
+# 
+#         return gp
+# 
+#     def __eq__(self, other) -> bool:
+#         """ Returns true if it is the same graph pattern at the same
+#             moment in time.
+# 
+#         :param other [TODO:type]: [TODO:description]
+#         :return: [TODO:description]
+#         """
+#         return type(self) is type(other)\
+#             and self._id == other._id\
+#             and self._t == other._t
+# 
+#     def __repr__(self) -> str:
+#         """ Return an internal string representation
+# 
+#         :rtype: str
+#         """
+#         return "GraphPattern [{}]".format(str(self))
+# 
+#     def __str__(self) -> str:
+#         """ Return a string representation
+# 
+#         :rtype: str
+#         """
+#         return "{" + "; ".join([str(assertion) for assertion in
+#                                 self.pattern]) + "}"
+# 
+#     def __hash__(self) -> int:
+#         return hash(str(self))
 
 
 class PatternVault():

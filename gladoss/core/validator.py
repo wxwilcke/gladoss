@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def validate_state_graph(rng: np.random.Generator,
-                         gpattern: GraphPattern,
+                         gPattern: GraphPattern,
                          graph: Collection[Statement],
                          config: SimpleNamespace)\
         -> ValidationReport:
@@ -44,8 +44,10 @@ def validate_state_graph(rng: np.random.Generator,
     """
     # find pairs of facts and associated assertion patterns
     # TODO: this is done earlier on as well
-    fact_ap_pairs, unmatched = match_facts_to_patterns(
-            graph, gpattern.pattern)
+    pattern_components = [gPattern.structure.map[k]['about']
+                          for k in gPattern.structure.keys]
+    fact_ap_pairs, unmatched\
+            = match_facts_to_patterns(graph, pattern_components)
 
     # default values
     status_msg_lst = list()
@@ -54,7 +56,7 @@ def validate_state_graph(rng: np.random.Generator,
 
     # check if the state graph can successfully be mapped to its pattern
     complete_map = True
-    if len(fact_ap_pairs) < len(gpattern) and len(unmatched) > 0:
+    if len(fact_ap_pairs) < len(gPattern) and len(unmatched) > 0:
         status_msg_lst = ["Mapping Error"]
         status_msg_long_lst = ["Unable to map all components of the "
                                "observed state graph to their association "
@@ -70,7 +72,7 @@ def validate_state_graph(rng: np.random.Generator,
     if complete_map:
         valid_semantics, passed_critical, passed_suspicious, \
             status_msg_lst, status_msg_long_lst\
-            = validate_state_graph_components(rng, gpattern,
+            = validate_state_graph_components(rng, gPattern,
                                               fact_ap_pairs,
                                               unmatched, config)
 
@@ -82,7 +84,7 @@ def validate_state_graph(rng: np.random.Generator,
         elif not valid_semantics:
             status_code = ValidationReport.StatusCode.INCONSISTENCY
 
-    return ValidationReport(pattern=gpattern,
+    return ValidationReport(pattern=gPattern,
                             graph=graph,
                             timestamp=datetime.now(),
                             status_code=status_code,
@@ -91,7 +93,7 @@ def validate_state_graph(rng: np.random.Generator,
 
 
 def validate_state_graph_components(rng: np.random.Generator,
-                                    gpattern: GraphPattern,
+                                    gPattern: GraphPattern,
                                     fact_ap_pairs: list[tuple],
                                     unmatched: set,
                                     config: SimpleNamespace)\
@@ -112,7 +114,7 @@ def validate_state_graph_components(rng: np.random.Generator,
     if config.evaluate_structure:
         # validate the structure of the state graph
         valid_semantics, status_msg_lst, status_msg_long_lst\
-                = validate_graph_structure(gpattern,
+                = validate_graph_structure(gPattern,
                                            fact_ap_pairs,
                                            unmatched,
                                            config.match_cwa,
@@ -169,7 +171,7 @@ def validate_graph_data(rng: np.random.Generator,
     passed_suspicious = True
 
     status_msg_lst = list()
-    status_msg_long_lst = list() 
+    status_msg_long_lst = list()
     # FIXME: check subject (+all subfunctions)
     if isinstance(ap.tail, Resource):
         valid_semantics, status_msg_lst, status_msg_long_lst\
