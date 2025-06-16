@@ -45,9 +45,9 @@ def validate_state_graph(rng: np.random.Generator,
     # find pairs of facts and associated assertion patterns
     # TODO: this is done earlier on as well
     pattern_components = [gPattern.structure.map[k]['about']
-                          for k in gPattern.structure.keys]
+                          for k in gPattern.structure.map.keys()]
     fact_ap_pairs, unmatched\
-            = match_facts_to_patterns(graph, pattern_components)
+        = match_facts_to_patterns(graph, pattern_components)
 
     # default values
     status_msg_lst = list()

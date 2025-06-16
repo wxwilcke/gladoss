@@ -81,7 +81,7 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     # find pairs of facts and associated assertion patterns
     # next update copies thereof with new observations
     pattern_components = [gPattern.structure.map[k]['about']
-                          for k in gPattern.structure.keys]
+                          for k in gPattern.structure.map.keys()]
     fact_ap_pairs, unmatched\
         = match_facts_to_patterns(facts, pattern_components)
     ap_upd = {ap.update_from(fact, config)
@@ -577,8 +577,8 @@ class GraphPattern():
             struct = GraphPattern.Structure()
             for k, v in self.map.items():
                 struct.map[k] = {'about': v['about'],
-                                 'head': {s for s in v['head']},
-                                 'tail': {s for s in v['tail']}}
+                                 'head': {h for h in v['head']},
+                                 'tail': {t for t in v['tail']}}
 
             return struct
 
