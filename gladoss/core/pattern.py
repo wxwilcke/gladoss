@@ -1,8 +1,10 @@
 #! /usr/bin/env python
 
 from __future__ import annotations
+import bz2
 from collections import Counter
 from copy import deepcopy
+import pickle
 from datetime import datetime
 from threading import Lock
 import logging
@@ -16,14 +18,15 @@ from rdf.terms import IRIRef, Literal, Resource
 from gladoss.core.multimodal.datatypes import cast_literal, infer_datatype
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 Distribution)
-from gladoss.core.utils import match_facts_to_patterns
+from gladoss.core.utils import infer_class, match_assertions_to_patterns
 
 
 logger = logging.getLogger(__name__)
 
 
 def create_assertion_pattern(mkid: Callable,
-                             assertion: Statement)\
+                             assertion: Statement,
+                             anchor: IRIRef)\
         -> AssertionPattern:
     """ Return a new assertion pattern that belongs to the
         provided assertion. The returned pattern is assigned
@@ -34,7 +37,8 @@ def create_assertion_pattern(mkid: Callable,
     :param assertion: [TODO:description]
     :return: [TODO:description]
     """
-    return AssertionPattern.create_from(mkid(), assertion=assertion)
+    return AssertionPattern.create_from(mkid(), assertion=assertion,
+                                        anchor=anchor)
 
 
 def create_graph_pattern(mkid: Callable,
@@ -43,12 +47,11 @@ def create_graph_pattern(mkid: Callable,
                          threshold: int = -1,
                          decay: int = -1) -> GraphPattern:
     """ Return a new graph pattern from the provided facts
-        and anchors by creating assertion patterns for each
-        fact and by adding these to an empty graph pattern.
-
-         Coalesces head and/or tail resources if the same resource
-        is already part of an assertion pattern provided in the
-        alignment list.
+        by creating assertion patterns (AP) for each fact.
+        Each AP holds a subject-centric patterns that belongs
+        to the relation-object pair, with the subject type
+        as anchor. The generated APs are added to an empty
+        graph pattern.
 
    :param rng: [TODO:description]
     :param facts: [TODO:description]
@@ -57,18 +60,21 @@ def create_graph_pattern(mkid: Callable,
     :param decay: [TODO:description]
     :return: [TODO:description]
     """
-    # create assertion patterns from given set of facts
-    structure = GraphPattern.Structure()
+    # create assertion patterns from given set of assertions
+    structure = dict()
     for assertion in graph:
-        ap = create_assertion_pattern(mkid, assertion)
-        structure.add_arc(ap)
+        # TODO; accomodate dangling heads
+        anchor = infer_class(assertion.subject, graph)
+        ap = create_assertion_pattern(mkid, assertion, anchor)
+
+        structure[ap._id] = ap
 
     return GraphPattern(structure=structure, identifier=graph_id,
                         threshold=threshold, decay=decay)
 
 
 def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
-                         facts: Collection[Statement],
+                         graph: Collection[Statement],
                          config: SimpleNamespace) -> GraphPattern:
     """ Return an updated copy of the provided graph pattern by
         first pairing the provided statements with their associated
@@ -78,28 +84,30 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     :param gPattern: [TODO:description]
     :param facts: [TODO:description]
     """
-    # find pairs of facts and associated assertion patterns
+    # find pairs of assertions and associated assertion patterns
     # next update copies thereof with new observations
-    pattern_components = [gPattern.structure.map[k]['about']
-                          for k in gPattern.structure.map.keys()]
-    fact_ap_pairs, unmatched\
-        = match_facts_to_patterns(facts, pattern_components)
-    ap_upd = {ap.update_from(fact, config)
-              for fact, ap in fact_ap_pairs}
+    pattern_components = list(gPattern.structure.values())
+    assertion_ap_pairs, unmatched\
+        = match_assertions_to_patterns(graph, pattern_components)
+    ap_upd = {ap.update_from(assertion, config)
+              for assertion, ap in assertion_ap_pairs}
 
     # find pairs for assertion patterns under consideration
-    # only consider the facts that haven't been matched in the previous step
+    # only consider the assertions that haven't been matched in the last step
     uc_upd = set()
     if len(gPattern._under_consideration) > 0:
-        fact_uc_pairs, unmatched\
-            = match_facts_to_patterns(unmatched, gPattern._under_consideration)
+        pattern_components = list(gPattern._under_consideration.values())
+        assertion_uc_pairs, unmatched\
+            = match_assertions_to_patterns(unmatched, pattern_components)
 
-        uc_upd = {ap.update_from(fact, config)
-                  for fact, ap in fact_uc_pairs}
+        uc_upd = {ap.update_from(assertion, config)
+                  for assertion, ap in assertion_uc_pairs}
 
     # create new assertion patterns for unmatched observations
-    ap_new = {AssertionPattern.create_from(mkid(), fact)
-              for fact in unmatched}
+    ap_new = set()
+    for assertion in unmatched:
+        anchor = infer_class(assertion.subject, graph)
+        ap_new.add(AssertionPattern.create_from(mkid(), assertion, anchor))
 
     # update graph pattern with updated and new assertion patterns
     gp_upd = gPattern.update_from(ap_upd | uc_upd | ap_new)
@@ -108,54 +116,61 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
 
 
 class AssertionPattern():
-    def __init__(self,  head: IRIRef | DiscreteDistribution,
+    def __init__(self,  anchor: IRIRef,
                  relation: IRIRef,
-                 tail: IRIRef | Literal | Distribution,
+                 value: IRIRef | Literal | Distribution,
                  identifier: str, _t: Optional[int] = None) -> None:
         """ Initialize a new AssertionPattern.
 
-        :param head: the subject of an assertion or its distribution
+        :param anchor: the class of resource at the head position
         :param relation: the predicate of an assertion
         :param tail: the object of an assertion or its distribution
         """
-        self.head = head
+        self.anchor = anchor
         self.relation = relation
-        self.tail = tail
+        self.value = value
         self._id = identifier
         self._t = 1 if _t is None else _t
 
-    def weak_match(self, fact: Statement) -> bool:
-        """ Check if the provided fact is a likely match to
+    def weak_match(self, assertion: Statement, graph: Collection[Statement])\
+            -> bool:
+        """ Check if the provided assertion is a likely match to
             this assertion pattern, by comparing whether
             elements are the same or appropriate fits. This
-            will fail when the same subject - relation -
+            will fail when the same subject type - relation -
             object type is present in more than one statement.
 
         :param other: [TODO:description]
         :return: [TODO:description]
         """
-        return isinstance(fact, Statement)\
-            and (type(self.relation) is type(fact.predicate)
-                 and self.relation == fact.predicate)\
-            and (isinstance(self.head, DiscreteDistribution)
-                 or (isinstance(self.head, IRIRef)
-                     and self.head == fact.subject))\
-            and (isinstance(self.tail, IRIRef)
-                 or (isinstance(self.tail, Literal)
-                     and infer_datatype(self.tail)
-                     == infer_datatype(fact.object))
-                 or (isinstance(self.tail, DiscreteDistribution)
-                     and ((isinstance(fact.object, IRIRef)
-                           and self.tail.dtype is None)
-                          or (isinstance(fact.object, Literal)
-                              and infer_datatype(fact.object)
-                              == self.tail.dtype)))
-                 or (isinstance(self.tail, ContinuousDistribution)
-                     and isinstance(fact.object, Literal)
-                     and infer_datatype(fact.object) == self.tail.dtype))
+        anchor = infer_class(assertion.subject, graph)
 
-    def strong_match(self, fact: Statement) -> bool:
-        """ Check if the provided fact is a likely match to
+        return isinstance(assertion, Statement)\
+            and (isinstance(assertion.predicate, IRIRef)
+                 and self.relation == assertion.predicate)\
+            and (isinstance(anchor, IRIRef)
+                 and self.anchor == anchor)\
+            and ((isinstance(self.value, IRIRef)
+                  and isinstance(assertion.object, IRIRef)
+                  and infer_class(self.value, graph)
+                  == infer_class(assertion.object, graph))
+                 or (isinstance(self.value, Literal)
+                     and isinstance(assertion.object, Literal)
+                     and infer_datatype(self.value)
+                     == infer_datatype(assertion.object))
+                 or (isinstance(self.value, DiscreteDistribution)
+                     and ((isinstance(assertion.object, IRIRef)
+                           and self.value.dtype is None)
+                          or (isinstance(assertion.object, Literal)
+                              and infer_datatype(assertion.object)
+                              == self.value.dtype)))
+                 or (isinstance(self.value, ContinuousDistribution)
+                     and isinstance(assertion.object, Literal)
+                     and infer_datatype(assertion.object) == self.value.dtype))
+
+    def strong_match(self, assertion: Statement,
+                     graph: Collection[Statement]) -> bool:
+        """ Check if the provided assertion is a likely match to
             this assertion pattern, by comparing whether
             elements are the same or if the values fall
             within the distributions, if present. To reduce
@@ -166,18 +181,20 @@ class AssertionPattern():
         :param other: [TODO:description]
         :return: [TODO:description]
         """
-        return self.weak_match(fact)\
-            and ((isinstance(self.tail, Resource)
-                  and self.tail == fact.object)
-                 or (isinstance(self.tail, DiscreteDistribution)
-                     and fact.object in self.tail.data)
-                 or (isinstance(self.tail, ContinuousDistribution)
-                     and float(fact.object) in range(min(self.tail.data),
-                                                     max(self.tail.data))))
+        return self.weak_match(assertion, graph)\
+            and ((isinstance(self.value, Resource)
+                  and self.value == assertion.object)
+                 or (isinstance(self.value, DiscreteDistribution)
+                     and assertion.object in self.value.data)
+                 or (isinstance(self.value, ContinuousDistribution)
+                     and float(assertion.object)
+                     in range(min(self.value.data),
+                              max(self.value.data))))
 
     @staticmethod
     def create_from(identifier: str,
-                    assertion: Statement) -> AssertionPattern:
+                    assertion: Statement,
+                    anchor: IRIRef) -> AssertionPattern:
         """ Create a new assertion pattern from the provided
             assertion. This assumes that all three elements
             are static, until possible future observations
@@ -187,11 +204,10 @@ class AssertionPattern():
         :param assertion: [TODO:description]
         :return: [TODO:description]
         """
-        head = assertion.subject
         relation = assertion.predicate
-        tail = assertion.object
+        value = assertion.object
 
-        return AssertionPattern(head, relation, tail,
+        return AssertionPattern(anchor, relation, value,
                                 identifier=identifier)
 
     def update_from(self, assertion: Statement,
@@ -213,7 +229,6 @@ class AssertionPattern():
         """
         ap_upd = deepcopy(self)
 
-        # FIXME: link distributions of connected assertions
         def update_element(reference: IRIRef | Literal | Distribution,
                            resource: Resource) -> Distribution:
             """ Add the given value to an appropriate distribution.
@@ -250,18 +265,10 @@ class AssertionPattern():
 
             return dist  # set distribution
 
-        # check if the assertion matches
-        assert ap_upd.relation == assertion.predicate
-
-        # evaluate head if necessary
-        if not (type(ap_upd.head) is type(assertion.subject)
-                and ap_upd.head == assertion.subject):
-            ap_upd.head = update_element(ap_upd.head, assertion.subject)
-
-        # evaluate tail if necessary
-        if not (type(ap_upd.tail) is type(assertion.object)
-                and ap_upd.tail == assertion.object):
-            ap_upd.tail = update_element(ap_upd.tail, assertion.object)
+        # evaluate value if necessary
+        if not (type(ap_upd.value) is type(assertion.object)
+                and ap_upd.value == assertion.object):
+            ap_upd.value = update_element(ap_upd.value, assertion.object)
 
         ap_upd._forward()  # forward time by one step
 
@@ -283,16 +290,13 @@ class AssertionPattern():
 
         :param memo [TODO:type]: [TODO:description]
         """
-        head = self.head
-        if isinstance(self.head, Distribution):
-            head = deepcopy(self.head)
 
-        tail = self.tail
-        if isinstance(self.tail, Distribution):
-            tail = deepcopy(self.tail)
+        value = self.value
+        if isinstance(self.value, Distribution):
+            value = deepcopy(self.value)
 
-        ap = AssertionPattern(head=head, relation=self.relation, tail=tail,
-                              identifier=self._id, _t=self._t)
+        ap = AssertionPattern(anchor=self.anchor, relation=self.relation,
+                              value=value, identifier=self._id, _t=self._t)
 
         return ap
 
@@ -315,9 +319,9 @@ class AssertionPattern():
         :returns: a description of this assertion
         :rtype: str
         """
-        return "(" + ', '.join([str(self.head),
+        return "(" + ', '.join([str(self.anchor),
                                 str(self.relation),
-                                str(self.tail)]) + ")"
+                                str(self.value)]) + ")"
 
 
 class GraphPattern():
@@ -326,38 +330,38 @@ class GraphPattern():
     Holds all assertions of a graph pattern and keeps
     track of the connections of these assertions.
     """
-    def __init__(self, structure: Structure,
+    def __init__(self, structure: dict[str, AssertionPattern],
                  identifier: str, threshold: int,
                  decay: int) -> None:
         self.structure = structure
         self._id = identifier
 
+        # number of time steps (with decay) that an assertion pattern is
+        # present before including it into the pattern of nominal behaviour.
+        self.threshold = threshold
+
+        # number of time steps that an existin assertion pattern is
+        # absent before removing it from the pattern of nominal behaviour
+        self.decay = decay
+
         # keep track of time
         # time is incremented on update or manually
         self._t = 0
 
-        # number of time steps (with decay) that an assertion is present
-        # before including it into the pattern of nominal behaviour.
-        self.threshold = threshold
+        # track frequency of assertion patterns by their identifiers
+        self._freq_tracker = Counter(self.structure.keys())
 
-        # number of time steps that an existin assertion is absent before
-        # removing it from the pattern of nominal behaviour
-        self.decay = decay
-
-        # track frequencyof assertions by their identifiers
-        self._freq_tracker = Counter(self.structure.keys)
-
-        # track newly observed assertions (added on reaching threshold)
-        self._under_consideration = list()
-        self._id_to_consideration_map = dict()
+        # track newly observed assertion patterns
+        # these are added to the structure upon reaching threshold
+        self._under_consideration = dict()
 
         # schedule future decay of assertion patterns
         self._decay_tracker = dict()
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = self.structure.keys
+            self._decay_tracker[t_decay] = self.structure.keys()
 
-    def update_from(self, aPatterns: Collection[AssertionPattern])\
+    def update_from(self, updates: Collection[AssertionPattern])\
             -> GraphPattern:
         """ Return a copy of this graph pattern that has been updated
             with the provided assertion patterns (new observations).
@@ -370,26 +374,23 @@ class GraphPattern():
         gp = deepcopy(self)
 
         # update assertion patterns
-        for ap in aPatterns:
-            if ap._id in gp.structure.keys:
+        for ap in updates:
+            if ap._id in gp.structure.keys():
                 # known member of the current graph pattern
-                gp.structure.replace_arc(ap)
-            elif ap._id in gp._id_to_consideration_map.keys():
+                gp.structure[ap._id] = ap  # just replace
+            elif ap._id in gp._under_consideration.keys():
                 # known assertion pattern under consideration
-                i = gp._id_to_consideration_map[ap._id]
-                gp._under_consideration[i] = ap
+                gp._under_consideration[ap._id] = ap  # just replace
             else:  # unknown assertion pattern: add for consideration
-                gp._under_consideration.append(ap)
-                gp._id_to_consideration_map[ap._id]\
-                    = len(gp._under_consideration) - 1
+                gp._under_consideration[ap._id] = ap
                 gp._freq_tracker[ap._id] = 0
 
             gp._freq_tracker[ap._id] += 1  # increase count
 
-        # schedule future decay of assertion patterns
+        # schedule future decay of updated assertion patterns
         if gp.decay > 0:
             t_decay = (gp._t + gp.decay) % sys.maxsize
-            gp._decay_tracker[t_decay] = {ap._id for ap in aPatterns}
+            gp._decay_tracker[t_decay] = {ap._id for ap in updates}
 
         # increment time
         gp._forward()
@@ -401,7 +402,7 @@ class GraphPattern():
 
         :rtype: int
         """
-        return len(self.structure.keys)
+        return len(self.structure.keys())
 
     def _forward(self):
         """ Update the distribution by a single time step.
@@ -417,47 +418,47 @@ class GraphPattern():
             self._decay()
 
     def _consider(self) -> None:
-        """ Add new assertions which have reached the threshold.
+        """ Add new assertion patterns which have reached the threshold
+            to the structure, thereby including them in the nominal behaviour.
         """
         remove_set = set()
-        for ap in self._under_consideration:
-            if ap._id in self._freq_tracker.keys():
-                if self._freq_tracker[ap._id] >= self.threshold:
+        for ap_id in self._under_consideration.keys():
+            if ap_id in self._freq_tracker.keys():
+                if self._freq_tracker[ap_id] >= self.threshold:
                     # add assertion pattern to graph pattern structure
-                    self.structure.add_arc(ap)
-
-                    remove_set.add(ap._id)
-                    del self._id_to_consideration_map[ap._id]
+                    self.structure[ap_id] = self._under_consideration[ap_id]
+                    remove_set.add(ap_id)
 
                     continue
 
-                if self._freq_tracker[ap._id] <= 0:
-                    # assertion decayed
-                    remove_set.add(ap._id)
-                    del self._id_to_consideration_map[ap._id]
-
-        self._under_consideration = [ap for ap in self._under_consideration
-                                     if ap._id not in remove_set]
+        for ap_id in remove_set:
+            del self._under_consideration[ap_id]
 
     def _decay(self) -> None:
-        """ Forget about assertions that have exceeded their decay period.
+        """ Forget about assertion patterns that have exceeded their
+            decay period, by removing them from the structure.
         """
         if self._t in self._decay_tracker.keys():
-            for ap in self._decay_tracker[self._t]:
-                if ap._id in self._freq_tracker.keys():
+            for ap_id in self._decay_tracker[self._t]:
+                if ap_id in self._freq_tracker.keys():
                     # decrease sample count
-                    self._freq_tracker[ap._id] -= 1
+                    self._freq_tracker[ap_id] -= 1
 
-                if self._freq_tracker[ap._id] <= 0:
-                    # remove sample from index
-                    del self._freq_tracker[ap._id]
-                    self.structure.rmv_arc(ap)
+                    if self._freq_tracker[ap_id] <= 0:
+                        if ap_id in self.structure.keys():
+                            del self.structure[ap_id]
+                        elif ap_id in self._under_consideration.keys():
+                            del self._under_consideration[ap_id]
+
+                        # remove sample from index
+                        del self._freq_tracker[ap_id]
 
                 # clean up decay tracker
                 del self._decay_tracker[self._t]
 
     def __deepcopy__(self, memo) -> GraphPattern:
-        gp = GraphPattern(structure=deepcopy(self.structure),
+        structure = {k: v for k, v in self.structure.items()}
+        gp = GraphPattern(structure=structure,
                           identifier=self._id,
                           threshold=self.threshold,
                           decay=self.decay)
@@ -465,9 +466,8 @@ class GraphPattern():
         gp._t = self._t
         gp._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
         gp._freq_tracker = Counter(self._freq_tracker.elements())
-        gp._under_consideration = [gp for gp in self._under_consideration]
-        gp._id_to_consideration_map\
-            = {gp._id: i for i, gp in enumerate(gp._under_consideration)}
+        gp._under_consideration\
+            = {k: v for k, v in self._under_consideration.items()}
 
         return gp
 
@@ -494,294 +494,17 @@ class GraphPattern():
 
         :rtype: str
         """
-        return "{" + "; ".join([str(self.structure.map[k]['about']) for k in
-                                sorted(self.structure.keys)]) + "}"
+        return "{" + "; ".join([str(self.structure[k]) for k in
+                                sorted(self.structure.keys())]) + "}"
 
     def __hash__(self) -> int:
         return hash(str(self))
 
-    class Structure:
-        def __init__(self) -> None:
-            self.map = dict()
-            # TODO: this currently does not keep track of patterns in the
-            # connections. We might want to include this in case the topology
-            # changes
-
-        def add_arc(self, ap: AssertionPattern) -> None:
-            self.map[ap._id] = {'about': ap,
-                                'head': set(),
-                                'tail': set()
-                                }
-            self._align(ap)
-
-        def replace_arc(self, ap: AssertionPattern) -> None:
-            assert ap._id in self.map.keys()
-            self.map[ap._id]['about'] = ap
-
-            # self._align(ap)  # TODO: see above
-
-        def rmv_arc(self, ap: AssertionPattern) -> None:
-            assert ap._id in self.map.keys()
-
-            self._unalign(ap)
-
-        def _unalign(self, ap: AssertionPattern) -> None:
-            del self.map[ap._id]
-            for connections in self.map.values():
-                if ap._id in connections['head']:
-                    del connections['head'][ap._id]
-                if ap._id in connections['tail']:
-                    del connections['tail'][ap._id]
-
-        def _align(self, ap: AssertionPattern) -> None:
-            # check if the assertion is connected to another assertion
-            # via head or tail and, if so, coalesce the two resources
-            for ap_other_id, connections in self.map.items():
-                if ap._id == ap_other_id:
-                    continue
-
-                ap_other = connections['about']
-                if ap.head == ap_other.head:
-                    # <- ->
-                    ap.head = ap_other.head
-
-                    self.map[ap._id]['head'].add(ap_other._id)
-                    self.map[ap_other._id]['head'].add(ap._id)
-                if isinstance(ap.tail, IRIRef):
-                    if ap.tail == ap_other.head:
-                        # -> ->
-                        ap.tail = ap_other.head
-
-                        self.map[ap._id]['tail'].add(ap_other._id)
-                        self.map[ap_other._id]['head'].add(ap._id)
-                    if isinstance(ap_other.tail, IRIRef)\
-                            and ap.tail == ap_other.tail:
-                        # -> <-
-                        ap.tail = ap_other.tail
-
-                        self.map[ap._id]['tail'].add(ap_other._id)
-                        self.map[ap_other._id]['tail'].add(ap._id)
-                if isinstance(ap_other.tail, IRIRef)\
-                        and ap.head == ap_other.tail:
-                    # <- <-
-                    ap.head = ap_other.tail
-
-                    self.map[ap._id]['head'].add(ap_other._id)
-                    self.map[ap_other._id]['tail'].addd(ap._id)
-
-        @property
-        def keys(self) -> list[str]:
-            return sorted(self.map.keys())
-
-        def __deepcopy__(self, memo) -> GraphPattern.Structure:
-            struct = GraphPattern.Structure()
-            for k, v in self.map.items():
-                struct.map[k] = {'about': v['about'],
-                                 'head': {h for h in v['head']},
-                                 'tail': {t for t in v['tail']}}
-
-            return struct
-
-        def __hash__(self) -> int:
-            return hash('; '.join(str(self.map[k]['about'])
-                                  + '.'.join(sorted(self.map[k]['head']))
-                                  + '.'.join(sorted(self.map[k]['tail']))
-                                  for k in sorted(self.map.keys())))
-
-        def __str__(self) -> str:
-            return '; '.join(str(self.map[k]['about'])
-                             for k in sorted(self.map.keys()))
-
-
-# class GraphPattern():
-#     """ GraphPattern class
-# 
-#     Holds all assertions of a graph pattern and keeps
-#     track of the connections of these assertions.
-#     """
-#     def __init__(self, pattern: Collection[AssertionPattern],
-#                  identifier: str, threshold: int,
-#                  decay: int) -> None:
-#         self.pattern = sorted(list(pattern))
-#         self._id = identifier
-# 
-#         # keep track of time
-#         # time is incremented on update or manually
-#         self._t = 0
-# 
-#         # identifiers of the assertion patterns that make up the graph pattern
-#         # track location in list for fast retrieval
-#         id_lst = [ap._id for ap in self.pattern]
-#         self._id_to_assertion_map = {_id: i for i, _id in enumerate(id_lst)}
-# 
-#         # number of time steps (with decay) that an assertion is present
-#         # before including it into the pattern of nominal behaviour.
-#         self.threshold = threshold
-# 
-#         # number of time steps that an existin assertion is absent before
-#         # removing it from the pattern of nominal behaviour
-#         self.decay = decay
-# 
-#         # track frequencyof assertions by their identifiers
-#         self._freq_tracker = Counter(id_lst)
-# 
-#         # track newly observed assertions (added on reaching threshold)
-#         self._under_consideration = list()
-#         self._id_to_consideration_map = dict()
-# 
-#         # schedule future decay of assertion patterns
-#         self._decay_tracker = dict()
-#         if self.decay > 0:
-#             t_decay = (self._t + self.decay) % sys.maxsize
-#             self._decay_tracker[t_decay] = id_lst
-# 
-#     def update_from(self, aPatterns: Collection[AssertionPattern])\
-#             -> GraphPattern:
-#         """ Return a copy of this graph pattern that has been updated
-#             with the provided assertion patterns (new observations).
-#             The updated graph pattern will be fowarded in time by
-#             a single epoch.
-# 
-#         :param aPatterns: [TODO:description]
-#         :return: [TODO:description]
-#         """
-#         gp = deepcopy(self)
-# 
-#         # update assertion patterns
-#         for ap in aPatterns:
-#             if ap._id in gp._id_to_assertion_map.keys():
-#                 # known member of the current graph pattern
-#                 i = gp._id_to_assertion_map[ap._id]
-#                 gp.pattern[i] = ap  # replace with updated ap
-#             elif ap._id in gp._id_to_consideration_map.keys():
-#                 # known assertion pattern under consideration
-#                 i = gp._id_to_consideration_map[ap._id]
-#                 gp._under_consideration[i] = ap
-#             else:  # unknown assertion pattern: add for consideration
-#                 gp._under_consideration.append(ap)
-#                 gp._id_to_consideration_map[ap._id]\
-#                     = len(gp._under_consideration) - 1
-#                 gp._freq_tracker[ap._id] = 0
-# 
-#             gp._freq_tracker[ap._id] += 1  # increase count
-# 
-#         # schedule future decay of assertion patterns
-#         if gp.decay > 0:
-#             t_decay = (gp._t + gp.decay) % sys.maxsize
-#             gp._decay_tracker[t_decay] = {ap._id for ap in aPatterns}
-# 
-#         # increment time
-#         gp._forward()
-# 
-#         return gp
-# 
-#     def __len__(self) -> int:
-#         """ Return the number of assertions
-# 
-#         :rtype: int
-#         """
-#         return len(self.pattern)
-# 
-#     def _forward(self):
-#         """ Update the distribution by a single time step.
-#         """
-#         self._t += 1
-#         if self._t == sys.maxsize:
-#             self._t = 0
-# 
-#         if self.threshold > 0:
-#             self._consider()
-# 
-#         if self.decay > 0:
-#             self._decay()
-# 
-#     def _consider(self) -> None:
-#         """ Add new assertions which have reached the threshold.
-#         """
-#         remove_set = set()
-#         for ap in self._under_consideration:
-#             if ap._id in self._freq_tracker.keys():
-#                 if self._freq_tracker[ap._id] >= self.threshold:
-#                     # add assertion to pattern
-#                     self.pattern.append(ap)
-#                     self._id_to_assertion_map[ap._id] = len(self.pattern) - 1
-# 
-#                     remove_set.add(ap._id)
-#                     del self._id_to_consideration_map[ap._id]
-# 
-#                     continue
-# 
-#                 if self._freq_tracker[ap._id] <= 0:
-#                     # assertion decayed
-#                     remove_set.add(ap._id)
-#                     del self._id_to_consideration_map[ap._id]
-# 
-#         self._under_consideration = [ap for ap in self._under_consideration
-#                                      if ap._id not in remove_set]
-# 
-#     def _decay(self) -> None:
-#         """ Forget about assertions that have exceeded their decay period.
-#         """
-#         if self._t in self._decay_tracker.keys():
-#             for ap in self._decay_tracker[self._t]:
-#                 if ap._id in self._freq_tracker.keys():
-#                     # decrease sample count
-#                     self._freq_tracker[ap._id] -= 1
-# 
-#                 if self._freq_tracker[ap._id] <= 0:
-#                     # remove sample from index
-#                     del self._freq_tracker[ap._id]
-# 
-#                 # clean up decay tracker
-#                 del self._decay_tracker[self._t]
-# 
-#     def __deepcopy__(self, memo) -> GraphPattern:
-#         gp = GraphPattern(pattern=[ap for ap in self.pattern],
-#                           identifier=self._id,
-#                           threshold=self.threshold,
-#                           decay=self.decay)
-# 
-#         gp._t = self._t
-#         gp._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
-#         gp._freq_tracker = Counter(self._freq_tracker.elements())
-#         gp._under_consideration = [gp for gp in self._under_consideration]
-#         gp._id_to_consideration_map\
-#             = {gp._id: i for i, gp in enumerate(gp._under_consideration)}
-# 
-#         return gp
-# 
-#     def __eq__(self, other) -> bool:
-#         """ Returns true if it is the same graph pattern at the same
-#             moment in time.
-# 
-#         :param other [TODO:type]: [TODO:description]
-#         :return: [TODO:description]
-#         """
-#         return type(self) is type(other)\
-#             and self._id == other._id\
-#             and self._t == other._t
-# 
-#     def __repr__(self) -> str:
-#         """ Return an internal string representation
-# 
-#         :rtype: str
-#         """
-#         return "GraphPattern [{}]".format(str(self))
-# 
-#     def __str__(self) -> str:
-#         """ Return a string representation
-# 
-#         :rtype: str
-#         """
-#         return "{" + "; ".join([str(assertion) for assertion in
-#                                 self.pattern]) + "}"
-# 
-#     def __hash__(self) -> int:
-#         return hash(str(self))
-
 
 class PatternVault():
-    def __init__(self) -> None:
+    def __init__(self, compress: bool = True) -> None:
+        self.compress = compress
+
         self._polytree = dict()
         self._lock = Lock()
 
@@ -853,10 +576,16 @@ class PatternVault():
         :param pattern: [TODO:description]
         """
         key = pattern._id
+        assert len(self._polytree[key]) > 0
 
         self._lock.acquire()
         try:
-            # TODO: compress old version
+            # compress old version
+            if self.compress:
+                prev, t_prev = self._polytree[key][-1]
+                prev = pickle.dumps(bz2.compress(prev))
+                self._polytree[-1] = (prev, t_prev)
+
             self._polytree[key].append((pattern, datetime.now()))
         except Exception as e:
             logger.error(f"Unable to update pattern vault entry: {e}")

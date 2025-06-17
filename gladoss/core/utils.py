@@ -8,148 +8,68 @@ from typing import Collection, Optional
 
 import numpy as np
 from gladoss.adaptors.adaptor import Adaptor
-from rdf import Statement
+
+from rdf import IRIRef, Statement
+from rdf.namespaces import RDF, RDFS
 
 logger = logging.getLogger(__name__)
 
-#def find_shortest_paths(g: set[Statement], source: IRIRef, target: IRIRef | Literal)\
-#        -> list[list[Statement]]:
-#    """ Find shortest path(s) between two vertices.
-#
-#    :param g: [TODO:description]
-#    :param source: [TODO:description]
-#    :param target: [TODO:description]
-#    :return: [TODO:description]
-#    """
-#    paths = [[a] for a in g if a.subject == source]
-#    q = Queue()
-#
-#    q.put(source)
-#    while not q.empty():
-#        u = q.get()
-#        for a in g:
-#            if u != a.subject:
-#                # not connected
-#                continue
-#
-#            # TODO: exclude cyclic paths
-#            for path in paths:
-#                if path[-1].object == u:
-#                    path_new = [a for a in path]
-#                    path_new.append(a)
-#
-#                    paths.append(path_new)
-#
-#            if a.object != target and isinstance(a.object, IRIRef):
-#                q.put(a.object)
-#
-#    # compute lengths and sort in increasing order
-#    path_len = sorted([(len(path), i) for i, path in enumerate(paths)
-#                       if path[-1].object == target],
-#                      key=operator.itemgetter(0))
-#
-#    # keep shortest path(s)
-#    shortest_paths = [paths[i] for pl, i in path_len
-#                      if pl <= path_len[0][0]]
-#
-#    return shortest_paths
-#
-#
-# def find_root(g: set[Statement], type: Optional[IRIRef] = None)\
-#         -> IRIRef | None:
-#     """ Heuristic method to find the root node in a tree. This
-#         method assumes a subject-oriented graph in which the
-#         root node has an in-degree of zero. Provide the class
-#         of the root node for more certainty. Nothing is returned
-#         if there are multiple candidates.
-# 
-#     :param g: a set of assertions that form a graph
-#     :param type: the class of the root node
-#     :return: the assumed root node or None
-#     """
-#     root = None
-# 
-#     dangling_nodes = set(a.subject for a in g) - set(a.object for a in g)
-#     if len(dangling_nodes) >= 1:
-#         if type is not None:
-#             rdf_type = RDF + "type"
-#             for a in g:
-#                 if a.predicate == rdf_type and a.object == type\
-#                    and a.head in dangling_nodes:
-#                     root = a.head
-# 
-#                     break
-# 
-#         elif len(dangling_nodes) == 1:
-#             root = dangling_nodes.pop()
-# 
-#     return root
-# 
-# 
-# def find_typed_instances(g: set[Statement]) -> set[IRIRef]:
-#     """ Return the nodes who have an associated type, together with their type.
-# 
-#     :param g: a set of assertions that form a graph
-#     :return: a set of nodes and their classes
-#     """
-#     out = set()
-#     rdf_type = RDF + "type"
-#     for a in g:
-#         if a.predicate == rdf_type:
-#             out.add(a.object)
-# 
-#     return out
 
-
-def match_facts_to_patterns(
-        facts: Collection[Statement],
+def match_assertions_to_patterns(
+        graph: Collection[Statement],
         aPatterns: Collection['AssertionPattern'])\
-                -> tuple[list[tuple], set]:
-    """ Find pairs of facts with associated assertion patterns
+                -> tuple[list[tuple[Statement, 'AssertionPattern']],
+                         set[Statement]]:
+    """ Find pairs of assertions with associated assertion patterns
         by first trying to match on relations, iff unique, and
         else by weakly comparing and finally strongly comparing
         the relation-object pairs.
 
-    :param facts: [TODO:description]
+    :param assertions: [TODO:description]
     :param assertionPatterns: [TODO:description]
     :return: [TODO:description]
     """
     # count relations of both inut sets combined
-    relation_count = Counter([fact.predicate for fact in facts])
+    relation_count = Counter([a.predicate for a in graph])
     relation_count.update([ap.relation for ap in aPatterns])
 
-    # match facts to their pattern
+    # match assertions to their pattern
     remainder = set()
-    fact_ap_pairs = list()
-    fact_ap_conflicts = list()
-    for fact in facts:
+    assertion_ap_pairs = list()
+    assertion_ap_conflicts = list()
+    for assertion in graph:
         matches = list()
-        for ap in aPatterns:
-            if relation_count[fact.predicate] > 2:  # ambiguous match
-                if ap.weak_match(fact):
-                    # match on relation-object type
-                    matches.append(ap)
-                elif ap.strong_match(fact):
+        if relation_count[assertion.predicate] == 2:
+            # unambiguous match
+            matches = [ap for ap in aPatterns
+                       if ap.relation == assertion.predicate]
+        elif relation_count[assertion.predicate] > 2:
+            # ambiguous match
+            for ap in aPatterns:
+                if ap.strong_match(assertion):
                     # match on relation-object value
                     matches.append(ap)
-            else:  # one-on-one match with relations
-                if ap.relation == fact.predicate:
+                elif ap.weak_match(assertion):
+                    # match on relation-object type
                     matches.append(ap)
+        else:  # relation occurs exactly once
+            # no pairing relations
+            continue
 
         if len(matches) > 1:
-            fact_ap_conflicts.append((fact, matches))
+            assertion_ap_conflicts.append((assertion, matches))
         elif len(matches) == 1:  # exact one match found
-            fact_ap_pairs.append((fact, matches[-1]))
+            assertion_ap_pairs.append((assertion, matches[-1]))
         else:  # no matches
-            remainder.add(fact)
+            remainder.add(assertion)
 
-    # conflict resolution: multiple matches per fact
-    if len(fact_ap_conflicts) > 0:
+    # conflict resolution: multiple matches per assertion
+    if len(assertion_ap_conflicts) > 0:
         # TODO: implement some conflict resolution
-        for fact, _ in fact_ap_conflicts:
-            logger.debug(f"Matches multiple assertion patterns: {fact}")
+        for assertion, _ in assertion_ap_conflicts:
+            logger.debug(f"Matches multiple assertion patterns: {assertion}")
 
-    return fact_ap_pairs, remainder
+    return assertion_ap_pairs, remainder
 
 
 def init_rng(seed: Optional[int] = None) -> np.random.Generator:
@@ -202,3 +122,22 @@ def gen_id(rng: np.random.Generator) -> str:
     id_lst = rng.choice(ascii_lst, size=20)
 
     return 'U' + ''.join(id_lst)
+
+
+def infer_class(resource: IRIRef, graph: Collection[Statement]) -> IRIRef:
+    """ Infer class of provided resource by looking for associated
+        type declaration. Defaults to rdfs:Resource if no such
+        declaration can be found.
+
+    :param resource: [TODO:description]
+    :param graph: [TODO:description]
+    :return: [TODO:description]
+    """
+    rdf_type = RDF + 'type'
+    for assertion in graph:
+        if assertion.subject == resource\
+          and assertion.predicate == rdf_type\
+          and isinstance(assertion.object, IRIRef):
+            return assertion.object
+
+    return RDFS + 'Resource'

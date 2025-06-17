@@ -21,7 +21,7 @@ from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 test_statistic_continuous,
                                 test_statistic_discrete,
                                 two_sample_hypothesis_test)
-from gladoss.core.utils import match_facts_to_patterns
+from gladoss.core.utils import match_assertions_to_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -42,12 +42,11 @@ def validate_state_graph(rng: np.random.Generator,
     :param config: [TODO:description]
     :return: [TODO:description]
     """
-    # find pairs of facts and associated assertion patterns
-    # TODO: this is done earlier on as well
-    pattern_components = [gPattern.structure.map[k]['about']
-                          for k in gPattern.structure.map.keys()]
-    fact_ap_pairs, unmatched\
-        = match_facts_to_patterns(graph, pattern_components)
+    # find pairs of assertions and associated assertion patterns
+    # TODO: this is done later on as well; cache results?
+    pattern_components = list(gPattern.structure.values())
+    assertion_ap_pairs, unmatched\
+        = match_assertions_to_patterns(graph, pattern_components)
 
     # default values
     status_msg_lst = list()
@@ -56,7 +55,8 @@ def validate_state_graph(rng: np.random.Generator,
 
     # check if the state graph can successfully be mapped to its pattern
     complete_map = True
-    if len(fact_ap_pairs) < len(gPattern) and len(unmatched) > 0:
+    if len(assertion_ap_pairs) < len(gPattern) and len(unmatched) > 0:
+        # missing matches in structure
         status_msg_lst = ["Mapping Error"]
         status_msg_long_lst = ["Unable to map all components of the "
                                "observed state graph to their association "
@@ -73,7 +73,7 @@ def validate_state_graph(rng: np.random.Generator,
         valid_semantics, passed_critical, passed_suspicious, \
             status_msg_lst, status_msg_long_lst\
             = validate_state_graph_components(rng, gPattern,
-                                              fact_ap_pairs,
+                                              assertion_ap_pairs,
                                               unmatched, config)
 
         # order by most serious violation
@@ -94,7 +94,7 @@ def validate_state_graph(rng: np.random.Generator,
 
 def validate_state_graph_components(rng: np.random.Generator,
                                     gPattern: GraphPattern,
-                                    fact_ap_pairs: list[tuple],
+                                    assertion_ap_pairs: list[tuple],
                                     unmatched: set,
                                     config: SimpleNamespace)\
         -> tuple[bool, bool, bool, list[str], list[str]]:
@@ -103,7 +103,7 @@ def validate_state_graph_components(rng: np.random.Generator,
 
     :param rng: [TODO:description]
     :param gpattern: [TODO:description]
-    :param fact_ap_pairs: [TODO:description]
+    :param assertion_ap_pairs: [TODO:description]
     :param unmatched: [TODO:description]
     :param config: [TODO:description]
     :return: [TODO:description]
@@ -115,7 +115,7 @@ def validate_state_graph_components(rng: np.random.Generator,
         # validate the structure of the state graph
         valid_semantics, status_msg_lst, status_msg_long_lst\
                 = validate_graph_structure(gPattern,
-                                           fact_ap_pairs,
+                                           assertion_ap_pairs,
                                            unmatched,
                                            config.match_cwa,
                                            config.match_exact)
@@ -126,11 +126,12 @@ def validate_state_graph_components(rng: np.random.Generator,
 
     passed_critical, passed_suspicious = True, True
     if config.evaluate_data:
+        # TODO: validate anchor
         # validate the data of the state graph, per component
-        for fact, ap in fact_ap_pairs:
+        for assertion, ap in assertion_ap_pairs:
             valid_semantics, passed_critical, passed_suspicious, \
                     status_msg_lst, status_msg_long_lst\
-                    = validate_graph_data(rng, fact, ap,
+                    = validate_graph_data(rng, assertion, ap,
                                           config.alpha_critical,
                                           config.alpha_suspicious,
                                           config.samplesize,
@@ -148,17 +149,18 @@ def validate_state_graph_components(rng: np.random.Generator,
 
 
 def validate_graph_data(rng: np.random.Generator,
-                        fact: Statement, ap: AssertionPattern,
+                        assertion: Statement, ap: AssertionPattern,
                         alpha_critical: float, alpha_suspicious: float,
                         samplesize: int, interruption: int)\
         -> tuple[bool, bool, bool, list[str], list[str]]:
-    """ Validate the data of a single fact by checking resource and data types,
-        comparing provided and expected values, and performing statistical
-        tests. Mutiple validation checks are performed to provide a complete
-        picture (even if one failed) expect for mutually exclusive ones.
+    """ Validate the data of a single assertion by checking resource and data
+        types, comparing provided and expected values, and performing
+        statistical tests. Mutiple validation checks are performed to provide
+        a complete picture (even if one failed) expect for mutually exclusive
+        ones.
 
     :param rng: [TODO:description]
-    :param fact: [TODO:description]
+    :param assertion: [TODO:description]
     :param ap: [TODO:description]
     :param alpha_critical: [TODO:description]
     :param alpha_suspicious: [TODO:description]
@@ -172,24 +174,23 @@ def validate_graph_data(rng: np.random.Generator,
 
     status_msg_lst = list()
     status_msg_long_lst = list()
-    # FIXME: check subject (+all subfunctions)
-    if isinstance(ap.tail, Resource):
+    if isinstance(ap.value, Resource):
         valid_semantics, status_msg_lst, status_msg_long_lst\
-                = validate_graph_data_resource(fact, ap)
-    elif isinstance(ap.tail, Distribution):
-        if ap.tail.num_samples < samplesize * 2:
+                = validate_graph_data_resource(assertion, ap)
+    elif isinstance(ap.value, Distribution):
+        if ap.value.num_samples < samplesize * 2:
             msg = "Insufficient Data"
             msg_long = "Insufficient samples have yet been observed for this "\
                        "component of the observed state graph to establish "\
                        "nominal behaviour or deviations thereof."\
-                       f"\n Observed: {str(fact)}"
+                       f"\n Observed: {str(assertion)}"
             logger.info(msg_long)
 
             return True, True, True, [msg], [msg_long]  # skip evaluation
 
         valid_semantics, passed_critical, passed_suspicious, \
             status_msg_lst, status_msg_long_lst\
-            = validate_graph_data_distribution(rng, fact, ap,
+            = validate_graph_data_distribution(rng, assertion, ap,
                                                alpha_critical,
                                                alpha_suspicious,
                                                samplesize, interruption)
@@ -198,7 +199,7 @@ def validate_graph_data(rng: np.random.Generator,
         status_msg_lst, status_msg_long_lst
 
 
-def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
+def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
                                  dtype_observed: Optional[IRIRef])\
         -> tuple[bool, list[str], list[str]]:
     """ Evaluate whether the provided resource fits to the associated discrete
@@ -207,7 +208,7 @@ def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
         does not test whether the observed value might have been drawn from the
         distribution that underlines the population.
 
-    :param fact: [TODO:description]
+    :param assertion: [TODO:description]
     :param ap: [TODO:description]
     :param dtype_observed: [TODO:description]
     :return: [TODO:description]
@@ -215,23 +216,24 @@ def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
     valid = True
     status_msg_lst = list()
     status_msg_long_lst = list()
-    if isinstance(fact.object, IRIRef) and ap.tail.dtype != RDFS+'Resource':
+    if isinstance(assertion.object, IRIRef)\
+            and ap.value.dtype != RDFS + 'Resource':
         status_msg_long = "Observed resource type does not fit to "\
                           "expected distribution resource type."\
-                          f"\n Expected: {'Unknown' if ap.tail.dtype is
-                                          None else ap.tail.dtype}"\
-                          f"\n Observed: {type(fact.object)}"
+                          f"\n Expected: {'Unknown' if ap.value.dtype is
+                                          None else ap.value.dtype}"\
+                          f"\n Observed: {type(assertion.object)}"
         status_msg_long_lst.append(status_msg_long)
         valid = False
 
         status_msg_lst.append("Resource Type Violation")
         logger.info(status_msg_long)
-    elif isinstance(fact.object, Literal):
+    elif isinstance(assertion.object, Literal):
         if dtype_observed not in XSD_DISCRETE:
             status_msg_long = "Observed value type does not fit to "\
                               "expected distribution type."\
-                              f"\n Expected: {type(ap.tail)}"\
-                              f"\n Observed: {type(fact.object)}"
+                              f"\n Expected: {type(ap.value)}"\
+                              f"\n Observed: {type(assertion.object)}"
 
             status_msg_long_lst.append(status_msg_long)
             valid = False
@@ -239,12 +241,12 @@ def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
             status_msg_lst.append("Value Type Violation")
             logger.info(status_msg_long)
 
-        if ap.tail.dtype is not None\
-                and dtype_observed != ap.tail.dtype:
+        if ap.value.dtype is not None\
+                and dtype_observed != ap.value.dtype:
             status_msg_long = "Observed value data type does not fit to "\
                               "expected distribution data type."\
-                              f"\n Expected: {'Unknown' if ap.tail.dtype is
-                                              None else ap.tail.dtype}"\
+                              f"\n Expected: {'Unknown' if ap.value.dtype is
+                                              None else ap.value.dtype}"\
                               f"\n Observed: {'Unknown' if dtype_observed is
                                               None else dtype_observed}"
 
@@ -257,7 +259,7 @@ def validate_graph_data_discrete(fact: Statement, ap: AssertionPattern,
     return valid, status_msg_lst, status_msg_long_lst
 
 
-def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
+def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
                                    dtype_observed: Optional[IRIRef])\
         -> tuple[bool, list[str], list[str]]:
     """ Evaluate whether the provided resource fits to the associated
@@ -266,7 +268,7 @@ def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
         This fuction does not test whether the observed value might have been
         drawn from the distribution that underlines the population.
 
-    :param fact: [TODO:description]
+    :param assertion: [TODO:description]
     :param ap: [TODO:description]
     :param dtype_observed: [TODO:description]
     :return: [TODO:description]
@@ -275,11 +277,11 @@ def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
     valid = True
     status_msg_lst = list()
     status_msg_long_lst = list()
-    if not isinstance(fact.object, Literal):
+    if not isinstance(assertion.object, Literal):
         status_msg_long = "Observed resource type does not fit to "\
                           "expected distribution resource type."\
-                          f"\n Expected: {type(ap.tail)}"\
-                          f"\n Observed: {type(fact.object)}"
+                          f"\n Expected: {type(ap.value)}"\
+                          f"\n Observed: {type(assertion.object)}"
 
         status_msg_long_lst.append(status_msg_long)
         valid = False
@@ -290,20 +292,20 @@ def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
         if dtype_observed not in XSD_CONTINUOUS:
             status_msg_long = "Observed value type does not fit to "\
                               "expected distribution type."\
-                              f"\n Expected: {type(ap.tail)}"\
-                              f"\n Observed: {type(fact.object)}"
+                              f"\n Expected: {type(ap.value)}"\
+                              f"\n Observed: {type(assertion.object)}"
 
             status_msg_long_lst.append(status_msg_long)
             valid = False
 
             status_msg_lst.append("Value Type Violation")
             logger.info(status_msg_long)
-        if ap.tail.dtype is not None\
-                and dtype_observed != ap.tail.dtype:
+        if ap.value.dtype is not None\
+                and dtype_observed != ap.value.dtype:
             status_msg_long = "Observed value data type does not fit to "\
                               "expected distribution data type."\
-                              f"\n Expected: {'Unknown' if ap.tail.dtype is
-                                              None else ap.tail.dtype}"\
+                              f"\n Expected: {'Unknown' if ap.value.dtype is
+                                              None else ap.value.dtype}"\
                               f"\n Observed: {'Unknown' if dtype_observed is
                                               None else dtype_observed}"
 
@@ -317,7 +319,8 @@ def validate_graph_data_continuous(fact: Statement, ap: AssertionPattern,
 
 
 def validate_graph_data_distribution(rng: np.random.Generator,
-                                     fact: Statement, ap: AssertionPattern,
+                                     assertion: Statement,
+                                     ap: AssertionPattern,
                                      alpha_critical: float,
                                      alpha_suspicious: float,
                                      samplesize: int, interruption: int)\
@@ -326,7 +329,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
         distribution that belongs to the associated pattern.
 
     :param rng: [TODO:description]
-    :param fact: [TODO:description]
+    :param assertion: [TODO:description]
     :param ap: [TODO:description]
     :param alpha_critical: [TODO:description]
     :param alpha_suspicious: [TODO:description]
@@ -337,27 +340,27 @@ def validate_graph_data_distribution(rng: np.random.Generator,
     # cast value to a suitable Python representation and infer data type
     value_new = None
     dtype_observed = None
-    if isinstance(fact.object, Literal):
-        dtype_observed = infer_datatype(fact.object)
+    if isinstance(assertion.object, Literal):
+        dtype_observed = infer_datatype(assertion.object)
 
         # cast value to appropriate format
-        value_new = cast_literal(dtype_observed, fact.object.value)
+        value_new = cast_literal(dtype_observed, assertion.object.value)
     else:  # IRI
-        value_new = fact.object
+        value_new = assertion.object
 
     # evaluate distribution types via meta data
     valid_semantics = True
     test_statistic = None
-    if isinstance(ap.tail, DiscreteDistribution):
+    if isinstance(ap.value, DiscreteDistribution):
         test_statistic = test_statistic_discrete
 
         valid_semantics, status_msg_lst, status_msg_long_lst\
-            = validate_graph_data_discrete(fact, ap, dtype_observed)
-    elif isinstance(ap.tail, ContinuousDistribution):
+            = validate_graph_data_discrete(assertion, ap, dtype_observed)
+    elif isinstance(ap.value, ContinuousDistribution):
         test_statistic = test_statistic_continuous
 
         valid_semantics, status_msg_lst, status_msg_long_lst\
-            = validate_graph_data_continuous(fact, ap, dtype_observed)
+            = validate_graph_data_continuous(assertion, ap, dtype_observed)
     else:
         raise NotImplementedError()
 
@@ -367,7 +370,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
     if valid_semantics:  # if no previous violations have been detected
         passed_critical, passed_suspicious, \
                 status_msg_lst, status_msg_long_lst\
-                = validate_graph_data_distribution_fit(rng, fact, ap,
+                = validate_graph_data_distribution_fit(rng, assertion, ap,
                                                        value_new,
                                                        test_statistic,
                                                        alpha_critical,
@@ -380,7 +383,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 
 
 def validate_graph_data_distribution_fit(rng: np.random.Generator,
-                                         fact: Statement,
+                                         assertion: Statement,
                                          ap: AssertionPattern,
                                          value_new: Any,
                                          test_statistic: Callable,
@@ -396,7 +399,7 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
         a suspicious significance level will trigger a warning.
 
     :param rng: [TODO:description]
-    :param fact: [TODO:description]
+    :param assertion: [TODO:description]
     :param ap: [TODO:description]
     :param value_new: [TODO:description]
     :param test_statistic: [TODO:description]
@@ -409,13 +412,13 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
     # obtain most recent n samples and append the newly observed sample.
     # The result will be regarded as a sample of the population  that
     # will be evaluated against the true distribution.
-    sample = np.array(ap.tail.lastn(n=samplesize) + [value_new])
+    sample = np.array(ap.value.lastn(n=samplesize) + [value_new])
 
     # obtain all samples that are older than the most recent n samples,
     # with or without a brief interval in between to strengthen the
     # difference between these subsets. The result will be regarded as the
     # true distribution of the population.
-    population = np.array(ap.tail.data[:-samplesize - interruption])
+    population = np.array(ap.value.data[:-samplesize - interruption])
 
     # test whether the sample might have been drawn from the same
     # distribution as the one underlying the population.
@@ -444,7 +447,7 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
                           "that this component of the observed state graph "\
                           "differs significantly from the associated graph "\
                           f"pattern at the critical level ({alpha_critical}):"\
-                          f"\n Observed: {str(fact)}"
+                          f"\n Observed: {str(assertion)}"
     elif test_suspicious == HypothesisTest.REJECT_H0:
         # enough evidence to reject the zero hypothesis that both samples were
         # drawn from the same underlying distribution at the suspicious level:
@@ -457,54 +460,54 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
                           "differs significantly from the associated graph "\
                           "pattern at the suspicious level "\
                           f"({alpha_suspicious}):"\
-                          f"\n Observed: {str(fact)}"
+                          f"\n Observed: {str(assertion)}"
 
     logger.info(status_msg_long)
 
     return passed_critical, passed_suspicious, [status_msg], [status_msg_long]
 
 
-def validate_graph_data_resource(fact: Statement, ap: AssertionPattern)\
+def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
         -> tuple[bool, list[str], list[str]]:
     """ Evaluate the resources of the observed state graph against the expected
         resources of the associated graph pattern, by checking the resource
         type, data type (in case of Literal), and exact value. This function is
         only called when the pattern has no distribution at this position.
 
-    :param fact: [TODO:description]
+    :param assertion: [TODO:description]
     :param ap: [TODO:description]
     :return: [TODO:description]
     """
     valid = True
     status_msg_lst = list()
     status_msg_long_lst = list()
-    if type(ap.tail) is not type(fact.object):
+    if type(ap.value) is not type(assertion.object):
         status_msg_long = "Observed resource type differs from expected "\
                           "resource type."\
-                          f"\n Expected: {type(ap.tail)}"\
-                          f"\n Observed: {type(fact.object)}"
+                          f"\n Expected: {type(ap.value)}"\
+                          f"\n Observed: {type(assertion.object)}"
         status_msg_long_lst.append(status_msg_long)
         valid = False
 
         status_msg_lst.append("Resource Type Violation")
         logger.info(status_msg_long)
-    if isinstance(ap.tail, IRIRef) and ap.tail != fact.object:
+    if isinstance(ap.value, IRIRef) and ap.value != assertion.object:
         status_msg_long = "Observed IRI value differs from expected IRI "\
                           "value."\
-                          f"\n Expected: {ap.tail}"\
-                          f"\n Observed: {fact}"
+                          f"\n Expected: {ap.value}"\
+                          f"\n Observed: {assertion}"
         status_msg_long_lst.append(status_msg_long)
         valid = False
 
         status_msg_lst.append("Value Equality Violation")
         logger.info(status_msg_long)
-    elif isinstance(ap.tail, Literal):
-        dtype_observed = infer_datatype(fact.object)
-        if dtype_observed != ap.tail.dtype:
+    elif isinstance(ap.value, Literal):
+        dtype_observed = infer_datatype(assertion.object)
+        if dtype_observed != ap.value.dtype:
             status_msg_long = "Observed Literal value data type differs from "\
                               "expected Literal value data type."\
-                              f"\n Expected: {'Unknown' if ap.tail.dtype is
-                                              None else ap.tail.dtype}"\
+                              f"\n Expected: {'Unknown' if ap.value.dtype is
+                                              None else ap.value.dtype}"\
                               f"\n Observed: {'Unknown' if dtype_observed is
                                               None else dtype_observed}"
             status_msg_long_lst.append(status_msg_long)
@@ -512,11 +515,11 @@ def validate_graph_data_resource(fact: Statement, ap: AssertionPattern)\
 
             status_msg_lst.append("Data Type Violation")
             logger.info(status_msg_long)
-        if fact.object != ap.tail:
+        if assertion.object != ap.value:
             status_msg_long = "Observed Literal value differs from expected "\
                               "Literal value."\
-                              f"\n Expected: {ap.tail}"\
-                              f"\n Observed: {fact}"
+                              f"\n Expected: {ap.value}"\
+                              f"\n Observed: {assertion}"
             status_msg_long_lst.append(status_msg_long)
             valid = False
 
@@ -527,7 +530,7 @@ def validate_graph_data_resource(fact: Statement, ap: AssertionPattern)\
 
 
 def validate_graph_structure(gPattern: GraphPattern,
-                             fact_ap_pairs: list[tuple], unmatched: set,
+                             assertion_ap_pairs: list[tuple], unmatched: set,
                              match_cwa: bool, match_exact: bool)\
         -> tuple[bool, list[str], list[str]]:
     """ Validate the structure of the observed state graph, by checking
@@ -535,7 +538,7 @@ def validate_graph_structure(gPattern: GraphPattern,
 
     :param gPattern: [TODO:description]
     :param graph: [TODO:description]
-    :param fact_ap_pairs: [TODO:description]
+    :param assertion_ap_pairs: [TODO:description]
     :param unmatched: [TODO:description]
     :param owa: [TODO:description]
     :param exact: [TODO:description]
@@ -544,11 +547,11 @@ def validate_graph_structure(gPattern: GraphPattern,
     valid = True
     status_msg_lst = list()
     status_msg_long_lst = list()
-    if len(fact_ap_pairs) < len(gPattern) and len(unmatched) <= 0:
-        # incomplete mapping, =yet no unmatched facts remain
+    if len(assertion_ap_pairs) < len(gPattern) and len(unmatched) <= 0:
+        # incomplete mapping, yet no unmatched assertions remain
         status_msg_long = "Observed state graph contains less components "\
                           "than required by the associated graph "\
-                          f"pattern: {len(fact_ap_pairs)} < "\
+                          f"pattern: {len(assertion_ap_pairs)} < "\
                           f"{len(gPattern)}"
         logger.info(status_msg_long)
 
@@ -562,11 +565,11 @@ def validate_graph_structure(gPattern: GraphPattern,
             status_msg_long_lst.append(status_msg_long)
             valid = False
 
-    elif len(fact_ap_pairs) == len(gPattern) and len(unmatched) > 0:
-        # all known facts are matched, yet more are observed
+    elif len(assertion_ap_pairs) == len(gPattern) and len(unmatched) > 0:
+        # all known assertions are matched, yet more are observed
         status_msg_long = "Observed state graph contains more components "\
                           "than required by the associated graph "\
-                          f"pattern: {len(fact_ap_pairs)} > "\
+                          f"pattern: {len(assertion_ap_pairs)} > "\
                           f"{len(gPattern)}"
         logger.info(status_msg_long)
 
