@@ -18,10 +18,11 @@ from rdf.graph import Statement
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, timeSpanArg
-from gladoss.core.pattern import (GraphPattern, PatternVault,
+from gladoss.core.pattern import (AssertionPattern, GraphPattern, PatternVault,
                                   create_graph_pattern, update_graph_pattern)
 from gladoss.core.validator import ValidationReport, validate_state_graph
-from gladoss.core.utils import gen_id, import_class, init_rng
+from gladoss.core.utils import (create_pattern_map, gen_id, import_class,
+                                init_rng)
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,11 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
 def create_validation_report(rng: np.random.Generator,
                              pattern: GraphPattern,
                              graph: Collection[Statement],
+                             pattern_map: tuple[list[tuple[Statement,
+                                                           AssertionPattern]],
+                                                list[tuple[Statement,
+                                                           AssertionPattern]],
+                                                set[Statement]],
                              econf: SimpleNamespace) -> ValidationReport:
     """ Generate a validation report for the observed state graph given
         the associated graph pattern. This will start the validation
@@ -72,7 +78,7 @@ def create_validation_report(rng: np.random.Generator,
     """
     try:
         logger.debug("Creating validation report")
-        report = validate_state_graph(rng, pattern, graph, econf)
+        report = validate_state_graph(rng, pattern, graph, pattern_map, econf)
     except Exception as err:
         logger.error(err)
 
@@ -124,14 +130,16 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
                                        decay=pconf.pattern_decay)
         pv.add_graph_pattern(pattern)
 
-    report = create_validation_report(rng, pattern, graph, econf)
+    pattern_map = create_pattern_map(graph, pattern)
+    report = create_validation_report(rng, pattern, graph, pattern_map, econf)
     if report.status_code == ValidationReport.StatusCode.ERROR:
         logger.warning("Unable to validate observed state graph")
     elif report.status_code in [ValidationReport.StatusCode.NOMINAL,
                                 ValidationReport.StatusCode.SUSPICIOUS]:
         # either the state graph passed the validation check
-        # or a (still) non-critical deviation has been detected
-        gpattern_upd = update_graph_pattern(mkid, pattern, graph, pconf)
+        # or a non-critical deviation has been detected
+        gpattern_upd = update_graph_pattern(mkid, pattern, graph,
+                                            pattern_map, pconf)
         pv.update_graph_pattern(gpattern_upd)
 
     return report

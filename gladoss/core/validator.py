@@ -11,7 +11,7 @@ import numpy as np
 from gladoss.data.converter import report_to_graph
 from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal, Resource
-from rdf.namespaces import RDFS
+from rdf.namespaces import XSD
 
 from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
                                                cast_literal, infer_datatype)
@@ -21,15 +21,19 @@ from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 test_statistic_continuous,
                                 test_statistic_discrete,
                                 two_sample_hypothesis_test)
-from gladoss.core.utils import match_assertions_to_patterns
 
 
 logger = logging.getLogger(__name__)
 
 
 def validate_state_graph(rng: np.random.Generator,
-                         gPattern: GraphPattern,
+                         pattern: GraphPattern,
                          graph: Collection[Statement],
+                         pattern_map: tuple[list[tuple[Statement,
+                                                       AssertionPattern]],
+                                            list[tuple[Statement,
+                                                       AssertionPattern]],
+                                            set[Statement]],
                          config: SimpleNamespace)\
         -> ValidationReport:
     """ Map all components of the observed state graph to the appropriate
@@ -42,49 +46,25 @@ def validate_state_graph(rng: np.random.Generator,
     :param config: [TODO:description]
     :return: [TODO:description]
     """
-    # find pairs of assertions and associated assertion patterns
-    # TODO: this is done later on as well; cache results?
-    pattern_components = list(gPattern.structure.values())
-    assertion_ap_pairs, unmatched\
-        = match_assertions_to_patterns(graph, pattern_components)
-
     # default values
     status_msg_lst = list()
     status_msg_long_lst = list()
     status_code = ValidationReport.StatusCode.NOMINAL
 
-    # check if the state graph can successfully be mapped to its pattern
-    complete_map = True
-    if len(assertion_ap_pairs) < len(gPattern) and len(unmatched) > 0:
-        # missing matches in structure
-        status_msg_lst = ["Mapping Error"]
-        status_msg_long_lst = ["Unable to map all components of the "
-                               "observed state graph to their association "
-                               "substructure patterns. Skipping further "
-                               "evaluation.\n Unmapped components: "
-                               f"{', '.join(unmatched)}"]
-        logger.warning(status_msg_long_lst[0])
-
-        complete_map = False
-        status_code = ValidationReport.StatusCode.ERROR
-
     # validate structure, semantics, and data
-    if complete_map:
-        valid_semantics, passed_critical, passed_suspicious, \
-            status_msg_lst, status_msg_long_lst\
-            = validate_state_graph_components(rng, gPattern,
-                                              assertion_ap_pairs,
-                                              unmatched, config)
+    valid_semantics, passed_critical, passed_suspicious, \
+        status_msg_lst, status_msg_long_lst\
+        = validate_state_graph_components(rng, pattern, pattern_map, config)
 
-        # order by most serious violation
-        if not passed_critical:
-            status_code = ValidationReport.StatusCode.CRITICAL
-        elif not passed_suspicious:
-            status_code = ValidationReport.StatusCode.SUSPICIOUS
-        elif not valid_semantics:
-            status_code = ValidationReport.StatusCode.INCONSISTENCY
+    # order by most serious violation
+    if not passed_critical:
+        status_code = ValidationReport.StatusCode.CRITICAL
+    elif not passed_suspicious:
+        status_code = ValidationReport.StatusCode.SUSPICIOUS
+    elif not valid_semantics:
+        status_code = ValidationReport.StatusCode.INCONSISTENCY
 
-    return ValidationReport(pattern=gPattern,
+    return ValidationReport(pattern=pattern,
                             graph=graph,
                             timestamp=datetime.now(),
                             status_code=status_code,
@@ -93,9 +73,13 @@ def validate_state_graph(rng: np.random.Generator,
 
 
 def validate_state_graph_components(rng: np.random.Generator,
-                                    gPattern: GraphPattern,
-                                    assertion_ap_pairs: list[tuple],
-                                    unmatched: set,
+                                    pattern: GraphPattern,
+                                    pattern_map: tuple[
+                                        list[tuple[Statement,
+                                                   AssertionPattern]],
+                                        list[tuple[Statement,
+                                                   AssertionPattern]],
+                                        set[Statement]],
                                     config: SimpleNamespace)\
         -> tuple[bool, bool, bool, list[str], list[str]]:
     """ Validate all aspects of the observed state graph against the
@@ -108,13 +92,16 @@ def validate_state_graph_components(rng: np.random.Generator,
     :param config: [TODO:description]
     :return: [TODO:description]
     """
+    # find pairs of assertions and associated assertion patterns
+    assertion_ap_pairs, _, unmatched = pattern_map
+
     valid_lst = list()
     status_msg_lst = list()
     status_msg_long_lst = list()
     if config.evaluate_structure:
         # validate the structure of the state graph
         valid_semantics, status_msg_lst, status_msg_long_lst\
-                = validate_graph_structure(gPattern,
+                = validate_graph_structure(pattern,
                                            assertion_ap_pairs,
                                            unmatched,
                                            config.match_cwa,
@@ -126,7 +113,6 @@ def validate_state_graph_components(rng: np.random.Generator,
 
     passed_critical, passed_suspicious = True, True
     if config.evaluate_data:
-        # TODO: validate anchor
         # validate the data of the state graph, per component
         for assertion, ap in assertion_ap_pairs:
             valid_semantics, passed_critical, passed_suspicious, \
@@ -181,7 +167,7 @@ def validate_graph_data(rng: np.random.Generator,
         if ap.value.num_samples < samplesize * 2:
             msg = "Insufficient Data"
             msg_long = "Insufficient samples have yet been observed for this "\
-                       "component of the observed state graph to establish "\
+                       "triple from the observed state graph to establish "\
                        "nominal behaviour or deviations thereof."\
                        f"\n Observed: {str(assertion)}"
             logger.info(msg_long)
@@ -217,12 +203,14 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
     status_msg_lst = list()
     status_msg_long_lst = list()
     if isinstance(assertion.object, IRIRef)\
-            and ap.value.dtype != RDFS + 'Resource':
+            and ap.value.dtype != XSD + 'anyURI':
         status_msg_long = "Observed resource type does not fit to "\
                           "expected distribution resource type."\
                           f"\n Expected: {'Unknown' if ap.value.dtype is
-                                          None else ap.value.dtype}"\
-                          f"\n Observed: {type(assertion.object)}"
+                                          None else ap.value.dtype} "\
+                          f"in {ap}"\
+                          f"\n Observed: {type(assertion.object)} "\
+                          f"in {assertion}"
         status_msg_long_lst.append(status_msg_long)
         valid = False
 
@@ -232,7 +220,7 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
         if dtype_observed not in XSD_DISCRETE:
             status_msg_long = "Observed value type does not fit to "\
                               "expected distribution type."\
-                              f"\n Expected: {type(ap.value)}"\
+                              f"\n Expected: one of {'; '.join(XSD_DISCRETE)}"\
                               f"\n Observed: {type(assertion.object)}"
 
             status_msg_long_lst.append(status_msg_long)
@@ -246,9 +234,11 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
             status_msg_long = "Observed value data type does not fit to "\
                               "expected distribution data type."\
                               f"\n Expected: {'Unknown' if ap.value.dtype is
-                                              None else ap.value.dtype}"\
+                                              None else ap.value.dtype} "\
+                              f"in {ap}"\
                               f"\n Observed: {'Unknown' if dtype_observed is
-                                              None else dtype_observed}"
+                                              None else dtype_observed} "\
+                              f"in {assertion}"
 
             status_msg_long_lst.append(status_msg_long)
             valid = False
@@ -280,8 +270,10 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
     if not isinstance(assertion.object, Literal):
         status_msg_long = "Observed resource type does not fit to "\
                           "expected distribution resource type."\
-                          f"\n Expected: {type(ap.value)}"\
-                          f"\n Observed: {type(assertion.object)}"
+                          f"\n Expected: {type(ap.value)} "\
+                          f"in {ap}"\
+                          f"\n Observed: {type(assertion.object)} "\
+                          f"in {assertion}"
 
         status_msg_long_lst.append(status_msg_long)
         valid = False
@@ -292,8 +284,10 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
         if dtype_observed not in XSD_CONTINUOUS:
             status_msg_long = "Observed value type does not fit to "\
                               "expected distribution type."\
-                              f"\n Expected: {type(ap.value)}"\
-                              f"\n Observed: {type(assertion.object)}"
+                              "\n Expected: one of "\
+                              f"{'; '.join(XSD_CONTINUOUS)}"\
+                              f"\n Observed: {type(assertion.object)} "\
+                              f"in {assertion}"
 
             status_msg_long_lst.append(status_msg_long)
             valid = False
@@ -305,9 +299,11 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
             status_msg_long = "Observed value data type does not fit to "\
                               "expected distribution data type."\
                               f"\n Expected: {'Unknown' if ap.value.dtype is
-                                              None else ap.value.dtype}"\
+                                              None else ap.value.dtype} "\
+                              f"in {ap}"\
                               f"\n Observed: {'Unknown' if dtype_observed is
-                                              None else dtype_observed}"
+                                              None else dtype_observed} "\
+                              f"in {assertion}"
 
             status_msg_long_lst.append(status_msg_long)
             valid = False
@@ -444,10 +440,10 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
 
         status_msg = "Critical Value Violation"
         status_msg_long = "Evidence from the statistical evaluation suggests "\
-                          "that this component of the observed state graph "\
+                          "that this triple of the observed state graph "\
                           "differs significantly from the associated graph "\
                           f"pattern at the critical level ({alpha_critical}):"\
-                          f"\n Observed: {str(assertion)}"
+                          f"\n Observed: {assertion}"
     elif test_suspicious == HypothesisTest.REJECT_H0:
         # enough evidence to reject the zero hypothesis that both samples were
         # drawn from the same underlying distribution at the suspicious level:
@@ -456,11 +452,11 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
 
         status_msg = "Suspicious Value Violation"
         status_msg_long = "Evidence from the statistical evaluation suggests "\
-                          "that this component of the observed state graph "\
+                          "that this triple of the observed state graph "\
                           "differs significantly from the associated graph "\
                           "pattern at the suspicious level "\
                           f"({alpha_suspicious}):"\
-                          f"\n Observed: {str(assertion)}"
+                          f"\n Observed: {assertion}"
 
     logger.info(status_msg_long)
 
@@ -484,8 +480,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
     if type(ap.value) is not type(assertion.object):
         status_msg_long = "Observed resource type differs from expected "\
                           "resource type."\
-                          f"\n Expected: {type(ap.value)}"\
-                          f"\n Observed: {type(assertion.object)}"
+                          f"\n Expected: {type(ap.value)} in {ap}"\
+                          f"\n Observed: {type(assertion.object)} in {ap}"
         status_msg_long_lst.append(status_msg_long)
         valid = False
 
@@ -494,7 +490,7 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
     if isinstance(ap.value, IRIRef) and ap.value != assertion.object:
         status_msg_long = "Observed IRI value differs from expected IRI "\
                           "value."\
-                          f"\n Expected: {ap.value}"\
+                          f"\n Expected: {ap}"\
                           f"\n Observed: {assertion}"
         status_msg_long_lst.append(status_msg_long)
         valid = False
@@ -518,7 +514,7 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
         if assertion.object != ap.value:
             status_msg_long = "Observed Literal value differs from expected "\
                               "Literal value."\
-                              f"\n Expected: {ap.value}"\
+                              f"\n Expected: {ap}"\
                               f"\n Observed: {assertion}"
             status_msg_long_lst.append(status_msg_long)
             valid = False
@@ -529,14 +525,16 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
     return valid, status_msg_lst, status_msg_long_lst
 
 
-def validate_graph_structure(gPattern: GraphPattern,
-                             assertion_ap_pairs: list[tuple], unmatched: set,
+def validate_graph_structure(pattern: GraphPattern,
+                             assertion_ap_pairs: list[tuple[Statement,
+                                                            AssertionPattern]],
+                             unmatched: set[Statement],
                              match_cwa: bool, match_exact: bool)\
         -> tuple[bool, list[str], list[str]]:
     """ Validate the structure of the observed state graph, by checking
         possible mapped and unmapped sub-structures.
 
-    :param gPattern: [TODO:description]
+    :param pattern: [TODO:description]
     :param graph: [TODO:description]
     :param assertion_ap_pairs: [TODO:description]
     :param unmatched: [TODO:description]
@@ -547,37 +545,50 @@ def validate_graph_structure(gPattern: GraphPattern,
     valid = True
     status_msg_lst = list()
     status_msg_long_lst = list()
-    if len(assertion_ap_pairs) < len(gPattern) and len(unmatched) <= 0:
-        # incomplete mapping, yet no unmatched assertions remain
-        status_msg_long = "Observed state graph contains less components "\
-                          "than required by the associated graph "\
-                          f"pattern: {len(assertion_ap_pairs)} < "\
-                          f"{len(gPattern)}"
-        logger.info(status_msg_long)
+    if len(assertion_ap_pairs) < len(pattern):
+        # there is an incomplete mapping between the graph and its pattern
+        if len(unmatched) > 0:
+            # not all assertions can be mapped to assertion patterns
+            # this can occur if the structure or tail type is changed
+            status_msg_long = "Observed state graph contains triples that "\
+                              "cannot be mapped to any known subpattern of "\
+                              "the associated graph pattern: "\
+                              f"{'; '.join(unmatched)}"
+            logger.info(status_msg_long)
+        else:  # state graph is smaller than expected
+            # this can occur when all assertions are mapped, but some assertion
+            # patterns are still unpaired
+            status_msg_long = "Observed state graph contains less triples "\
+                              "than required by the associated graph pattern:"\
+                              f" {len(assertion_ap_pairs)} (observed) < "\
+                              f"{len(pattern)} (required)"
+            logger.info(status_msg_long)
 
-        if match_exact:
-            status_msg_lst.append("Exact Match Requirement Violation.")
-            status_msg_long_lst.append(status_msg_long)
-            valid = False
+            if match_exact:
+                status_msg_lst.append("Exact Match Requirement Violation.")
+                status_msg_long_lst.append(status_msg_long)
+                valid = False
 
         if match_cwa:
+            # With CWA, we assume that missing pairs are false
             status_msg_lst.append("Closed-World Assumption Violation.")
             status_msg_long_lst.append(status_msg_long)
             valid = False
+    elif len(assertion_ap_pairs) == len(pattern):  # complete map
+        if len(unmatched) > 0:
+            # all known assertions are matched, yet more are observed
+            # these can be added as candidate assertion patterns if passed here
+            status_msg_long = "Observed state graph contains more triples "\
+                              "than required by the associated graph pattern:"\
+                              f" {len(assertion_ap_pairs)} (observed) > "\
+                              f"{len(pattern)} (required)"
+            logger.info(status_msg_long)
 
-    elif len(assertion_ap_pairs) == len(gPattern) and len(unmatched) > 0:
-        # all known assertions are matched, yet more are observed
-        status_msg_long = "Observed state graph contains more components "\
-                          "than required by the associated graph "\
-                          f"pattern: {len(assertion_ap_pairs)} > "\
-                          f"{len(gPattern)}"
-        logger.info(status_msg_long)
-
-        if match_exact:
-            # do not allow updates to structure
-            status_msg_lst.append("Exact Match Requirement Violation.")
-            status_msg_long_lst.append(status_msg_long)
-            valid = False
+            if match_exact:
+                # do not allow updates to structure
+                status_msg_lst.append("Exact Match Requirement Violation.")
+                status_msg_long_lst.append(status_msg_long)
+                valid = False
 
     return valid, status_msg_lst, status_msg_long_lst
 

@@ -15,6 +15,37 @@ from rdf.namespaces import RDF, RDFS
 logger = logging.getLogger(__name__)
 
 
+def create_pattern_map(graph: Collection[Statement],
+                       pattern: 'GraphPattern')\
+    -> tuple[list[tuple[Statement, 'AssertionPattern']],
+             list[tuple[Statement, 'AssertionPattern']],
+             set[Statement]]:
+    """ Create a mapping between the observations in the newly
+        observed state graph and the components of the associated
+        graph pattern. This first tries to map the subpatterns
+        that are part of the nominal behaviour and will next try
+        to map the remaining observations to the subpattern
+        candidates.
+
+    :param graph: [TODO:description]
+    :param pattern: [TODO:description]
+    :return: [TODO:description]
+    """
+    # find pairs of assertions and associated assertion patterns
+    pattern_components = list(pattern.structure.values())
+    assertion_ap_pairs, unmatched\
+        = match_assertions_to_patterns(graph, pattern_components)
+
+    # find pairs for assertion patterns under consideration
+    assertion_uc_pairs = list()
+    if len(pattern._under_consideration) > 0:
+        pattern_components = list(pattern._under_consideration.values())
+        assertion_uc_pairs, unmatched\
+            = match_assertions_to_patterns(unmatched, pattern_components)
+
+    return assertion_ap_pairs, assertion_uc_pairs, unmatched
+
+
 def match_assertions_to_patterns(
         graph: Collection[Statement],
         aPatterns: Collection['AssertionPattern'])\

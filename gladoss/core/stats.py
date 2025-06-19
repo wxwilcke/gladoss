@@ -9,7 +9,7 @@ import sys
 
 import numpy as np
 from rdf.terms import IRIRef, Literal, Resource
-from rdf.namespaces import RDFS
+from rdf.namespaces import XSD
 
 from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
                                                cast_literal, infer_datatype)
@@ -96,8 +96,9 @@ class Distribution():
 
         else:  # IRIRef
             # create a new distribution and add values
+            # use xsd:anyURI as IRI type
             dist = DiscreteDistribution(decay=decay,
-                                        dtype=RDFS+'Resource')
+                                        dtype=XSD+'anyURI')
 
             dist.addSample(resource)
 

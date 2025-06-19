@@ -13,12 +13,13 @@ from types import SimpleNamespace
 from typing import Any, Callable, Optional, Collection
 
 from rdf.graph import Statement
+from rdf.namespaces import XSD
 from rdf.terms import IRIRef, Literal, Resource
 
 from gladoss.core.multimodal.datatypes import cast_literal, infer_datatype
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 Distribution)
-from gladoss.core.utils import infer_class, match_assertions_to_patterns
+from gladoss.core.utils import infer_class
 
 
 logger = logging.getLogger(__name__)
@@ -75,33 +76,31 @@ def create_graph_pattern(mkid: Callable,
 
 def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
                          graph: Collection[Statement],
+                         pattern_map: tuple[list[tuple[Statement,
+                                                       AssertionPattern]],
+                                            list[tuple[Statement,
+                                                       AssertionPattern]],
+                                            set[Statement]],
+
                          config: SimpleNamespace) -> GraphPattern:
     """ Return an updated copy of the provided graph pattern by
-        first pairing the provided statements with their associated
-        assertion patterns, and by then updating these patterns
-        with the new observations.
+        copying and updating the nominal and candidate subpatterns
+        with the new observations, and by adding new candidate
+        subpatterns.
 
     :param gPattern: [TODO:description]
     :param facts: [TODO:description]
     """
-    # find pairs of assertions and associated assertion patterns
-    # next update copies thereof with new observations
-    pattern_components = list(gPattern.structure.values())
-    assertion_ap_pairs, unmatched\
-        = match_assertions_to_patterns(graph, pattern_components)
+    # unpack assertion to assertion pattern map
+    assertion_ap_pairs, assertion_uc_pairs, unmatched = pattern_map
+
+    # update nonimal assertion pattern with new observations
     ap_upd = {ap.update_from(assertion, config)
               for assertion, ap in assertion_ap_pairs}
 
-    # find pairs for assertion patterns under consideration
-    # only consider the assertions that haven't been matched in the last step
-    uc_upd = set()
-    if len(gPattern._under_consideration) > 0:
-        pattern_components = list(gPattern._under_consideration.values())
-        assertion_uc_pairs, unmatched\
-            = match_assertions_to_patterns(unmatched, pattern_components)
-
-        uc_upd = {ap.update_from(assertion, config)
-                  for assertion, ap in assertion_uc_pairs}
+    # update candidate assertion pattern with new observations
+    uc_upd = {ap.update_from(assertion, config)
+              for assertion, ap in assertion_uc_pairs}
 
     # create new assertion patterns for unmatched observations
     ap_new = set()
@@ -160,7 +159,7 @@ class AssertionPattern():
                      == infer_datatype(assertion.object))
                  or (isinstance(self.value, DiscreteDistribution)
                      and ((isinstance(assertion.object, IRIRef)
-                           and self.value.dtype is None)
+                           and self.value.dtype == XSD+'anyURI')
                           or (isinstance(assertion.object, Literal)
                               and infer_datatype(assertion.object)
                               == self.value.dtype)))
