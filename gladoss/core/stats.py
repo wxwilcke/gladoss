@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 class Distribution():
     def __init__(self,
                  decay: int = -1,
-                 dtype: Optional[IRIRef] = None) -> None:
+                 dtype: Optional[IRIRef] = None,
+                 lang: Optional[str] = None) -> None:
         """ Statistical distribution over samples of a specific
             (data) type. Samples are kept until they decay (a
             negative value disables this feature) and the last
@@ -37,6 +38,7 @@ class Distribution():
         """
         self.decay = decay
         self.dtype = dtype
+        self.lang = lang
 
         self._t = 0  # time steps since initialisation
         self.samples = Counter()  # keep track of samples and their frequency
@@ -78,15 +80,18 @@ class Distribution():
         if isinstance(resource, Literal):
             # determine datatype
             dtype = infer_datatype(resource)
+            lang = resource.language
 
             # creae new distribution
             if dtype in XSD_CONTINUOUS:
                 dist = ContinuousDistribution(resolution=resolution,
                                               decay=decay,
-                                              dtype=dtype)
+                                              dtype=dtype,
+                                              lang=lang)
             elif dtype in XSD_DISCRETE:
                 dist = DiscreteDistribution(decay=decay,
-                                            dtype=dtype)
+                                            dtype=dtype,
+                                            lang=lang)
             else:
                 raise NotImplementedError(f"Datatype not supported: {dtype}")
 
@@ -179,7 +184,8 @@ class Distribution():
 class ContinuousDistribution(Distribution):
     def __init__(self, decay: int = -1,
                  resolution: int = -1,
-                 dtype: Optional[IRIRef] = None) -> None:
+                 dtype: Optional[IRIRef] = None,
+                 lang: Optional[str] = None) -> None:
         """ Continuous distribution over Real numbers. A
             resolution above zero will truncate the samples
             to that number of significant figures.
@@ -187,7 +193,7 @@ class ContinuousDistribution(Distribution):
         :param decay: time until seen sample is forgotten
         :param resolution: number of significant figures
         """
-        super().__init__(decay, dtype)
+        super().__init__(decay, dtype, lang)
         self.resolution = resolution
 
     def addSample(self, sample: float) -> None:
@@ -233,13 +239,14 @@ class ContinuousDistribution(Distribution):
 
 
 class DiscreteDistribution(Distribution):
-    def __init__(self,
-                 decay: int = -1, dtype: Optional[IRIRef] = None) -> None:
+    def __init__(self, decay: int = -1,
+                 dtype: Optional[IRIRef] = None,
+                 lang: Optional[str] = None) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
         """
-        super().__init__(decay, dtype)
+        super().__init__(decay, dtype, lang)
 
     def addSample(self, sample: str) -> None:
         """ Add a single sample to the distribution.

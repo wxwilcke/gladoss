@@ -360,6 +360,8 @@ def validate_graph_data_distribution(rng: np.random.Generator,
     else:
         raise NotImplementedError()
 
+    # TODO: validate language
+
     # evaluate whether the new sample could've come from the same distribution
     # as the previously observed samples
     passed_critical, passed_suspicious = True, True
@@ -521,6 +523,9 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
 
             status_msg_lst.append("Value Equality Violation")
             logger.info(status_msg_long)
+        if assertion.object.language != ap.value.language:
+            # TODO
+            pass
 
     return valid, status_msg_lst, status_msg_long_lst
 

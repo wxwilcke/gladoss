@@ -4,6 +4,7 @@ from ast import literal_eval
 from datetime import datetime
 import logging
 
+from gladoss.core.multimodal.timeutils import cast_datefrag, cast_datefrag_rev, cast_datetime, cast_datetime_rev
 from rdf.namespaces import XSD
 from rdf.terms import Literal, IRIRef
 
@@ -106,7 +107,7 @@ def infer_python_type(s: str) -> IRIRef:
     return xsd_type
 
 
-def cast_literal(dtype: IRIRef, value: str) -> str | int | float:
+def cast_literal(dtype: IRIRef | None, value: Literal) -> str | int | float:
     """ Cast literal value to appropriate python object
         based on given XSD datatype. Compound values 'X-Y'
         (eg gMonthDay) are consolidated into units of Y
@@ -118,28 +119,43 @@ def cast_literal(dtype: IRIRef, value: str) -> str | int | float:
     :return: [TODO:description]
     """
     value = str(value)
-    try:
-        if dtype in {XSD + 'date', XSD + 'dateTime'}:
-            value = int(datetime.fromisoformat(value))
-        elif dtype == XSD + 'gMonthDay':
-            # return as number of days
-            m, d = value.split('-')
-            v = datetime(year=1970, month=int(m), day=int(d), hour=1)
-
-            value = int((v - EPOCH_TIME).days)
-        elif dtype == XSD + 'gYearMonth':
-            # return as number of months
-            y, m = value.split('-')
-            v = datetime(year=int(y), month=int(m), day=1, hour=1)
-
-            value = int(abs((v - EPOCH_TIME).days * DAYS_PER_YEAR))
-        elif dtype in XSD_CONTINUOUS:
-            value = float(value)
-        elif dtype in XSD_DISCRETE & XSD_NUMERIC:
-            value = int(value)
-    except ValueError:
-        logger.debug(f"Error when trying to cast literal value '{value}'"
-                     + f" of type {dtype}.")
-        pass
+    if dtype is not None:
+        try:
+            if dtype in XSD_DATETIME:
+                value = float(cast_datetime(dtype, value))
+            elif dtype in XSD_DATEFRAG:
+                value = int(cast_datefrag(dtype, value))
+            elif dtype in XSD_CONTINUOUS:
+                value = float(value)
+            elif dtype in XSD_DISCRETE & XSD_NUMERIC:
+                value = int(value)
+        except ValueError:
+            logger.debug(f"Error when trying to cast literal value '{value}'"
+                         + f" of type {dtype}.")
 
     return value
+
+
+def cast_literal_rev(value: str | int | float,
+                     dtype: IRIRef | None, lang: str | None) -> Literal:
+    if dtype is not None:
+        try:
+            if dtype in XSD_DATETIME:
+                value = cast_datetime_rev(dtype, value)  # str
+            elif dtype in XSD_DATEFRAG:
+                value = cast_datefrag_rev(dtype, value)  # str
+        except ValueError:
+            logger.debug(f"Error when trying to inverse cast literal value "
+                         f" '{value}' of type {dtype}.")
+
+    value = Literal(str(value), datatype=dtype, language=lang)
+
+
+# def literal_to_str(v: Literal) -> str:
+#     value = str(v)
+#     if v.language is not None:
+#         value += f"@{v.language}"
+#     elif v.datatype is not None:
+#         value += f"^^{v.datatype}"
+# 
+#     return value
