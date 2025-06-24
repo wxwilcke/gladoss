@@ -149,13 +149,3 @@ def cast_literal_rev(value: str | int | float,
                          f" '{value}' of type {dtype}.")
 
     value = Literal(str(value), datatype=dtype, language=lang)
-
-
-# def literal_to_str(v: Literal) -> str:
-#     value = str(v)
-#     if v.language is not None:
-#         value += f"@{v.language}"
-#     elif v.datatype is not None:
-#         value += f"^^{v.datatype}"
-# 
-#     return value

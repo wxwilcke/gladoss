@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
+from datetime import datetime
 import logging
 from typing import Callable
 
 from gladoss.core.multimodal.datatypes import XSD_NUMERIC, cast_literal_rev
 from gladoss.core.stats import Distribution
 from rdf.graph import Statement
-from rdf.namespaces import RDF, RDFS, XSD
+from rdf.namespaces import OWL, RDF, RDFS, XSD
 from rdf.terms import BNode, IRIRef, Literal, Resource
 
 from gladoss.core.pattern import GraphPattern
@@ -20,29 +21,138 @@ SH = IRIRef("https://www.w3.org/ns/shacl#")  # SHACL namespace
 
 
 def report_to_graph(report: ValidationReport, mkid: Callable)\
-        -> set[Statement]:
-    # shacl validation report
-    pass
+        -> list[Statement]:
+    """ Convert a validation report object to RDF graph in N-Triples format
+        that conforms to the SHACL specification. Each detected anomaly
+        (or error) is converted to a SHACL validation result with information
+        about the causing assertion and with a detailed explanation. Some
+        metadata is added to the head of the graph.
+
+    :param report: [TODO:description]
+    :param mkid: [TODO:description]
+    :return: [TODO:description]
+    """
+    logger.info("Generating SHACL validation report for graph pattern "
+                f"{report.pattern._id}")
+
+    # define graph and metadata
+    root = BNode('B' + mkid())
+    graph = [
+        Statement(root, RDF + 'type', SH + 'ValidationReport'),
+        Statement(root, DCT + 'date', Literal(report.timestamp.isoformat(),
+                                              datatype=XSD + 'dateTime')),
+        Statement(root, DCT + 'identifier', Literal(report.pattern._id,
+                                                    datatype=XSD + 'string')),
+        Statement(root, DCT + 'conformsTo', Literal(
+            "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
+        ]
+
+    # for the graph structure
+    for status_msg_lst in report.status_msg_lst_struc:
+        status_msg, status_msg_long, status_code = status_msg_lst
+
+        res = BNode('B' + mkid())
+        graph.extend([
+            Statement(root, DCT + 'hasPart', res),
+            Statement(res, RDFS + 'label',
+                      Literal(status_msg, language="en")),
+            Statement(res, SH + 'resultMessage',
+                      Literal(status_msg_long, language="en"))
+            ])
+
+        sev = BNode('B' + mkid())
+        graph.extend([
+            Statement(res, SH + 'resultSeverity', sev),
+            Statement(sev, RDF + 'type', SH + 'Severity'),
+            Statement(sev, RDFS + 'label',
+                      Literal(status_code.name, datatype=XSD + 'string')),
+            Statement(sev, RDFS + 'comment',
+                      Literal(status_code.description, language="en"))
+            ])
+
+    # for each assertion pattern (shape)
+    for ap_id, status_msg_lst in report.status_msg_lst_data.items():
+        if ap_id not in report.apa_map.keys():
+            continue
+
+        # one result per anomaly
+        assertion = report.apa_map[ap_id]  # type: Statement
+        for status_msg, status_msg_long, status_code in status_msg_lst:
+            res = BNode('B' + mkid())
+            graph.extend([
+                Statement(root, DCT + 'hasPart', res),
+                Statement(res, RDF + 'type', SH + 'ValidationResult'),
+                Statement(res, SH + 'focusNode', assertion.subject),
+                Statement(res, SH + 'resultPath', assertion.predicate),
+                Statement(res, SH + 'value', assertion.object),
+                Statement(res, SH + 'sourceShape',
+                          Literal(ap_id, datatype=XSD + 'string')),
+                Statement(res, RDFS + 'label',
+                          Literal(status_msg, language="en")),
+                Statement(res, SH + 'resultMessage',
+                          Literal(status_msg_long, language="en"))
+                ])
+
+            sev = BNode('B' + mkid())
+            graph.extend([
+                Statement(res, SH + 'resultSeverity', sev),
+                Statement(sev, RDF + 'type', SH + 'Severity'),
+                Statement(sev, RDFS + 'label',
+                          Literal(status_code.name, datatype=XSD + 'string')),
+                Statement(sev, RDFS + 'comment',
+                          Literal(status_code.description, language="en"))
+                ])
+
+    # summary of report
+    conforms = str(report.violation).lower()
+    graph.append(Statement(root, SH + 'conforms',
+                           Literal(conforms, datatype=XSD + 'boolean')))
+
+    return graph
+
 
 def pattern_to_graph(mkid: Callable,
-                     pattern: GraphPattern) -> list[Statement]:
-    root = BNode('B' + mkid())
-    graph = [Statement(root, RDF + 'type', )
-            ]
-    # TODO: add graph ID, timestamp
+                     pattern: GraphPattern,
+                     timestamp: datetime) -> list[Statement]:
+    """ Convert graph pattern object to RDF graph in N-Triple format that
+        conforms to the SHACL specification for shape graphs. Each assertion
+        pattern is converted into a shape structure, with full preservation
+        of semantics for fixed value constraints. Since SHACL does not support
+        distributions, these are appropriated via min/max values for numerical
+        data and an enumeration for all other forms of data. Metadata is added
+        to the head of the graph.
 
-    bag = BNode('B' + mkid())
-    graph.extend([
-        Statement(bag, RDF + 'type', RDF + 'Bag')
-        ])
+    :param mkid: [TODO:description]
+    :param pattern: [TODO:description]
+    :param timestamp: [TODO:description]
+    :return: [TODO:description]
+    """
+    logger.info("Generating SHACL shape graph for graph pattern "
+                f"{pattern._id}")
+
+    # define graph and metadata
+    root = BNode('B' + mkid())
+    graph = [
+        Statement(root, RDF + 'type', OWL + 'Ontology'),
+        Statement(root, DCT + 'date', Literal(timestamp.isoformat(),
+                                              datatype=XSD + 'dateTime')),
+        Statement(root, DCT + 'identifier', Literal(pattern._id,
+                                                    datatype=XSD + 'string')),
+        Statement(root, DCT + 'conformsTo', Literal(
+            "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
+            ]
+
     for ap_id in sorted(pattern.structure.keys()):
         ap = pattern.structure[ap_id]
 
+        # shape for this assertion pattern
         shape = BNode('B' + ap_id)
 
         graph.extend([
-            Statement(bag, RDFS + 'member', shape),
+            Statement(root, DCT + 'hasPart', shape),
             Statement(shape, RDF + 'type', SH + 'NodeShape'),
+            Statement(shape, DCT + 'identifier',
+                      Literal(ap_id, datatype=XSD + 'string')),
             Statement(shape, SH + 'targetClass', ap.anchor),
             Statement(shape, SH + 'targetSubjectsOf', ap.relation)
             ])
@@ -75,6 +185,9 @@ def pattern_to_graph(mkid: Callable,
                 graph.append(Statement(
                     pshape, SH + 'nodeKind', SH + 'BlankNode'))
 
+        # create constraints for distributions
+        # These are approximations of the actual distribution due to
+        # limitations of SHACL
         elif isinstance(ap.value, Distribution):
             if ap.value.dtype in XSD_NUMERIC:
                 # approximate the distribution via min and max values
@@ -85,8 +198,8 @@ def pattern_to_graph(mkid: Callable,
                 v_max = cast_literal_rev(v_max, ap.value.dtype, ap.value.lang)
 
                 graph.extend([
-                    Statement(pshape, SH + 'minExclusive', v_min),
-                    Statement(pshape, SH + 'maxExclusive', v_max)
+                    Statement(pshape, SH + 'minInclusive', v_min),
+                    Statement(pshape, SH + 'maxInclusive', v_max)
                     ])
             else:
                 # create an RDF list with all unique values in the distribution
@@ -95,22 +208,22 @@ def pattern_to_graph(mkid: Callable,
                     Statement(pshape, SH + 'in', lst),
                     Statement(lst, RDF + 'type', RDF + 'List')
                     ])
-                for v in set(ap.value.data):  # unique values
+
+                data_uniq = sorted(set(ap.value.data))
+                for i, v in enumerate(data_uniq, 1):  # unique values
                     # cast back to literal with appropriate format
                     v = cast_literal_rev(v, ap.value.dtype, ap.value.lang)
 
-                    lst_rest = BNode(mkid())
+                    lst_rest = RDF + 'nil'
+                    if i < len(data_uniq):
+                        lst_rest = BNode(mkid())
                     graph.extend(
                             [Statement(lst, RDF + 'first', v),
                              Statement(lst, RDF + 'rest', lst_rest)
                              ])
 
                     lst = lst_rest
-
-                graph.append(Statement(lst, RDF + 'rest', RDF + 'nil'))
         else:
             NotImplementedError()
-
-        graph.append(shape)
 
     return graph
