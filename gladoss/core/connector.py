@@ -41,6 +41,8 @@ class Connector():
         self.request_delay = request_delay
         self.return_receipt = return_receipt
 
+        self.session = requests.Session()
+
     def _wait_on_error(self: Self, retries: int) -> None:
         """ Wait a number of seconds after experiencing an error
             before trying again.
@@ -88,6 +90,16 @@ class Connector():
 
         return response.status_code
 
+    def publish(self: Self, identifier: str, data: set[Statement]):
+        package_headers = self.adaptor.set_report_headers(identifier)
+        package_payload = self.adaptor.set_report_payload(identifier, data)
+
+        try:
+            self.push(session=self.session, endpoint=self.endpoint,
+                      headers=package_headers, data=package_payload)
+        except Exception as e:
+            logger.error(f"Unable to publish report to endpoint: {e}.")
+
     def listen(self) -> Generator[tuple[str, list[Statement]]]:
         """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates
@@ -99,12 +111,10 @@ class Connector():
 
         package_headers = self.adaptor.set_headers()
         package_payload = self.adaptor.set_payload()
-
-        session = requests.Session()
         while not self.adaptor._controller.is_set():
             logging.debug("Polling server")
             try:
-                status_code, data_raw = self.poll(session,
+                status_code, data_raw = self.poll(self.session,
                                                   self.endpoint,
                                                   package_headers,
                                                   package_payload)
@@ -123,7 +133,7 @@ class Connector():
                         ack_headers = self.adaptor.set_receipt_headers(data)
                         ack_payload = self.adaptor.set_receipt_payload(data)
                         try:
-                            self.push(session,
+                            self.push(self.session,
                                       self.endpoint,
                                       ack_headers,
                                       ack_payload)

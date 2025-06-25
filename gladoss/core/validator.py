@@ -47,22 +47,20 @@ def validate_state_graph(rng: np.random.Generator,
     :param config: [TODO:description]
     :return: [TODO:description]
     """
-    # default values
-    status_code = ValidationReport.StatusCode.NOMINAL
-
     # validate structure, semantics, and data
-    status_msg_lst_data, status_msg_lst_struc\
+    status_msg_lst_map, status_msg_lst\
         = validate_state_graph_components(rng, pattern, pattern_map, config)
 
-    # summarize validation results
-    violation = False
-    for _, _, status_code in chain.from_iterable(
-            [*status_msg_lst_data.values(), status_msg_lst_struc]):
-        if status_code >= ValidationReport.StatusCode.INCONSISTENCY:
-            violation = True
+    # summarize validation results by highest code
+    status_code_max = ValidationReport.StatusCode.NOMINAL
+    for _, _, status_code in chain.from_iterable([*status_msg_lst_map.values(),
+                                                  status_msg_lst]):
+        if status_code_max > status_code:
+            status_code_max = status_code
 
-            # no need to continue
-            break
+            if status_code_max >= ValidationReport.StatusCode.CRITICAL:
+                # no need to continue
+                break
 
     # convert to simpler form for validation report
     assertion_ap_pairs, _, _ = pattern_map
@@ -72,9 +70,9 @@ def validate_state_graph(rng: np.random.Generator,
                             graph=graph,
                             apa_map=apa_map,
                             timestamp=datetime.now(),
-                            violation=violation,
-                            status_msg_lst_data=status_msg_lst_data,
-                            status_msg_lst_struc=status_msg_lst_struc)
+                            status_code=status_code_max,
+                            status_msg_lst_map=status_msg_lst_map,
+                            status_msg_lst=status_msg_lst)
 
 
 def validate_state_graph_components(rng: np.random.Generator,
@@ -597,20 +595,23 @@ class ValidationReport():
         def description(self):
             return self._description_
 
-    def __init__(self, pattern: GraphPattern,
-                 graph: Collection[Statement],
-                 apa_map: dict[str, Statement],
-                 timestamp: datetime, violation: bool,
-                 status_msg_lst_data:
-                     dict[str,
-                          list[tuple[str, str, ValidationReport.StatusCode]]],
-                 status_msg_lst_struc:
-                     list[tuple[str, str, ValidationReport.StatusCode]]):
+    def __init__(
+            self, pattern: GraphPattern,
+            graph: Collection[Statement],
+            apa_map: dict[str, Statement],
+            timestamp: datetime,
+            status_code: ValidationReport.StatusCode,
+            status_msg_lst_map:
+            dict[str, list[tuple[str, str, ValidationReport.StatusCode]]]
+            = dict(),
+            status_msg_lst:
+            list[tuple[str, str, ValidationReport.StatusCode]]
+            = list()):
         """ A validation report for an obversed state graph with its associated
             pattern, status code, and description of the evaluation results.
 
         :param pattern: [TODO:description]
-        :param graph: [TODO:description]
+        :param graph: [TODO:descriptions
         :param timestamp: [TODO:description]
         :param status_code: [TODO:description]
         :param status_msg: [TODO:description]
@@ -620,9 +621,9 @@ class ValidationReport():
         self.graph = graph
         self.apa_map = apa_map
         self.timestamp = timestamp
-        self.violation = violation
-        self.status_msg_lst_data = status_msg_lst_data
-        self.status_msg_lst_struc = status_msg_lst_struc
+        self.status_code = status_code
+        self.status_msg_lst_map = status_msg_lst_map
+        self.status_msg_lst = status_msg_lst
 
     def to_graph(self, mkid: Callable) -> list[Statement]:
         return report_to_graph(self, mkid)

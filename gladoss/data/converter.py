@@ -35,6 +35,9 @@ def report_to_graph(report: ValidationReport, mkid: Callable)\
     logger.info("Generating SHACL validation report for graph pattern "
                 f"{report.pattern._id}")
 
+    # default value
+    conforms = True
+
     # define graph and metadata
     root = BNode('B' + mkid())
     graph = [
@@ -47,8 +50,8 @@ def report_to_graph(report: ValidationReport, mkid: Callable)\
             "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
         ]
 
-    # for the graph structure
-    for status_msg_lst in report.status_msg_lst_struc:
+    # process violations and errors without associated shape
+    for status_msg_lst in report.status_msg_lst:
         status_msg, status_msg_long, status_code = status_msg_lst
 
         res = BNode('B' + mkid())
@@ -70,8 +73,11 @@ def report_to_graph(report: ValidationReport, mkid: Callable)\
                       Literal(status_code.description, language="en"))
             ])
 
-    # for each assertion pattern (shape)
-    for ap_id, status_msg_lst in report.status_msg_lst_data.items():
+        conforms = False
+
+    # process violations and errors with associated shape
+    # iterate over all validated shapes
+    for ap_id, status_msg_lst in report.status_msg_lst_map.items():
         if ap_id not in report.apa_map.keys():
             continue
 
@@ -103,8 +109,10 @@ def report_to_graph(report: ValidationReport, mkid: Callable)\
                           Literal(status_code.description, language="en"))
                 ])
 
-    # summary of report
-    conforms = str(report.violation).lower()
+        conforms = False
+
+    # summary of report - defaults to true if no anomalies have been found
+    conforms = str(conforms).lower()
     graph.append(Statement(root, SH + 'conforms',
                            Literal(conforms, datatype=XSD + 'boolean')))
 

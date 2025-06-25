@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import logging
 from threading import Event
 from types import SimpleNamespace
-from typing import Any, Self
+from typing import Any, Collection, Self
 
 from rdf.graph import Statement
 
@@ -70,7 +70,7 @@ class Adaptor(ABC):
         return dict()
 
     @abstractmethod
-    def set_report_headers(self: Self, data: dict[str, Any])\
+    def set_report_headers(self: Self, identifier: str)\
             -> dict[str, Any]:
         """ Returns headers for publishing the validation report
             to the endpoint. Defaults to empty headers
@@ -81,7 +81,8 @@ class Adaptor(ABC):
         return dict()
 
     @abstractmethod
-    def set_report_payload(self: Self, data: dict[str, Any])\
+    def set_report_payload(self: Self, identifier: str,
+                           data: Collection[Statement])\
             -> dict[str, Any]:
         """ Returns payload for publishing the validation report
             to the endpoint. Defaults to empty payload.

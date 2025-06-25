@@ -82,13 +82,22 @@ def create_validation_report(rng: np.random.Generator,
     except Exception as err:
         logger.error(err)
 
+        # convert to simpler form for validation report
+        assertion_ap_pairs, _, _ = pattern_map
+        apa_map = {ap._id: a for a, ap in assertion_ap_pairs}
+
+        # create validation report without technical detaiks (which are logged)
         status_msg = "Validation Malfunction"
+        status_msg_long = "An exception occurred during the evaluation of "\
+                          f"the observed state graph with ID '{pattern._id}.'"
         status_code = ValidationReport.StatusCode.ERROR
         report = ValidationReport(pattern=pattern, graph=graph,
                                   timestamp=datetime.now(),
+                                  apa_map=apa_map,
                                   status_code=status_code,
-                                  status_msg=status_msg,
-                                  status_msg_long=f"{err}")
+                                  status_msg_lst=[(status_msg,
+                                                   status_msg_long,
+                                                   status_code)])
 
     return report
 
@@ -100,8 +109,8 @@ def listener(connector: Connector, q: Queue) -> None:
     :param connector: [TODO:description]
     :param q: [TODO:description]
     """
-    for graph, graph_id in connector.listen():
-        q.put((graph, graph_id))
+    for graph_id, graph in connector.listen():
+        q.put((graph_id, graph))
 
 
 def process_observation(rng: np.random.Generator, mkid: Callable,
@@ -132,10 +141,9 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
 
     pattern_map = create_pattern_map(graph, pattern)
     report = create_validation_report(rng, pattern, graph, pattern_map, econf)
-    if report.status_code == ValidationReport.StatusCode.ERROR:
-        logger.warning("Unable to validate observed state graph")
-    elif report.status_code in [ValidationReport.StatusCode.NOMINAL,
-                                ValidationReport.StatusCode.SUSPICIOUS]:
+    if report.status_code in [ValidationReport.StatusCode.NOMINAL,
+                              ValidationReport.StatusCode.SUSPICIOUS,
+                              ValidationReport.StatusCode.NODATA]:
         # either the state graph passed the validation check
         # or a non-critical deviation has been detected
         gpattern_upd = update_graph_pattern(mkid, pattern, graph,
@@ -195,7 +203,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                 # process incoming messages: spawn a new thread for each
                 job = q.get()
 
-                graph, graph_id = job
+                graph_id, graph = job
                 job_fs = executor.submit(process_observation, rng, mkid, pv,
                                          graph, graph_id, pconf, econf)
 
@@ -325,9 +333,10 @@ if __name__ == "__main__":
     parser_eval.add_argument("--report_level", help="Reports of equal level "
                              "and higher will be published to the endpoint: "
                              "NOMINAL behaviour (0), generic ERRORS (1), "
-                             "semantic INCONSISTENCIES (2), SUSPICIOUS "
-                             "warnings (3), and CRITICAL warnings (4)",
-                             type=int, default=4)
+                             "INSUFFICIENT DATA (2), INCONSISTENCIES (3), "
+                             "SUSPICIOUS warnings (4), and CRITICAL "
+                             "warnings (5)",
+                             type=int, default=5)
 
     flags = parser.parse_args()
 

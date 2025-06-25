@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import toml
-from typing import Any, Optional, Self
+from typing import Any, Collection, Optional, Self
 
 import requests
 from rdf import IRIRef, Literal, Statement
@@ -124,7 +124,9 @@ class KE_Adaptor(Adaptor):
             conf = toml.load(f)
 
         # use context to share data between hooks
-        self.context['knowledgeInteractions'] = dict()
+        self.context['reactKnowledgeInteractions'] = dict()
+        self.context['reactKnowledgeInteractionsInv'] = dict()
+        self.context['postKnowledgeInteractions'] = dict()
         self.context['argumentGraphPatterns'] = dict()
 
         kb_id = conf['knowledgeBaseId']
@@ -132,9 +134,9 @@ class KE_Adaptor(Adaptor):
         kb_desc = conf['knowledgeBaseDescription']
         for ki in conf['knowledgeInteractions']:  # register all interactions
             ki_endpoint = ki['knowledgeInteractionEndpoint']
-            if ki_endpoint not in self.context['knowledgeInteractions'].keys():
+            if ki_endpoint not in self.context['reactKnowledgeInteractions']:
                 # keep track of registered knowledge interactions
-                self.context['knowledgeInteractions'][ki_endpoint] = set()
+                self.context['reactKnowledgeInteractions'][ki_endpoint] = set()
 
             ki_pattern = ki['argumentGraphPattern']
             ki_payload = {
@@ -155,7 +157,8 @@ class KE_Adaptor(Adaptor):
 
                     continue
 
-                self.context['knowledgeInteractions'][ki_endpoint].add(ki_id)
+                self.context['reactKnowledgeInteractions'][ki_endpoint].add(ki_id)
+                self.context['reactKnowledgeInteractionsInv'][ki_id] = ki_endpoint
                 self.context['argumentGraphPatterns'][ki_id] = ki_pattern
             except Exception as e:
                 logger.error(f"Unable to register at endpoint: {e}.")
@@ -165,25 +168,32 @@ class KE_Adaptor(Adaptor):
         # necessary for knowledge engine
         self.config.return_receipt = True
 
-    # def register_report_publication(self: Self) -> None:
-    #     i = 0
-    #     for ki_endpoint in self.context['knowledgeInteractions'].keys():
-    #         ki_pattern = ...
-    #         ki_payload = {
-    #                 'knowledgeInteractionType': "PostKnowledgeInteraction",
-    #                 'knowledgeInteractionName': f'ki-{i}',
-    #                 'argumentGraphPattern': ki_pattern,
-    #                 'resultGraphPattern': "",  # empty response
-    #                 'prefixes': ki['prefixes']
-    #                 }
+        # register KIs for report publication
+        self.register_report_publications()
 
+    def register_report_publications(self: Self) -> None:
+        kb_id = self.context['knowledgeBaseId']
+        for ki_endpoint in self.context['reactKnowledgeInteractions'].keys():
+            ki_pattern, ki_prefixes = self.context['reportGraphPattern']  # TODO
+            ki_payload = {
+                    'knowledgeInteractionType': "PostKnowledgeInteraction",
+                    'knowledgeInteractionName': "AnomalyReportPublication",
+                    'argumentGraphPattern': ki_pattern,
+                    'resultGraphPattern': "",  # empty response
+                    'prefixes': ki_prefixes
+                    }
+
+            ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
+
+            # keep track of registered knowledge interactions
+            self.context['postKnowledgeInteractions'][ki_endpoint] = ki_id
 
     def cleanup_hook(self: Self):
         """ Deregister the knowledge base and all associated knowledge
             interactions.
         """
         kb_id = self.context['knowledgeBaseId']
-        for ki_endpoint, ki_set in self.context['knowledgeInteractions']:
+        for ki_endpoint, ki_set in self.context['reactKnowledgeInteractions']:
             endpoint = ki_endpoint + "/sc/ki"
             for ki_id in ki_set:
                 self.deregister_ki(endpoint, kb_id, ki_id)
@@ -193,7 +203,7 @@ class KE_Adaptor(Adaptor):
     def add_connectors(self: Self) -> None:
         """ Add connectors to adaptor, one for each different endpoint.
         """
-        for ki_endpoint in self.context['knowledgeInteractions'].keys():
+        for ki_endpoint in self.context['reactKowledgeInteractions'].keys():
             self.connectors.add(Connector(
                 adaptor=self,
                 endpoint=ki_endpoint + "/sc/handle",
@@ -224,17 +234,30 @@ class KE_Adaptor(Adaptor):
         """
         return super().set_payload()
 
-    def set_report_headers(self: Self, data: dict[str, Any]) -> dict[str, Any]:
+    def set_report_headers(self: Self, identifier: str) -> dict[str, Any]:
         """ Returns headers for publishing the validation report
             to the endpoint. Defaults to empty headers
 
         :param self: [TODO:description]
         :return: [TODO:description]
         """
+        headers = dict()
+        try:
+            ki_endpoint = self.context['reactKnowledgeInteractionsInv'][identifier]
+            ki_id = self.context['postKnowledgeInteractions'][ki_endpoint]
 
-        return super().set_report_headers(data)
+            headers = {
+                    'Knowledge-Base-Id': self.context['knowledgeBaseId'],
+                    'Knowledge-Interaction-Id': ki_id
+                    }
+        except KeyError:
+            logger.error("Unable to retrieve identifiers for report "
+                         "publication headers.")
 
-    def set_report_payload(self: Self, data: dict[str, Any]) -> dict[str, Any]:
+        return headers
+
+    def set_report_payload(self: Self, identifier: str,
+                           data: Collection[Statement]) -> dict[str, Any]:
         """ Returns payload for publishing the validation report
             to the endpoint. Defaults to empty payload.
 
