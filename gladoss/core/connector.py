@@ -90,16 +90,6 @@ class Connector():
 
         return response.status_code
 
-    def publish(self: Self, identifier: str, data: set[Statement]):
-        package_headers = self.adaptor.set_report_headers(identifier)
-        package_payload = self.adaptor.set_report_payload(identifier, data)
-
-        try:
-            self.push(session=self.session, endpoint=self.endpoint,
-                      headers=package_headers, data=package_payload)
-        except Exception as e:
-            logger.error(f"Unable to publish report to endpoint: {e}.")
-
     def listen(self) -> Generator[tuple[str, list[Statement]]]:
         """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates

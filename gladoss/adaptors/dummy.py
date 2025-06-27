@@ -2,7 +2,8 @@
 
 import logging
 import re
-from typing import Any, Self
+from sys import stdout
+from typing import Any, Collection, Self
 
 from gladoss.core.connector import Connector
 from rdf import IRIRef, Literal, Statement
@@ -97,6 +98,22 @@ class DummyAdaptor(Adaptor):
             request_delay=self.config.request_delay,
             return_receipt=self.config.return_receipt
             ))
+
+    def publish_report(self: Self, identifier: str,
+                       data: Collection[Statement]) -> bool:
+        """ Write the validation report (as N-Triples) for
+            the state graph with the provided identifier to
+            the standard output
+
+        :param identifier: [TODO:description]
+        :param data: [TODO:description]
+        :return: [TODO:description]
+        """
+        stdout.write("-- Vaidation Report %s ------\n" % identifier)
+        for assertion in data:
+            stdout.write(" %s\n" % str(assertion))
+
+        return True
 
     def translate(self: Self, data: dict[str, Any])\
             -> list[tuple[str, list[Statement]]]:

@@ -28,6 +28,33 @@ LITERAL = re.compile(r"(?P<value>'.*')(?:"
 FILE_DIR = os.path.dirname(__file__)
 FILENAME_CONF = "knowledge_engine.toml"
 CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
+REPORT_GRAPH_PATTERN = """
+?root rdf:type sh:ValidationReport .
+?root dct:date ?date .
+?root dct:identifier ?identifier .
+?root dct:conformsTo ?specification .
+?root sh:conforms ?conforms .
+?root dct:hasPart ?result .
+
+?result rdf:type sh:ValidationResult .
+?result rdfs:label ?status_msg .
+?result sh:focusNode ?focusNode .
+?result sh:resultPath ?resultPath .
+?result sh:value ?value .
+?result sh:sourceShape ?sourceShape .
+?result sh:resultMessage ?status_msg_long .
+?result sh:resultSeverity ?severity .
+
+?severity rdf:type sh:Severity .
+?severity rdfs:label ?status_code .
+?severity rdfs:comment ?status_description .
+"""
+REPORT_PREFIXES = {
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "dct": "http://purl.org/dc/terms/",
+        "sh": "http://www.w3.org/ns/shacl#"
+        }
 
 
 class KE_Adaptor(Adaptor):
@@ -114,6 +141,19 @@ class KE_Adaptor(Adaptor):
 
         return response.status_code == requests.codes.ok  # 200: ok
 
+    def post_ki(self: Self, endpoint: str, ki_headers: dict[str, Any],
+                ki_payload: dict[str, Any]) -> bool:
+        """ Perform a post knowledge interaction.
+
+        :param endpoint: [TODO:description]
+        :param ki_headers: [TODO:description]
+        :param ki_payload: [TODO:description]
+        """
+        endpoint = endpoint + "/sc/post"
+        response = requests.post(endpoint, headers=ki_headers, json=ki_payload)
+
+        return response.status_code == requests.codes.ok  # 200: ok
+
     def init_hook(self: Self) -> None:
         """ Register the knowledge base and knowledge interactions. The
             knowledge interactions should be of the type 'react', and
@@ -127,6 +167,7 @@ class KE_Adaptor(Adaptor):
         self.context['reactKnowledgeInteractions'] = dict()
         self.context['reactKnowledgeInteractionsInv'] = dict()
         self.context['postKnowledgeInteractions'] = dict()
+        self.context['postKowledgeInteractionConnectors'] = dict()
         self.context['argumentGraphPatterns'] = dict()
 
         kb_id = conf['knowledgeBaseId']
@@ -157,8 +198,10 @@ class KE_Adaptor(Adaptor):
 
                     continue
 
-                self.context['reactKnowledgeInteractions'][ki_endpoint].add(ki_id)
-                self.context['reactKnowledgeInteractionsInv'][ki_id] = ki_endpoint
+                self.context['reactKnowledge'
+                             'Interactions'][ki_endpoint].add(ki_id)
+                self.context['reactKnowledge'
+                             'InteractionsInv'][ki_id] = ki_endpoint
                 self.context['argumentGraphPatterns'][ki_id] = ki_pattern
             except Exception as e:
                 logger.error(f"Unable to register at endpoint: {e}.")
@@ -172,15 +215,19 @@ class KE_Adaptor(Adaptor):
         self.register_report_publications()
 
     def register_report_publications(self: Self) -> None:
+        """ Register a single post knowledge interaction per known
+            endpoint to send validation reports to. The reports are
+            send to the same endpoint as where the graph, about which
+            the report reports, are received from.
+        """
         kb_id = self.context['knowledgeBaseId']
         for ki_endpoint in self.context['reactKnowledgeInteractions'].keys():
-            ki_pattern, ki_prefixes = self.context['reportGraphPattern']  # TODO
             ki_payload = {
                     'knowledgeInteractionType': "PostKnowledgeInteraction",
                     'knowledgeInteractionName': "AnomalyReportPublication",
-                    'argumentGraphPattern': ki_pattern,
+                    'argumentGraphPattern': REPORT_GRAPH_PATTERN,
                     'resultGraphPattern': "",  # empty response
-                    'prefixes': ki_prefixes
+                    'prefixes': REPORT_PREFIXES
                     }
 
             ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
@@ -200,9 +247,37 @@ class KE_Adaptor(Adaptor):
 
             self.deregister_kb(endpoint, kb_id)
 
+    def publish_report(self: Self, identifier: str,
+                       data: Collection[Statement]) -> bool:
+        """ Publish the validation report (as N-Triples) for
+            the state graph with the provided identifier, by
+            performing a post knowledge interaction to the
+            endpoint from which the state graph was received.
+
+        :param identifier: [TODO:description]
+        :param data: [TODO:description]
+        :return: [TODO:description]
+        """
+        success = False
+        try:
+            package_headers = self.set_report_headers(identifier)
+            package_payload = self.set_report_payload(identifier, data)
+
+            ki_endpoint = self.context['reactKnowledge'
+                                       'InteractionsInv'][identifier]
+
+            success = self.post_ki(ki_endpoint,
+                                   package_headers,
+                                   package_payload)
+        except KeyError as e:
+            logger.error(f"Unable to publish report to endpoint: {e}.")
+
+        return success
+
     def add_connectors(self: Self) -> None:
         """ Add connectors to adaptor, one for each different endpoint.
         """
+        # connections to listen on
         for ki_endpoint in self.context['reactKowledgeInteractions'].keys():
             self.connectors.add(Connector(
                 adaptor=self,
@@ -243,7 +318,8 @@ class KE_Adaptor(Adaptor):
         """
         headers = dict()
         try:
-            ki_endpoint = self.context['reactKnowledgeInteractionsInv'][identifier]
+            ki_endpoint = self.context['reactKnowledge'
+                                       'InteractionsInv'][identifier]
             ki_id = self.context['postKnowledgeInteractions'][ki_endpoint]
 
             headers = {
@@ -259,13 +335,14 @@ class KE_Adaptor(Adaptor):
     def set_report_payload(self: Self, identifier: str,
                            data: Collection[Statement]) -> dict[str, Any]:
         """ Returns payload for publishing the validation report
-            to the endpoint. Defaults to empty payload.
+            to the endpoint, by converting the provided shape graph
+            to binding sets.
 
         :param self: [TODO:description]
         :return: [TODO:description]
         """
 
-        return super().set_report_payload(data)
+        return self.translate_inv(data)  # TODO
 
     def set_receipt_headers(self: Self, data: dict[str, Any])\
             -> dict[str, Any]:

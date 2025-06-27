@@ -49,12 +49,22 @@ def signal_handler(signum, frame):
 
 
 def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
-                              mkid: Callable):
+                              mkid: Callable) -> bool:
+    """ Convert the validation report to RDF graph format and publish
+        the result via the adaptor.
+
+    :param adaptor: [TODO:description]
+    :param report: [TODO:description]
+    :param mkid: [TODO:description]
+    :return: [TODO:description]
+    """
     # represent validation report as graph
     report_graph = report.to_graph(mkid)
 
     # publish report to endpoint
-    pass
+    success = adaptor.publish_report(report.pattern._id, report_graph)
+
+    return success
 
 
 def create_validation_report(rng: np.random.Generator,
@@ -310,6 +320,11 @@ if __name__ == "__main__":
                              "the associated graph pattern.", type=bool,
                              action=argparse.BooleanOptionalAction,
                              default=True)
+    parser_eval.add_argument("--grace_period", help="Number of updates to "
+                             "process per assertion before evaluating the "
+                             "assertion during the validation procedure. "
+                             "This can be regarded as the training time.",
+                             type=int, default=100)
     parser_eval.add_argument("--samplesize", help="Number of samples to draw "
                              "from the population and to evaluate against "
                              "the distribution underlying that population. "

@@ -70,29 +70,6 @@ class Adaptor(ABC):
         return dict()
 
     @abstractmethod
-    def set_report_headers(self: Self, identifier: str)\
-            -> dict[str, Any]:
-        """ Returns headers for publishing the validation report
-            to the endpoint. Defaults to empty headers
-
-        :param self: [TODO:description]
-        :return: [TODO:description]
-        """
-        return dict()
-
-    @abstractmethod
-    def set_report_payload(self: Self, identifier: str,
-                           data: Collection[Statement])\
-            -> dict[str, Any]:
-        """ Returns payload for publishing the validation report
-            to the endpoint. Defaults to empty payload.
-
-        :param self: [TODO:description]
-        :return: [TODO:description]
-        """
-        return dict()
-
-    @abstractmethod
     def set_receipt_headers(self: Self, data: dict[str, Any])\
             -> dict[str, Any]:
         """ Returns headers for sending a receipt. Defaults
@@ -113,6 +90,19 @@ class Adaptor(ABC):
         :return: [TODO:description]
         """
         return dict()
+
+    @abstractmethod
+    def publish_report(self: Self, identifier: str,
+                       data: Collection[Statement]) -> bool:
+        """ Publish the validation report (as N-Triples) for
+            the state graph with the provided identifier.
+
+        :param self: [TODO:description]
+        :param identifier: [TODO:description]
+        :param data: [TODO:description]
+        :return: [TODO:description]
+        """
+        return False
 
     @abstractmethod
     def translate(self: Self, data: dict[str, Any])\

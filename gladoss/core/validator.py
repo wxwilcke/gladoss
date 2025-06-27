@@ -112,6 +112,10 @@ def validate_state_graph_components(rng: np.random.Generator,
     if config.evaluate_data:
         # validate the data of the state graph, per component
         for assertion, ap in assertion_ap_pairs:
+            if ap._t < config.grace_period:
+                # still in learning phase
+                continue
+
             status_msg_lst = validate_graph_data(rng, assertion, ap,
                                                  config.alpha_critical,
                                                  config.alpha_suspicious,

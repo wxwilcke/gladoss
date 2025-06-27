@@ -57,6 +57,7 @@ def report_to_graph(report: ValidationReport, mkid: Callable)\
         res = BNode('B' + mkid())
         graph.extend([
             Statement(root, DCT + 'hasPart', res),
+            Statement(res, RDF + 'type', SH + 'ValidationResult'),
             Statement(res, RDFS + 'label',
                       Literal(status_msg, language="en")),
             Statement(res, SH + 'resultMessage',
