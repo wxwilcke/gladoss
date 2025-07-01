@@ -62,6 +62,11 @@ def validate_state_graph(rng: np.random.Generator,
                 # no need to continue
                 break
 
+    if pattern._t > 0:
+        # skip new patterns
+        logger.info(f"Validation priority status {status_code_max.name} "
+                    f"({pattern._id})")
+
     # convert to simpler form for validation report
     assertion_ap_pairs, _, _ = pattern_map
     apa_map = {ap._id: a for a, ap in assertion_ap_pairs}
@@ -103,19 +108,28 @@ def validate_state_graph_components(rng: np.random.Generator,
     status_msg_lst_struc = list()
     if config.evaluate_structure:
         # validate the structure of the state graph
-        status_msg_lst_struc = validate_graph_structure(pattern,
-                                                        assertion_ap_pairs,
-                                                        unmatched,
-                                                        config.match_cwa,
-                                                        config.match_exact)
+        if pattern._t > config.grace_period:
+            # no longer in learning phase
+            logger.info(f"Validating graph structure ({pattern._id})")
+            status_msg_lst_struc = validate_graph_structure(pattern,
+                                                            assertion_ap_pairs,
+                                                            unmatched,
+                                                            config.match_cwa,
+                                                            config.match_exact)
+        else:
+            logger.debug(f"Skipping graph structure validation "
+                         f"({pattern._id})")
 
     if config.evaluate_data:
         # validate the data of the state graph, per component
-        for assertion, ap in assertion_ap_pairs:
-            if ap._t < config.grace_period:
+        for i, (assertion, ap) in enumerate(assertion_ap_pairs, 1):
+            if ap._t <= config.grace_period:
                 # still in learning phase
+                logger.debug("Skipping graph data validation "
+                             f"{i}/{len(assertion_ap_pairs)} ({pattern._id})")
                 continue
 
+            logger.info(f"Validating graph data ({pattern._id})")
             status_msg_lst = validate_graph_data(rng, assertion, ap,
                                                  config.alpha_critical,
                                                  config.alpha_suspicious,
@@ -580,7 +594,7 @@ class ValidationReport():
         CRITICAL = 5, "Critical Anomaly"
 
         def __new__(cls, *args, **kwds):
-            obj = object.__new__(cls)
+            obj = int.__new__(cls)
             obj._value_ = args[0]
             return obj
 

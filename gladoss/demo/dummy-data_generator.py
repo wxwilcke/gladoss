@@ -195,9 +195,47 @@ def mkdynamic(rng: np.random.Generator, conf: list[dict[str, Any]],
     return out
 
 
-def mkdata(label: str, pattern: str, anchors: dict[str, str],
-           variables: dict[str, list[str]], samplesize: int)\
-                   -> list[dict[str, str]]:
+def expandPrefixes(pattern: str, prefixes: dict[str, str]) -> str:
+    """ Expand prefixes in pattern to complete IRIs following the
+        N-Triple specification.
+
+    :param pattern: [TODO:description]
+    :param prefixes: [TODO:description]
+    :return: [TODO:description]
+    :raises Exception: [TODO:description]
+    """
+    pattern_exp = list()
+    for line in pattern.splitlines():
+        line_split = line.strip().split(' ')
+
+        if len(line_split) == 3 and '.' in line_split[-1]:
+            # separate final dot from object
+            line_split[-1] = line_split[-1][:-1]
+            line_split.append('.')
+        elif len(line_split) == 4 and line_split[-1] == '.':
+            # valid triple pattern
+            for i in range(3):  # omit final dot
+                value = line_split[i]
+                if ':' not in value:
+                    # no need to expand
+                    continue
+
+                # expand prefix
+                prefix, name = value.split(':')
+                line_split[i] = '<' + prefixes[prefix] + name + '>'
+        else:
+            raise Exception("Prefix expansion failed")
+
+        pattern_exp.append(' '.join(line_split))
+
+    pattern_exp = '\n'.join(pattern_exp)
+
+    return pattern_exp
+
+
+def mkdata(label: str, pattern: str, prefixes: dict[str, str],
+           anchors: dict[str, str], variables: dict[str, list[str]],
+           samplesize: int) -> list[dict[str, str]]:
     """ Combine generated data with provided pattern by replacing
         the variables with their bindings.
 
@@ -207,6 +245,9 @@ def mkdata(label: str, pattern: str, anchors: dict[str, str],
     :param samplesize: [TODO:description]
     :return: [TODO:description]
     """
+    pattern = pattern.strip()
+    pattern = expandPrefixes(pattern, prefixes)
+
     out = list()
     for i in range(samplesize):
         g = pattern
@@ -216,7 +257,7 @@ def mkdata(label: str, pattern: str, anchors: dict[str, str],
         for var, binding_lst in variables.items():
             g = g.replace('?'+var, binding_lst[i])
 
-        out.append({'label': label, 'data': g.strip()})
+        out.append({'label': label, 'data': g})
 
     return out
 
@@ -247,7 +288,9 @@ def main(conf: dict[str, Any], flags: argparse.Namespace)\
 
         # generate data
         pattern = entry['pattern']
-        samples = mkdata(label, pattern, anchors, variables, samplesize)
+        prefixes = entry['prefixes']
+        samples = mkdata(label, pattern, prefixes, anchors, variables,
+                         samplesize)
 
         data.append(samples)
 

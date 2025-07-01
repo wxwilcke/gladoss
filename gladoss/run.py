@@ -8,6 +8,7 @@ import logging
 from queue import Queue
 import signal
 from threading import Event
+import threading
 from types import SimpleNamespace
 from typing import Callable, Collection
 
@@ -59,9 +60,11 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     :return: [TODO:description]
     """
     # represent validation report as graph
+    logger.info(f"Creating validation publication ({report.pattern._id})")
     report_graph = report.to_graph(mkid)
 
     # publish report to endpoint
+    logger.info(f"Publishing validation report ({report.pattern._id})")
     success = adaptor.publish_report(report.pattern._id, report_graph)
 
     return success
@@ -87,7 +90,10 @@ def create_validation_report(rng: np.random.Generator,
     :return: [TODO:description]
     """
     try:
-        logger.debug("Creating validation report")
+        if pattern._t > 0:
+            # skip new patterns
+            logger.info(f"Creating validation report ({pattern._id})")
+
         report = validate_state_graph(rng, pattern, graph, pattern_map, econf)
     except Exception as err:
         logger.error(err)
@@ -126,7 +132,7 @@ def listener(connector: Connector, q: Queue) -> None:
 def process_observation(rng: np.random.Generator, mkid: Callable,
                         pv: PatternVault, graph: Collection[Statement],
                         graph_id: str, pconf: SimpleNamespace,
-                        econf: SimpleNamespace)\
+                        econf: SimpleNamespace, thread_id: int)\
         -> ValidationReport:
     """ Process an incoming message by finding the associated graph
         pattern, then evaluating the message with respect to this
@@ -140,25 +146,36 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
     :param graph_id: [TODO:description]
     :param config: [TODO:description]
     """
+    threading.current_thread().name = f"Thread-{thread_id}"
+    logger.info(f"Received new graph message ({graph_id})")
+
     pattern = pv.find_associated_graph_pattern(graph_id)
     if pattern is None:
-        logger.debug(f"Associated pattern not found: {graph}")
+        logger.debug(f"Associated pattern not found ({graph_id})")
         pattern = create_graph_pattern(mkid=mkid, graph=graph,
                                        graph_id=graph_id,
                                        threshold=pconf.pattern_threshold,
                                        decay=pconf.pattern_decay)
         pv.add_graph_pattern(pattern)
+    else:
+        logger.debug(f"Associated pattern found ({graph_id})")
 
     pattern_map = create_pattern_map(graph, pattern)
     report = create_validation_report(rng, pattern, graph, pattern_map, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                               ValidationReport.StatusCode.SUSPICIOUS,
                               ValidationReport.StatusCode.NODATA]:
-        # either the state graph passed the validation check
-        # or a non-critical deviation has been detected
-        gpattern_upd = update_graph_pattern(mkid, pattern, graph,
-                                            pattern_map, pconf)
-        pv.update_graph_pattern(gpattern_upd)
+        if pattern._t > 0:
+            # skip new patterns
+            logger.info(f"Graph passed validation ({graph_id})")
+
+            # either the state graph passed the validation check
+            # or a non-critical deviation has been detected
+            gpattern_upd = update_graph_pattern(mkid, pattern, graph,
+                                                pattern_map, pconf)
+            pv.update_graph_pattern(gpattern_upd)
+    else:
+        logger.info(f"Graph failed validation ({graph_id})")
 
     return report
 
@@ -199,6 +216,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     bckmgr = BackupManager(pv, flags.backup_path, flags.backup_interval)
     # bckmgr.enable_auto_backup()  # FIXME disabed for debugging
 
+    thread_id = 1
     with ThreadPoolExecutor(flags.max_cores) as executor:
         q = Queue()  # queue jobs here
 
@@ -215,9 +233,16 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
                 graph_id, graph = job
                 job_fs = executor.submit(process_observation, rng, mkid, pv,
-                                         graph, graph_id, pconf, econf)
+                                         graph, graph_id, pconf, econf,
+                                         thread_id)
 
                 jobs_active.add(job_fs)  # type: ignore
+
+                # increase thread number
+                thread_id += 1
+                if thread_id % 99 == 0:
+                    # reset to avoid huge numbers
+                    thread_id = 1
 
             # process output of completed jobs
             for job_fs in jobs_completed:
@@ -267,7 +292,7 @@ if __name__ == "__main__":
     parser_comm = parser.add_argument_group('Communication Settings')
     parser_comm.add_argument("adaptor", help="Adaptor appropriate for "
                              + "endpoint", choices=list(_ADAPTORS.keys()),
-                             type=str, nargs=1)
+                             type=str)
     parser_comm.add_argument("--endpoint", help="HTTP address to listen to",
                              default="http://127.0.0.1:8000", type=str)
     parser_comm.add_argument("--continuous", help="Keep listening for changes"
@@ -340,10 +365,10 @@ if __name__ == "__main__":
                              "Closed World Assumption during the evaluation "
                              "of an observed state graph: expected yet "
                              "missing triples will now trigger a warning.",
-                             type=bool, action='store_true', default=False)
+                             action='store_true', default=False)
     parser_eval.add_argument("--match_exact", help="If enabled, any missing "
                              "or extra triples in the observed state graph "
-                             "will trigger a warning.", type=bool,
+                             "will trigger a warning.",
                              action='store_true', default=False)
     parser_eval.add_argument("--report_level", help="Reports of equal level "
                              "and higher will be published to the endpoint: "
@@ -367,6 +392,7 @@ if __name__ == "__main__":
                                             'alpha_suspicious',
                                             'evaluate_structure',
                                             'evaluate_data',
+                                            'grace_period',
                                             'samplesize',
                                             'samplegap',
                                             'match_cwa',
@@ -383,8 +409,8 @@ if __name__ == "__main__":
         log_level = logging.WARNING
 
     logging.basicConfig(level=log_level,
-                        format='[%(asctime)s] [%(levelname)s] %(filename)s '
-                               '- %(message)s')
+                        format='[%(asctime)s] [%(levelname)s] [%(threadName)s]'
+                               ' %(filename)s - %(message)s')
 
     # register SIGINT signal handler
     global controller

@@ -61,10 +61,14 @@ def create_graph_pattern(mkid: Callable,
     :param decay: [TODO:description]
     :return: [TODO:description]
     """
+    logger.info(f"Creating new graph pattern ({graph_id})")
     # create assertion patterns from given set of assertions
     structure = dict()
-    for assertion in graph:
+    for i, assertion in enumerate(graph, 1):
         # TODO; accomodate dangling heads
+        logger.info(f"Creating new assertion pattern {i}/{len(graph)} "
+                    f"({graph_id})")
+
         anchor = infer_class(assertion.subject, graph)
         ap = create_assertion_pattern(mkid, assertion, anchor)
 
@@ -91,6 +95,7 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     :param gPattern: [TODO:description]
     :param facts: [TODO:description]
     """
+    logger.info(f"Updating graph data ({gPattern._id})")
     # unpack assertion to assertion pattern map
     assertion_ap_pairs, assertion_uc_pairs, unmatched = pattern_map
 
@@ -582,7 +587,7 @@ class PatternVault():
             # compress old version
             if self.compress:
                 prev, t_prev = self._polytree[key][-1]
-                prev = pickle.dumps(bz2.compress(prev))
+                prev = bz2.compress(pickle.dumps(prev))
                 self._polytree[-1] = (prev, t_prev)
 
             self._polytree[key].append((pattern, datetime.now()))

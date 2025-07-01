@@ -31,56 +31,70 @@ def create_pattern_map(graph: Collection[Statement],
     :param pattern: [TODO:description]
     :return: [TODO:description]
     """
+    logger.debug(f"Creating map between pattern and graph ({pattern._id})")
+
+    # create anchor-relation pairs
+    ar_pairs = {assertion: (infer_class(assertion.subject, graph),
+                            assertion.predicate)
+                for assertion in graph}
+
     # find pairs of assertions and associated assertion patterns
     pattern_components = list(pattern.structure.values())
     assertion_ap_pairs, unmatched\
-        = match_assertions_to_patterns(graph, pattern_components)
+        = match_assertions_to_patterns(graph, pattern_components,
+                                       ar_pairs)
 
     # find pairs for assertion patterns under consideration
     assertion_uc_pairs = list()
     if len(pattern._under_consideration) > 0:
         pattern_components = list(pattern._under_consideration.values())
         assertion_uc_pairs, unmatched\
-            = match_assertions_to_patterns(unmatched, pattern_components)
+            = match_assertions_to_patterns(unmatched, pattern_components,
+                                           ar_pairs)
 
     return assertion_ap_pairs, assertion_uc_pairs, unmatched
 
 
 def match_assertions_to_patterns(
         graph: Collection[Statement],
-        aPatterns: Collection['AssertionPattern'])\
+        aPatterns: Collection['AssertionPattern'],
+        ar_pairs: dict[Statement, tuple[IRIRef, IRIRef]])\
                 -> tuple[list[tuple[Statement, 'AssertionPattern']],
                          set[Statement]]:
     """ Find pairs of assertions with associated assertion patterns
-        by first trying to match on relations, iff unique, and
-        else by weakly comparing and finally strongly comparing
+        by first trying to match on anchor-relation pairs, iff unique,
+        and else by weakly comparing and finally strongly comparing
         the relation-object pairs.
 
     :param assertions: [TODO:description]
     :param assertionPatterns: [TODO:description]
     :return: [TODO:description]
     """
-    # count relations of both inut sets combined
-    relation_count = Counter([a.predicate for a in graph])
-    relation_count.update([ap.relation for ap in aPatterns])
+    # count anchor-relations of both inut sets combined
+    ar_count = Counter(ar_pairs.values())
+    ar_count.update([(ap.anchor, ap.relation) for ap in aPatterns])
 
     # match assertions to their pattern
     remainder = set()
     assertion_ap_pairs = list()
     assertion_ap_conflicts = list()
     for assertion in graph:
+        ar_pair = ar_pairs[assertion]
+
         matches = list()
-        if relation_count[assertion.predicate] == 2:
+        if ar_count[ar_pair] == 2:
             # unambiguous match
+            anchor, relation = ar_pair
             matches = [ap for ap in aPatterns
-                       if ap.relation == assertion.predicate]
-        elif relation_count[assertion.predicate] > 2:
+                       if ap.anchor == anchor and ap.relation == relation]
+        elif ar_count[ar_pair] > 2:
             # ambiguous match
             for ap in aPatterns:
-                if ap.strong_match(assertion):
+                if ap.strong_match(assertion, graph):
                     # match on relation-object value
                     matches.append(ap)
-                elif ap.weak_match(assertion):
+                elif ap.weak_match(assertion, graph):
+                    # TODO: this computes the strong match too
                     # match on relation-object type
                     matches.append(ap)
         else:  # relation occurs exactly once
@@ -98,7 +112,7 @@ def match_assertions_to_patterns(
     if len(assertion_ap_conflicts) > 0:
         # TODO: implement some conflict resolution
         for assertion, _ in assertion_ap_conflicts:
-            logger.debug(f"Matches multiple assertion patterns: {assertion}")
+            logger.debug(f"Conflict during pattern mapping ({assertion})")
 
     return assertion_ap_pairs, remainder
 
