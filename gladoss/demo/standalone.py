@@ -11,7 +11,6 @@ import signal
 from threading import Event
 
 from gladoss.adaptors.dummy import DummyAdaptor
-from gladoss.core.monitor import Monitor
 
 logger = logging.getLogger(__name__)
 
@@ -32,18 +31,13 @@ def main(flags: argparse.Namespace):
     :param flags: User-provided parameters
     """
     logging.info("Listening for messages")
-    adaptor = DummyAdaptor()
-    monitor = Monitor(adaptor=adaptor,
-                      endpoint=flags.endpoint,
-                      continuous=flags.continuous,
-                      num_retries=flags.retries,
-                      retry_delay=flags.retry_delay,
-                      request_delay=flags.request_delay,
-                      controller=controller)
+    adaptor = DummyAdaptor(controller=controller,  # type: ignore
+                           config=flags)
 
-    for fact_lst, anchor_lst in monitor.listen():
-        print(f" {LAND} ".join([str(fact) for fact in fact_lst]))
-        logger.debug(f"Anchors: {anchor_lst}")
+    conn = adaptor.connectors.pop()  # the demo only defines one connector
+    for graph_id, graph in conn.listen():
+        print(f" {LAND} ".join([str(fact) for fact in graph]))
+        logger.debug(f"Graph Identity: {graph_id}")
 
 
 if __name__ == "__main__":
@@ -58,6 +52,9 @@ if __name__ == "__main__":
     parser.add_argument("--retry_delay", help="Number of seconds to wait "
                         + "before retrying after the occurrence of an error",
                         default=30, type=int)
+    parser.add_argument("--return_receipt", help="Send acknowledgement "
+                        + "to sender upon reception of message.",
+                        action='store_true', default=False)
     parser.add_argument("--request_delay", help="Number of seconds to wait "
                         + "between polling the server.", default=0.5, type=int)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "

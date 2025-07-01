@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from abc import ABC, abstractmethod
+import argparse
 import logging
 from threading import Event
 from types import SimpleNamespace
@@ -18,7 +19,7 @@ class Adaptor(ABC):
     """
 
     def __init__(self: Self, controller: Event,
-                 config: SimpleNamespace) -> None:
+                 config: SimpleNamespace | argparse.Namespace) -> None:
 
         self.config = config
         self._controller = controller

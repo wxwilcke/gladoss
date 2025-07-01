@@ -92,7 +92,7 @@ class DummyAdaptor(Adaptor):
         self.connectors.add(Connector(
             adaptor=self,
             endpoint=self.config.endpoint,
-            continuous=self.config.continues,
+            continuous=self.config.continuous,
             num_retries=self.config.retries,
             retry_delay=self.config.retry_delay,
             request_delay=self.config.request_delay,

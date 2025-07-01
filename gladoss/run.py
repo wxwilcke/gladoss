@@ -197,7 +197,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
     # setup backup manager to periodically write the pattern vault to disk
     bckmgr = BackupManager(pv, flags.backup_path, flags.backup_interval)
-    bckmgr.enable_auto_backup()
+    # bckmgr.enable_auto_backup()  # FIXME disabed for debugging
 
     with ThreadPoolExecutor(flags.max_cores) as executor:
         q = Queue()  # queue jobs here
