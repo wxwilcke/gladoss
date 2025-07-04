@@ -7,7 +7,7 @@ import functools
 import logging
 from queue import Queue
 import signal
-from threading import Event
+from threading import Event, RLock
 import threading
 from types import SimpleNamespace
 from typing import Callable, Collection
@@ -156,6 +156,8 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
                                        graph_id=graph_id,
                                        threshold=pconf.pattern_threshold,
                                        decay=pconf.pattern_decay)
+
+        logger.debug(f"Adding new pattern to pattern vault ({graph_id})")
         pv.add_graph_pattern(pattern)
     else:
         logger.debug(f"Associated pattern found ({graph_id})")
@@ -210,7 +212,8 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                           config=cconf)
 
     # initiate pattern vault which will manage and track patterns over time
-    pv = PatternVault()
+    lock = RLock()
+    pv = PatternVault(lock=lock)
 
     # setup backup manager to periodically write the pattern vault to disk
     bckmgr = BackupManager(pv, flags.backup_path, flags.backup_interval)

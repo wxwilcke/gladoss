@@ -6,7 +6,7 @@ from collections import Counter
 from copy import deepcopy
 import pickle
 from datetime import datetime
-from threading import Lock
+from threading import RLock
 import logging
 import sys
 from types import SimpleNamespace
@@ -506,11 +506,11 @@ class GraphPattern():
 
 
 class PatternVault():
-    def __init__(self, compress: bool = True) -> None:
+    def __init__(self, lock: RLock, compress: bool = True) -> None:
         self.compress = compress
 
         self._polytree = dict()
-        self._lock = Lock()
+        self._lock = lock
 
     def add_graph_pattern(self, pattern: GraphPattern) -> None:
         """ Add new graph pattern to pattern vault, by creating a
