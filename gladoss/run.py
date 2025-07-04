@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
 import functools
 import logging
@@ -90,10 +89,7 @@ def create_validation_report(rng: np.random.Generator,
     :return: [TODO:description]
     """
     try:
-        if pattern._t > 0:
-            # skip new patterns
-            logger.info(f"Creating validation report ({pattern._id})")
-
+        logger.info(f"Creating validation report ({pattern._id})")
         report = validate_state_graph(rng, pattern, graph, pattern_map, econf)
     except Exception as err:
         logger.error(err)
@@ -118,22 +114,10 @@ def create_validation_report(rng: np.random.Generator,
     return report
 
 
-def listener(connector: Connector, q: Queue) -> None:
-    """ Listen on an endpoint for new messages. Queue
-        these upon arrival. This operation is thread safe.
-
-    :param connector: [TODO:description]
-    :param q: [TODO:description]
-    """
-    for graph_id, graph in connector.listen():
-        q.put((graph_id, graph))
-
-
-def process_observation(rng: np.random.Generator, mkid: Callable,
-                        pv: PatternVault, graph: Collection[Statement],
-                        graph_id: str, pconf: SimpleNamespace,
-                        econf: SimpleNamespace, thread_id: int)\
-        -> ValidationReport:
+def process_graph(rng: np.random.Generator, mkid: Callable,
+                  pv: PatternVault, graph: Collection[Statement],
+                  graph_id: str, pconf: SimpleNamespace,
+                  econf: SimpleNamespace, r: Queue):
     """ Process an incoming message by finding the associated graph
         pattern, then evaluating the message with respect to this
         pattern, and, if OK, use the message to update the pattern.
@@ -146,7 +130,7 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
     :param graph_id: [TODO:description]
     :param config: [TODO:description]
     """
-    threading.current_thread().name = f"Thread-{thread_id}"
+    thread_id = threading.current_thread().name
     logger.info(f"Received new graph message ({graph_id})")
 
     pattern = pv.find_associated_graph_pattern(graph_id)
@@ -159,27 +143,85 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
 
         logger.debug(f"Adding new pattern to pattern vault ({graph_id})")
         pv.add_graph_pattern(pattern)
-    else:
-        logger.debug(f"Associated pattern found ({graph_id})")
+
+        return  # no need to evaluate a graph on first sight
+
+    logger.debug(f"Associated pattern found ({graph_id})")
 
     pattern_map = create_pattern_map(graph, pattern)
     report = create_validation_report(rng, pattern, graph, pattern_map, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                               ValidationReport.StatusCode.SUSPICIOUS,
                               ValidationReport.StatusCode.NODATA]:
-        if pattern._t > 0:
-            # skip new patterns
-            logger.info(f"Graph passed validation ({graph_id})")
+        logger.info(f"Graph passed validation ({graph_id})")
 
-            # either the state graph passed the validation check
-            # or a non-critical deviation has been detected
-            gpattern_upd = update_graph_pattern(mkid, pattern, graph,
-                                                pattern_map, pconf)
-            pv.update_graph_pattern(gpattern_upd)
+        # either the state graph passed the validation check
+        # or a non-critical deviation has been detected
+        gpattern_upd = update_graph_pattern(mkid, pattern, graph,
+                                            pattern_map, pconf)
+        pv.update_graph_pattern(gpattern_upd)
     else:
         logger.info(f"Graph failed validation ({graph_id})")
 
-    return report
+    r.put((thread_id, report))
+
+
+def process_observation(rng: np.random.Generator, mkid: Callable,
+                        pv: PatternVault, pconf: SimpleNamespace,
+                        econf: SimpleNamespace, q: Queue, r: Queue) -> None:
+    """ Process incoming messages by spawning a new thread on demand. This
+        procedure should only be called by the manager, which itself should
+        run on a thread different from the main thread to avoid blocking
+        when waiting for a new observation to arrive. The manager can be
+        told to terminte its pool of workers and itself by putting a None
+        value in the observation queue.
+
+    :param rng: [TODO:description]
+    :param mkid: [TODO:description]
+    :param pv: [TODO:description]
+    :param pconf: [TODO:description]
+    :param econf: [TODO:description]
+    :param q: [TODO:description]
+    :param r: [TODO:description]
+    """
+    logger.info("Manager is awaiting new observations")
+    jobs_active = list()
+    while True:
+        job = q.get()
+        if job is None:
+            # wait until all workers have terminated
+            for worker in jobs_active:
+                worker.join()
+
+            break
+
+        graph_id, graph = job
+
+        # listen for new observations in parallel
+        thread_id = f"worker-{len(jobs_active)+1}"
+        thread = threading.Thread(target=process_graph, name=thread_id,
+                                  args=(rng, mkid, pv, graph, graph_id,
+                                        pconf, econf, r))
+        thread.start()
+        jobs_active.append(thread)
+
+        # remove terminated jobs from tracker
+        jobs_active = [job for job in jobs_active if job.is_alive()]
+
+
+def listener(connector: Connector, q: Queue, r: Queue) -> None:
+    """ Listen on an endpoint for new messages. Queue
+        these upon arrival. This operation is thread safe.
+
+    :param connector: [TODO:description]
+    :param q: [TODO:description]
+    """
+    thread_id = threading.current_thread().name
+    for graph_id, graph in connector.listen():
+        q.put((graph_id, graph))
+
+    # let the main thread know the worker is terminating
+    r.put((thread_id, None))
 
 
 def main(rng: np.random.Generator, adaptor_cls: Adaptor,
@@ -219,54 +261,62 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     bckmgr = BackupManager(pv, flags.backup_path, flags.backup_interval)
     # bckmgr.enable_auto_backup()  # FIXME disabed for debugging
 
-    thread_id = 1
-    with ThreadPoolExecutor(flags.max_cores) as executor:
-        q = Queue()  # queue jobs here
+    # use queues to communicate between threads
+    q = Queue()  # queue observation here
+    r = Queue()  # queue reports here
 
-        # listen to all endpoints in parallel
-        jobs_active = {executor.submit(listener, connector, q)
-                       for connector in adaptor.connectors}
-        while len(jobs_active) > 0:
-            # check which jobs have been completed
-            jobs_completed, _ = wait(jobs_active, return_when=FIRST_COMPLETED)
+    # listen to all endpoints in parallel
+    listening_jobs = list()
+    for i, connector in enumerate(adaptor.connectors, 1):
+        thread_id = f"listner-{i}"
+        thread = threading.Thread(target=listener, name=thread_id,
+                                  args=(connector, q, r))
+        thread.start()
+        listening_jobs.append(thread)
 
-            while not q.empty():
-                # process incoming messages: spawn a new thread for each
-                job = q.get()
+    # start a manager which spawns new threads as new observations arrive
+    manager = threading.Thread(target=process_observation, name="manager",
+                               args=(rng, mkid, pv, pconf, econf, q, r))
+    manager.start()
 
-                graph_id, graph = job
-                job_fs = executor.submit(process_observation, rng, mkid, pv,
-                                         graph, graph_id, pconf, econf,
-                                         thread_id)
+    # loop until all connections have been terminated
+    while len(listening_jobs) > 0:
+        try:
+            # wait until a new report comes in
+            thread_id, report = r.get()
+            if report is None:
+                logger.info(f"Listner {thread_id} has terminated")
 
-                jobs_active.add(job_fs)  # type: ignore
-
-                # increase thread number
-                thread_id += 1
-                if thread_id % 99 == 0:
-                    # reset to avoid huge numbers
-                    thread_id = 1
-
-            # process output of completed jobs
-            for job_fs in jobs_completed:
-                try:
-                    # wait until a new report comes in
-                    report = job_fs.result()
-                    if report is None:
-                        logger.debug("A listener job has ended")
+                # terminate and remove listner from tracker
+                listening_jobs_new = list()
+                for listner in listening_jobs:
+                    if listner.name == thread_id:
+                        listner.join()
 
                         continue
 
-                    # publish report if requested by the report level
-                    assert isinstance(report, ValidationReport)
-                    if report.status_code >= econf.report_level:
-                        publish_validation_report(adaptor, report, mkid)
-                except Exception as e:
-                    logger.error(f"Job execution raised execption: {e}")
-                finally:
-                    # remove finished jobs
-                    jobs_active.remove(job_fs)
+                    listening_jobs_new.append(listner)
 
+                listening_jobs = listening_jobs_new
+
+                continue
+
+            # publish report if requested by the report level
+            assert isinstance(report, ValidationReport)
+            if report.status_code >= econf.report_level:
+                publish_validation_report(adaptor, report, mkid)
+        except Exception as e:
+            logger.error(f"Job execution raised execption: {e}")
+
+    # tell workers to terminate
+    logger.info("Manager telling workers to terminate")
+    q.put(None)
+
+    # wait until manager is terminated
+    manager.join()
+    logger.info("Manager has been terminated")
+
+    # starting emergency backup
     bckmgr.disable_auto_backup()
     bckmgr.create_backup()  # emergency backup
 
@@ -285,8 +335,6 @@ if __name__ == "__main__":
                         type=timeSpanArg, default=None)
     parser.add_argument("--backup_path", help="Directory to write backups to",
                         type=str, default="/tmp/")  # FIXME: change
-    parser.add_argument("--max_cores", help="Maximum number of allowed cpu "
-                        "cores to utilise.", default=None, type=int)
     parser.add_argument("--seed", help="Seed for random number generator "
                         + "(optional)", type=int, default=None)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "

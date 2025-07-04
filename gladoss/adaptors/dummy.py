@@ -18,7 +18,7 @@ RESOURCE = rf"(?:{URI})|(?:\".*\"(?:(?:@[a-z]{{2}})|(?:\^\^{URI}))?)"
 STATEMENT = re.compile(rf"(?P<head>{URI})"
                        rf"\s*(?P<relation>{URI})"
                        rf"\s*(?P<tail>{RESOURCE})\s*\.")
-LITERAL = re.compile(r"(?P<value>\".*\")(?:"
+LITERAL = re.compile(r"\"(?P<value>.*)\"(?:"
                      r"(?:@(?P<lang>[a-z]{{2}}))|"
                      rf"(?:\^\^(?P<dtype>{URI})))?")
 

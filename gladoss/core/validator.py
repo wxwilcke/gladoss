@@ -62,10 +62,8 @@ def validate_state_graph(rng: np.random.Generator,
                 # no need to continue
                 break
 
-    if pattern._t > 0:
-        # skip new patterns
-        logger.info(f"Validation priority status {status_code_max.name} "
-                    f"({pattern._id})")
+    logger.info(f"Validation priority status {status_code_max.name} "
+                f"({pattern._id})")
 
     # convert to simpler form for validation report
     assertion_ap_pairs, _, _ = pattern_map
@@ -335,7 +333,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
         dtype_observed = infer_datatype(assertion.object)
 
         # cast value to appropriate format
-        value_new = cast_literal(dtype_observed, assertion.object.value)
+        value_new = cast_literal(dtype_observed, assertion.object)
     else:  # IRI
         value_new = assertion.object
 

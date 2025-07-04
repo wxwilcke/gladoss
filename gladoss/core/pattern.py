@@ -257,15 +257,16 @@ class AssertionPattern():
                 num_times = self._t
             if isinstance(resource, Literal):
                 dtype = infer_datatype(resource)
-                assert dist.dtype == dtype
+                assert dist.dtype == dtype, "Literal datatype does not match "\
+                                            "distribution datatype"
 
                 # cast value to appropriate format and add to distribution
-                value = cast_literal(dtype, resource.value)
+                value = cast_literal(dtype, resource)
                 for _ in range(num_times):
                     dist.addSample(value)
             else:  # IRIRef
                 for _ in range(num_times):
-                    dist.addSample(resource)
+                    dist.addSample(resource.value)
 
             return dist  # set distribution
 

@@ -2,11 +2,15 @@
 
 from argparse import Namespace
 from datetime import timedelta
+import logging
 import re
 import sys
 import termios
 import tty
 from types import SimpleNamespace
+
+
+logger = logging.getLogger(__name__)
 
 
 def getCh() -> str:
