@@ -101,6 +101,7 @@ $ python -m venv <name>
 $ <name>\Scripts\activate
 ```
 
+
     b) for Mac / Linux
 
 ```
@@ -116,6 +117,7 @@ The Python virtual environment is now set up and activated. Any calls to Python 
 ```
 $ <name>\Scripts\deactivate
 ```
+
 
     b) for Mac / Linux
 
@@ -134,6 +136,7 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 ```
 $ <name>\Scripts\activate
 ```
+
 
     b) for Mac / Linux
 
