@@ -95,14 +95,13 @@ $ python -m venv <name>
 
 2) Activate the environment. This step has to be repeated each time you want to run GLADoSS.
 
-    a) for Windows
+  a) for Windows
 
 ```
 $ <name>\Scripts\activate
 ```
 
-
-    b) for Mac / Linux
+  b) for Mac / Linux
 
 ```
 $ source <name>/bin/activate
@@ -112,14 +111,13 @@ The Python virtual environment is now set up and activated. Any calls to Python 
 
 3) Deactivate the environment. Ensure that GLADoSS is no longer running.
 
-    a) for Windows
+  a) for Windows
 
 ```
 $ <name>\Scripts\deactivate
 ```
 
-
-    b) for Mac / Linux
+  b) for Mac / Linux
 
 ```
 $ source <name>/bin/deactivate
@@ -131,14 +129,13 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
 1) (Optional) Active the virtual environment. Replace `<name>` with the name of the actual environment.
 
-    a) for Windows
+  a) for Windows
 
 ```
 $ <name>\Scripts\activate
 ```
 
-
-    b) for Mac / Linux
+  b) for Mac / Linux
 
 ```
 $ source <name>/bin/activate
