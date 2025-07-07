@@ -107,7 +107,7 @@ def infer_python_type(s: str) -> IRIRef:
     return xsd_type
 
 
-def cast_literal(dtype: IRIRef | None, value: Literal) -> str | int | float:
+def cast_literal(dtype: IRIRef | None, v: Literal) -> str | int | float:
     """ Cast literal value to appropriate python object
         based on given XSD datatype. Compound values 'X-Y'
         (eg gMonthDay) are consolidated into units of Y
@@ -118,13 +118,13 @@ def cast_literal(dtype: IRIRef | None, value: Literal) -> str | int | float:
     :param value: [TODO:description]
     :return: [TODO:description]
     """
-    value = str(value)
+    value = str(v.value)
     if dtype is not None:
         try:
             if dtype in XSD_DATETIME:
-                value = float(cast_datetime(dtype, value))
+                value = float(cast_datetime(dtype, v))
             elif dtype in XSD_DATEFRAG:
-                value = int(cast_datefrag(dtype, value))
+                value = int(cast_datefrag(dtype, v))
             elif dtype in XSD_CONTINUOUS:
                 value = float(value)
             elif dtype in XSD_DISCRETE & XSD_NUMERIC:

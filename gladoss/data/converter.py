@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import annotations
 from datetime import datetime
 import logging
 from typing import Callable
@@ -11,7 +12,6 @@ from rdf.namespaces import OWL, RDF, RDFS, XSD
 from rdf.terms import BNode, IRIRef, Literal, Resource
 
 from gladoss.core.pattern import GraphPattern
-from gladoss.core.validator import ValidationReport
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ DCT = IRIRef("http://purl.org/dc/terms/")
 SH = IRIRef("https://www.w3.org/ns/shacl#")  # SHACL namespace
 
 
-def report_to_graph(report: ValidationReport, mkid: Callable)\
+def report_to_graph(report: 'ValidationReport', mkid: Callable)\
         -> list[Statement]:
     """ Convert a validation report object to RDF graph in N-Triples format
         that conforms to the SHACL specification. Each detected anomaly

@@ -15,6 +15,7 @@ from random import randrange
 from typing import Any
 
 from fastapi import FastAPI, Response, Request, status, HTTPException
+from gladoss.data.utils import getCh
 import uvicorn
 
 app = FastAPI()
@@ -57,13 +58,20 @@ def cycleItems(data: list[list[dict[str, str]]], flags: argparse.Namespace):
     """
     global cache, depleted
 
+    char = ' '
     index = [0] * len(data)
     empty = [False] * len(data)
     while True:
-        if all(empty):
+        if all(empty) or ord(char) == 3:
+            print("Press CTRL+C again to shutdown server")
             break
 
         for i in range(len(data)):
+            if not flags.autocycle:
+                char = getCh()  # wait on key press
+                if ord(char) == 3:
+                    break
+
             j = index[i]
             if len(data[i]) <= j:
                 empty[i] = True
@@ -85,9 +93,10 @@ def cycleItems(data: list[list[dict[str, str]]], flags: argparse.Namespace):
             index[i] = j + 1
 
             if i < len(data[i]) - 1:
-                delay = getDelay(flags.interval)
-                logger.debug(f"Waiting for {delay} seconds")
-                sleep(delay)
+                if flags.autocycle:
+                    delay = getDelay(flags.interval)
+                    logger.debug(f"Waiting for {delay} seconds")
+                    sleep(delay)
 
     logger.info("Out of items")
     depleted = True
@@ -120,7 +129,7 @@ def integerRangeArg(arg: str) -> range:
         end = int(arg_lst[-1])
         if len(arg_lst) > 1 and len(arg_lst[0]) > 0:
             begin = int(arg_lst[0])
-    except:
+    except Exception:
         raise Exception("'" + arg + "' is not a range of numbers. "
                         + "Expects '1:3', ':3', or '3'.")
 
@@ -179,6 +188,11 @@ if __name__ == "__main__":
                         + " 'from:to' (or shorthand ':to' when 'from' is 1) or"
                         + " 'int' if a fixed interval is desired.",
                         default=range(1, 10), type=integerRangeArg)
+    parser.add_argument("--autocycle", help="If enabled, cycle through the "
+                        "data automatically, waiting for the interval to "
+                        "expire before continuing. If disabled, continue "
+                        "only via a keypress.", default=True, type=bool,
+                        action=argparse.BooleanOptionalAction)
     parser.add_argument("--port", help="Bind socket to this port (default "
                         + "8000)", default=8000, type=int)
     parser.add_argument("--realtime", help="Use actual time of publication "

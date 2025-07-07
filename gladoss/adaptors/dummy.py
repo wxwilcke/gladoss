@@ -18,7 +18,7 @@ RESOURCE = rf"(?:{URI})|(?:\".*\"(?:(?:@[a-z]{{2}})|(?:\^\^{URI}))?)"
 STATEMENT = re.compile(rf"(?P<head>{URI})"
                        rf"\s*(?P<relation>{URI})"
                        rf"\s*(?P<tail>{RESOURCE})\s*\.")
-LITERAL = re.compile(r"(?P<value>\".*\")(?:"
+LITERAL = re.compile(r"\"(?P<value>.*)\"(?:"
                      r"(?:@(?P<lang>[a-z]{{2}}))|"
                      rf"(?:\^\^(?P<dtype>{URI})))?")
 
@@ -92,7 +92,7 @@ class DummyAdaptor(Adaptor):
         self.connectors.add(Connector(
             adaptor=self,
             endpoint=self.config.endpoint,
-            continuous=self.config.continues,
+            continuous=self.config.continuous,
             num_retries=self.config.retries,
             retry_delay=self.config.retry_delay,
             request_delay=self.config.request_delay,
@@ -109,9 +109,10 @@ class DummyAdaptor(Adaptor):
         :param data: [TODO:description]
         :return: [TODO:description]
         """
-        stdout.write("-- Vaidation Report %s ------\n" % identifier)
+        stdout.write("--- BEGIN Validation Report %s ---\n" % identifier)
         for assertion in data:
             stdout.write(" %s\n" % str(assertion))
+        stdout.write("--- END Validation Report %s ---\n" % identifier)
 
         return True
 

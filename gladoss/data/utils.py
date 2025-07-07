@@ -2,8 +2,30 @@
 
 from argparse import Namespace
 from datetime import timedelta
+import logging
 import re
+import sys
+import termios
+import tty
 from types import SimpleNamespace
+
+
+logger = logging.getLogger(__name__)
+
+
+def getCh() -> str:
+    """ Return character on key press. Blocks until event occurs.
+    """
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    return ch
 
 
 def integerRangeArg(arg: str) -> range:

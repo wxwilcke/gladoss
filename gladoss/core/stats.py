@@ -96,7 +96,7 @@ class Distribution():
                 raise NotImplementedError(f"Datatype not supported: {dtype}")
 
             # cast value to appropriate format and add to distribution
-            value = cast_literal(dtype, resource.value)
+            value = cast_literal(dtype, resource)
             dist.addSample(value)  # type: ignore
 
         else:  # IRIRef
@@ -105,7 +105,7 @@ class Distribution():
             dist = DiscreteDistribution(decay=decay,
                                         dtype=XSD+'anyURI')
 
-            dist.addSample(resource)
+            dist.addSample(resource.value)
 
         return dist
 
@@ -180,6 +180,9 @@ class Distribution():
     def __lt__(self, other: Distribution) -> bool:
         return repr(self) < repr(other)
 
+    def __str__(self) -> str:
+        return '[' + ", ".join([str(v) for v in self.data]) + ']'
+
 
 class ContinuousDistribution(Distribution):
     def __init__(self, decay: int = -1,
@@ -225,7 +228,8 @@ class ContinuousDistribution(Distribution):
         :return: [TODO:description]
         """
         dist = ContinuousDistribution(decay=self.decay,
-                                      resolution=self.resolution)
+                                      resolution=self.resolution,
+                                      dtype=self.dtype)
 
         dist.samples = Counter(self.samples.elements())
 
@@ -233,9 +237,6 @@ class ContinuousDistribution(Distribution):
         dist._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
 
         return dist
-
-    def __str__(self) -> str:
-        pass
 
 
 class DiscreteDistribution(Distribution):
@@ -248,12 +249,13 @@ class DiscreteDistribution(Distribution):
         """
         super().__init__(decay, dtype, lang)
 
-    def addSample(self, sample: str) -> None:
+    def addSample(self, sample: str | int) -> None:
         """ Add a single sample to the distribution.
 
         :param sample: a string value
         """
-        sample = sample.strip().lower()  # standardize sample
+        if isinstance(sample, str):
+            sample = sample.strip().lower()  # standardize sample
 
         return super().addSample(sample)
 
@@ -265,7 +267,9 @@ class DiscreteDistribution(Distribution):
         :param memo [TODO:type]: [TODO:description]
         :return: [TODO:description]
         """
-        dist = DiscreteDistribution(decay=self.decay)
+        dist = DiscreteDistribution(decay=self.decay,
+                                    dtype=self.dtype,
+                                    lang=self.lang)
 
         dist.samples = Counter(self.samples.elements())
 
@@ -273,9 +277,6 @@ class DiscreteDistribution(Distribution):
         dist._decay_tracker = {k: v for k, v in self._decay_tracker.items()}
 
         return dist
-
-    def __str__(self) -> str:
-        pass
 
 
 def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\

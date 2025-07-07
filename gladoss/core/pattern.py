@@ -6,7 +6,7 @@ from collections import Counter
 from copy import deepcopy
 import pickle
 from datetime import datetime
-from threading import Lock
+from threading import RLock
 import logging
 import sys
 from types import SimpleNamespace
@@ -61,10 +61,14 @@ def create_graph_pattern(mkid: Callable,
     :param decay: [TODO:description]
     :return: [TODO:description]
     """
+    logger.info(f"Creating new graph pattern ({graph_id})")
     # create assertion patterns from given set of assertions
     structure = dict()
-    for assertion in graph:
+    for i, assertion in enumerate(graph, 1):
         # TODO; accomodate dangling heads
+        logger.info(f"Creating new assertion pattern {i}/{len(graph)} "
+                    f"({graph_id})")
+
         anchor = infer_class(assertion.subject, graph)
         ap = create_assertion_pattern(mkid, assertion, anchor)
 
@@ -91,6 +95,7 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     :param gPattern: [TODO:description]
     :param facts: [TODO:description]
     """
+    logger.info(f"Updating graph data ({gPattern._id})")
     # unpack assertion to assertion pattern map
     assertion_ap_pairs, assertion_uc_pairs, unmatched = pattern_map
 
@@ -180,15 +185,22 @@ class AssertionPattern():
         :param other: [TODO:description]
         :return: [TODO:description]
         """
+        value = assertion.object
+        if isinstance(self.value, Distribution):
+            if isinstance(assertion.object, IRIRef):
+                value = assertion.object.value
+            elif isinstance(assertion.object, Literal):
+                dtype = infer_datatype(assertion.object)
+                value = cast_literal(dtype, assertion.object)
+
         return self.weak_match(assertion, graph)\
             and ((isinstance(self.value, Resource)
                   and self.value == assertion.object)
                  or (isinstance(self.value, DiscreteDistribution)
-                     and assertion.object in self.value.data)
+                     and value in self.value.data)
                  or (isinstance(self.value, ContinuousDistribution)
-                     and float(assertion.object)
-                     in range(min(self.value.data),
-                              max(self.value.data))))
+                     and value in range(min(self.value.data),
+                                        max(self.value.data))))
 
     @staticmethod
     def create_from(identifier: str,
@@ -252,15 +264,16 @@ class AssertionPattern():
                 num_times = self._t
             if isinstance(resource, Literal):
                 dtype = infer_datatype(resource)
-                assert dist.dtype == dtype
+                assert dist.dtype == dtype, "Literal datatype does not match "\
+                                            "distribution datatype"
 
                 # cast value to appropriate format and add to distribution
-                value = cast_literal(dtype, resource.value)
+                value = cast_literal(dtype, resource)
                 for _ in range(num_times):
                     dist.addSample(value)
             else:  # IRIRef
                 for _ in range(num_times):
-                    dist.addSample(resource)
+                    dist.addSample(resource.value)
 
             return dist  # set distribution
 
@@ -345,7 +358,7 @@ class GraphPattern():
 
         # keep track of time
         # time is incremented on update or manually
-        self._t = 0
+        self._t = 1
 
         # track frequency of assertion patterns by their identifiers
         self._freq_tracker = Counter(self.structure.keys())
@@ -501,11 +514,11 @@ class GraphPattern():
 
 
 class PatternVault():
-    def __init__(self, compress: bool = True) -> None:
+    def __init__(self, lock: RLock, compress: bool = True) -> None:
         self.compress = compress
 
         self._polytree = dict()
-        self._lock = Lock()
+        self._lock = lock
 
     def add_graph_pattern(self, pattern: GraphPattern) -> None:
         """ Add new graph pattern to pattern vault, by creating a
@@ -582,7 +595,7 @@ class PatternVault():
             # compress old version
             if self.compress:
                 prev, t_prev = self._polytree[key][-1]
-                prev = pickle.dumps(bz2.compress(prev))
+                prev = bz2.compress(pickle.dumps(prev))
                 self._polytree[-1] = (prev, t_prev)
 
             self._polytree[key].append((pattern, datetime.now()))
