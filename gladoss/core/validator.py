@@ -106,7 +106,10 @@ def validate_state_graph_components(rng: np.random.Generator,
     status_msg_lst_struc = list()
     if config.evaluate_structure:
         # validate the structure of the state graph
-        if pattern._t > config.grace_period:
+        if pattern._t < config.grace_period:
+            logger.debug(f"Skipping graph structure validation "
+                         f"({pattern._id})")
+        else:
             # no longer in learning phase
             logger.info(f"Validating graph structure ({pattern._id})")
             status_msg_lst_struc = validate_graph_structure(pattern,
@@ -114,20 +117,18 @@ def validate_state_graph_components(rng: np.random.Generator,
                                                             unmatched,
                                                             config.match_cwa,
                                                             config.match_exact)
-        else:
-            logger.debug(f"Skipping graph structure validation "
-                         f"({pattern._id})")
 
     if config.evaluate_data:
         # validate the data of the state graph, per component
         for i, (assertion, ap) in enumerate(assertion_ap_pairs, 1):
-            if ap._t <= config.grace_period:
+            if ap._t < config.grace_period:
                 # still in learning phase
                 logger.debug("Skipping graph data validation "
                              f"{i}/{len(assertion_ap_pairs)} ({pattern._id})")
                 continue
 
-            logger.info(f"Validating graph data ({pattern._id})")
+            logger.info(f"Validating graph data {i}/{len(assertion_ap_pairs)} "
+                        f"({pattern._id})")
             status_msg_lst = validate_graph_data(rng, assertion, ap,
                                                  config.alpha_critical,
                                                  config.alpha_suspicious,
@@ -334,8 +335,11 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 
         # cast value to appropriate format
         value_new = cast_literal(dtype_observed, assertion.object)
-    else:  # IRI
-        value_new = assertion.object
+    elif isinstance(assertion.object, IRIRef):
+        # use string value
+        value_new = assertion.object.value
+    else:
+        raise NotImplementedError()
 
     # evaluate distribution types via meta data
     status_msg_lst = list()
@@ -370,7 +374,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 def validate_graph_data_distribution_fit(rng: np.random.Generator,
                                          assertion: Statement,
                                          ap: AssertionPattern,
-                                         value_new: Any,
+                                         value_new: str | int | float,
                                          test_statistic: Callable,
                                          alpha_critical: float,
                                          alpha_suspicious: float,
@@ -485,7 +489,7 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
         logger.info(status_msg_long)
     elif isinstance(ap.value, Literal):
         dtype_observed = infer_datatype(assertion.object)
-        if dtype_observed != ap.value.dtype:
+        if dtype_observed != ap.value.datatype:
             status_msg = "Data Type Violation"
             status_msg_long = "Observed Literal value data type differs from "\
                               "expected Literal value data type."\

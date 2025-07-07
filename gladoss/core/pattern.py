@@ -185,15 +185,22 @@ class AssertionPattern():
         :param other: [TODO:description]
         :return: [TODO:description]
         """
+        value = assertion.object
+        if isinstance(self.value, Distribution):
+            if isinstance(assertion.object, IRIRef):
+                value = assertion.object.value
+            elif isinstance(assertion.object, Literal):
+                dtype = infer_datatype(assertion.object)
+                value = cast_literal(dtype, assertion.object)
+
         return self.weak_match(assertion, graph)\
             and ((isinstance(self.value, Resource)
                   and self.value == assertion.object)
                  or (isinstance(self.value, DiscreteDistribution)
-                     and assertion.object in self.value.data)
+                     and value in self.value.data)
                  or (isinstance(self.value, ContinuousDistribution)
-                     and float(assertion.object)
-                     in range(min(self.value.data),
-                              max(self.value.data))))
+                     and value in range(min(self.value.data),
+                                        max(self.value.data))))
 
     @staticmethod
     def create_from(identifier: str,
@@ -351,7 +358,7 @@ class GraphPattern():
 
         # keep track of time
         # time is incremented on update or manually
-        self._t = 0
+        self._t = 1
 
         # track frequency of assertion patterns by their identifiers
         self._freq_tracker = Counter(self.structure.keys())

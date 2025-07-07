@@ -109,9 +109,10 @@ class DummyAdaptor(Adaptor):
         :param data: [TODO:description]
         :return: [TODO:description]
         """
-        stdout.write("-- Vaidation Report %s ------\n" % identifier)
+        stdout.write("--- BEGIN Validation Report %s ---\n" % identifier)
         for assertion in data:
             stdout.write(" %s\n" % str(assertion))
+        stdout.write("--- END Validation Report %s ---\n" % identifier)
 
         return True
 
