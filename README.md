@@ -89,39 +89,29 @@ A [Python virtual environment](https://packaging.python.org/en/latest/guides/ins
 
 1) Create a Python virtual environment in the current directory. Replace `<name>` by the name you want this environment to be called.
 
-```
-$ python -m venv <name>
-```
+        $ python -m venv <name>
 
 2) Activate the environment. This step has to be repeated each time you want to run GLADoSS.
 
-  a) for Windows
+    a) for Windows
 
-```
-$ <name>\Scripts\activate
-```
+        $ <name>\Scripts\activate
 
-  b) for Mac / Linux
+    b) for Mac / Linux
 
-```
-$ source <name>/bin/activate
-```
+        $ source <name>/bin/activate
 
 The Python virtual environment is now set up and activated. Any calls to Python or PIP will now use this environment. GLADoSS can now be installed in the activated virtual environment by executing the three steps listed above. Once installed, GLADoSS can also be run.
 
 3) Deactivate the environment. Ensure that GLADoSS is no longer running.
 
-  a) for Windows
+    a) for Windows
 
-```
-$ <name>\Scripts\deactivate
-```
+        $ <name>\Scripts\deactivate
 
-  b) for Mac / Linux
+    b) for Mac / Linux
 
-```
-$ source <name>/bin/deactivate
-```
+        $ source <name>/bin/deactivate
 
 ## Demo
 
@@ -129,35 +119,25 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
 1) (Optional) Active the virtual environment. Replace `<name>` with the name of the actual environment.
 
-  a) for Windows
+    a) for Windows
 
-```
-$ <name>\Scripts\activate
-```
+        $ <name>\Scripts\activate
 
-  b) for Mac / Linux
+    b) for Mac / Linux
 
-```
-$ source <name>/bin/activate
-```
+        $ source <name>/bin/activate
 
 2) Change the current directory to the root of the repository code
 
-```
-$ cd gladoss/
-```
+        $ cd gladoss/
 
 3) Start the simulated smart device(s) in one terminal (A).
 
-```
-$ python gladoss/demo/dummy-device.py -v --no-autocycle -i gladoss/demo/dummy-data.json
-```
+        $ python gladoss/demo/dummy-device.py -v --no-autocycle -i gladoss/demo/dummy-data.json
 
 4) Start GLADoSS in another terminal (B)
 
-```
-$ python gladoss/run.py -v --grace_period=10 --report_level=0 dummy
-```
+        $ python gladoss/run.py -v --grace_period=10 --report_level=0 dummy
 
 5) Run the demo
 
