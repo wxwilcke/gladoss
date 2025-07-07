@@ -51,7 +51,7 @@ class Connector():
         """
         info = f"{retries+1}" if self.continuous\
             else f"{retries+1}/{self.num_retries}"
-        logger.debug(f"Retrying ({info}) in {self.retry_delay} seconds")
+        logger.debug(f"Retrying in {self.retry_delay} seconds ({info})")
 
         # account for request interval
         delay = self.retry_delay - self.request_delay
@@ -109,9 +109,16 @@ class Connector():
                                                   package_headers,
                                                   package_payload)
             except requests.exceptions.RequestException:
-                logging.debug("Connection Error")
-                print("Cannot establish connection to server")
-                sys.exit(1)
+                logger.info("Cannot establish connection to server")
+
+                if not self.continuous and retries >= self.num_retries:
+                    logging.debug("Reached maximum number of retries")
+                    break
+
+                self._wait_on_error(retries)
+                retries += 1
+
+                continue
 
             logger.debug(f"Responded HTTP status: {status_code}")
             if status_code == requests.codes.ok:  # 200: ok
@@ -130,6 +137,9 @@ class Connector():
                         except requests.exceptions.RequestException:
                             logger.warning("Error on sending message receipt")
 
+                    # reset the number of retries on success
+                    retries = 0
+
                     for message in self.adaptor.translate(data):
                         yield message
                 except json.JSONDecodeError:
@@ -141,6 +151,8 @@ class Connector():
 
                     self._wait_on_error(retries)
                     retries += 1
+
+                    continue
 
             if status_code == requests.codes.accepted:  # 202: poll timeout
                 # renew poll; don't count this as a retry

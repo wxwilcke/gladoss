@@ -358,7 +358,7 @@ if __name__ == "__main__":
                              + "to sender upon reception of message.",
                              action='store_true', default=False)
     parser_comm.add_argument("--request_delay", help="Number of seconds to "
-                             + "wait between polling the server.", default=0.5,
+                             + "wait between polling the server.", default=0.1,
                              type=int)
 
     parser_patt = parser.add_argument_group('Pattern Recognition Settings')
