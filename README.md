@@ -95,13 +95,13 @@ $ python -m venv <name>
 
 2) Activate the environment. This step has to be repeated each time you want to run GLADoSS.
 
-2a) for Windows
+    a) for Windows
 
 ```
 $ <name>\Scripts\activate
 ```
 
-2b) for Mac / Linux
+    b) for Mac / Linux
 
 ```
 $ source <name>/bin/activate
@@ -111,13 +111,13 @@ The Python virtual environment is now set up and activated. Any calls to Python 
 
 3) Deactivate the environment. Ensure that GLADoSS is no longer running.
 
-3a) for Windows
+    a) for Windows
 
 ```
 $ <name>\Scripts\deactivate
 ```
 
-3b) for Mac / Linux
+    b) for Mac / Linux
 
 ```
 $ source <name>/bin/deactivate
@@ -129,13 +129,13 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
 1) (Optional) Active the virtual environment. Replace `<name>` with the name of the actual environment.
 
-1a) for Windows
+    a) for Windows
 
 ```
 $ <name>\Scripts\activate
 ```
 
-1b) for Mac / Linux
+    b) for Mac / Linux
 
 ```
 $ source <name>/bin/activate
@@ -159,9 +159,11 @@ $ python gladoss/demo/dummy-device.py -v --no-autocycle -i gladoss/demo/dummy-da
 $ python gladoss/run.py -v --grace_period=10 --report_level=0 dummy
 ```
 
-5a) Select terminal A and press any key to simulate the publication of a state
+5) Run the demo
 
-5b) Watch the result on terminal B. Reports will be published after the second encounter of a state from the same device, and validation will be skipped for the first ten encounters.
+    a) Select terminal A and press any key to simulate the publication of a state
+
+    b) Watch the result on terminal B. Reports will be published after the second encounter of a state from the same device, and validation will be skipped for the first ten encounters.
 
 6) Terminate the simulator and GLADoSS by pressing *CTRL-C* several times.
 
