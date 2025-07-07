@@ -1,20 +1,26 @@
 #!/usr/bin/env python
 
-from datetime import timedelta
+import bz2
+from datetime import datetime, timedelta
 import logging
 from pathlib import Path
+import pickle
 import sched
-from threading import Thread
+from threading import RLock, Thread
 from typing import Optional
 
 from gladoss.core.pattern import PatternVault
 
 
+TIME_FORMAT = "%Y%m%dT%H%M%S"
+
 logger = logging.getLogger(__name__)
+
+# TODO: backup import
 
 
 class BackupManager():
-    def __init__(self, pv: PatternVault, location: Path,
+    def __init__(self, pv: PatternVault, location: Path, lock: RLock,
                  interval: Optional[timedelta] = None):
         """ Manage manual and automatic backups of patterns.
 
@@ -24,6 +30,7 @@ class BackupManager():
         """
         self.pv = pv
         self.path = location
+        self._lock = lock
         self.interval = interval
         if type(self.interval) is timedelta:
             self.interval = self.interval.total_seconds()
@@ -65,6 +72,21 @@ class BackupManager():
                             action=self.create_backup)
 
     def create_backup(self):
-        # TODO
-        logger.info(f"Saved backup to {self.path}")
-        pass
+        if not self.path.exists():
+            self.path.mkdir()
+
+        # generate filename based on current time
+        filename = f"backup-{datetime.now().strftime(TIME_FORMAT)}.bak"
+
+        self._lock.acquire()
+        try:
+            path = self.path / filename
+            data = bz2.compress(pickle.dumps(self.pv))
+            with open(path, 'wb') as f:
+                pickle.dump(obj=data, file=f)
+
+            logger.info(f"Saved backup to {path}")
+        except Exception as err:
+            logger.error(f"Unable to create backup: {err}")
+        finally:
+            self._lock.release()

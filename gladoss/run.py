@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 import functools
 import logging
+from pathlib import Path
 from queue import Queue
 import signal
 from threading import Event, RLock
@@ -258,8 +259,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     pv = PatternVault(lock=lock)
 
     # setup backup manager to periodically write the pattern vault to disk
-    bckmgr = BackupManager(pv, flags.backup_path, flags.backup_interval)
-    # bckmgr.enable_auto_backup()  # FIXME disabed for debugging
+    bckmgr = BackupManager(pv, Path(flags.backup_path),
+                           lock, flags.backup_interval)
+    bckmgr.enable_auto_backup()
 
     # use queues to communicate between threads
     q = Queue()  # queue observation here
@@ -334,7 +336,7 @@ if __name__ == "__main__":
                         + ", 'D', or 'W', denoting hours, days, or weeks.",
                         type=timeSpanArg, default=None)
     parser.add_argument("--backup_path", help="Directory to write backups to",
-                        type=str, default="/tmp/")  # FIXME: change
+                        type=str, default=str(Path().resolve() / "backup"))
     parser.add_argument("--seed", help="Seed for random number generator "
                         + "(optional)", type=int, default=None)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "
