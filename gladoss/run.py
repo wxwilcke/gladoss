@@ -327,7 +327,8 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
     # starting emergency backup
     bckmgr.disable_auto_backup()
-    bckmgr.create_backup()  # emergency backup
+    if len(pv) > 0:
+        bckmgr.create_backup()  # emergency backup
 
     logger.info("Waiting on connections to close...")
 

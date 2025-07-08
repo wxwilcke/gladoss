@@ -627,5 +627,4 @@ class PatternVault():
         return {k: v for k, v in self.__dict__.items() if k != '_lock'}
 
     def __setstate__(self, state):
-        # TODO lock state has to be set by main procedure
         self.__dict__.update(state)

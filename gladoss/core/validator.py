@@ -170,8 +170,8 @@ def validate_graph_data(rng: np.random.Generator,
                 "Insufficient samples have yet been observed "\
                 "for this triple from the observed state graph "\
                 "to establish nominal behaviour or deviations "\
-                "thereof."\
-                f"\n Observed: {str(assertion)}"
+                "thereof. "\
+                f"Observed: {str(assertion)} ."
             status_code = ValidationReport.StatusCode.NODATA
 
             logger.info(status_msg_long)
@@ -207,12 +207,12 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
             and ap.value.dtype != XSD + 'anyURI':
         status_msg = "Resource Type Violation"
         status_msg_long = "Observed resource type does not fit to "\
-                          "expected distribution resource type."\
-                          f"\n Expected: {'Unknown' if ap.value.dtype is
-                                          None else ap.value.dtype} "\
-                          f"in {ap}"\
-                          f"\n Observed: {type(assertion.object)} "\
-                          f"in {assertion}"
+                          "expected distribution resource type. "\
+                          f"Expected: {'Unknown' if ap.value.dtype is
+                                       None else ap.value.dtype} "\
+                          f"in {ap} . "\
+                          f"Observed: {type(assertion.object)} "\
+                          f"in {assertion} ."
 
         status_msg_lst.append((status_msg, status_msg_long,
                                ValidationReport.StatusCode.CRITICAL))
@@ -221,9 +221,9 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
         if dtype_observed not in XSD_DISCRETE:
             status_msg = "Value Type Violation"
             status_msg_long = "Observed value type does not fit to "\
-                              "expected distribution type."\
-                              f"\n Expected: one of {'; '.join(XSD_DISCRETE)}"\
-                              f"\n Observed: {type(assertion.object)}"
+                              "expected distribution type. "\
+                              f"Expected: one of {'; '.join(XSD_DISCRETE)} "\
+                              f"Observed: {type(assertion.object)} ."
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -233,13 +233,13 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
                 and dtype_observed != ap.value.dtype:
             status_msg = "Data Type Violation"
             status_msg_long = "Observed value data type does not fit to "\
-                              "expected distribution data type."\
-                              f"\n Expected: {'Unknown' if ap.value.dtype is
-                                              None else ap.value.dtype} "\
-                              f"in {ap}"\
-                              f"\n Observed: {'Unknown' if dtype_observed is
-                                              None else dtype_observed} "\
-                              f"in {assertion}"
+                              "expected distribution data type. "\
+                              f"Expected: {'Unknown' if ap.value.dtype is
+                                           None else ap.value.dtype} "\
+                              f"in {ap} . "\
+                              f"Observed: {'Unknown' if dtype_observed is
+                                            None else dtype_observed} "\
+                              f"in {assertion} ."
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -354,8 +354,6 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                                                         dtype_observed)
     else:
         raise NotImplementedError()
-
-    # TODO: validate language
 
     # evaluate whether the new sample could've come from the same distribution
     # as the previously observed samples
@@ -511,9 +509,17 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.CRITICAL))
             logger.info(status_msg_long)
-        if assertion.object.language != ap.value.language:
-            # TODO
-            pass
+        if assertion.object.language is not None\
+                and ap.value.language is not None\
+                and assertion.object.language != ap.value.language:
+            status_msg = "Value Language Violation"
+            status_msg_long = "Observed literal value language differs from "\
+                              "expected literal value language. "\
+                              f"Expected: {ap.value.language}. "\
+                              f"Observed: {assertion.object.language}"
+
+            status_msg_lst.append((status_msg, status_msg_long,
+                                   ValidationReport.StatusCode.INCONSISTENCY))
 
     return status_msg_lst
 

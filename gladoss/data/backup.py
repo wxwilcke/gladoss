@@ -16,8 +16,6 @@ TIME_FORMAT = "%Y%m%dT%H%M%S"
 
 logger = logging.getLogger(__name__)
 
-# TODO: backup import
-
 
 class BackupManager():
     def __init__(self, pv: PatternVault, location: Path, lock: RLock,
