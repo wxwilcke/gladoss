@@ -254,9 +254,16 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     adaptor = adaptor_cls(controller=controller,  # type: ignore
                           config=cconf)
 
-    # initiate pattern vault which will manage and track patterns over time
+    # use a lock for operations on the pattern vault
     lock = RLock()
+
+    # initiate pattern vault which will manage and track patterns over time
     pv = PatternVault(lock=lock)
+    if flags.backup_restore is not None:
+        pv = BackupManager.restore_backup(Path(flags.backup_restore))
+        pv._lock = lock
+
+        logger.info("Backup restored successfully")
 
     # setup backup manager to periodically write the pattern vault to disk
     bckmgr = BackupManager(pv, Path(flags.backup_path),
@@ -337,6 +344,9 @@ if __name__ == "__main__":
                         type=timeSpanArg, default=None)
     parser.add_argument("--backup_path", help="Directory to write backups to",
                         type=str, default=str(Path().resolve() / "backup"))
+    parser.add_argument("--backup_restore", help="Backup file from which to "
+                        "import patterns on start.", type=str,
+                        default=None)
     parser.add_argument("--seed", help="Seed for random number generator "
                         + "(optional)", type=int, default=None)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "

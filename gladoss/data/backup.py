@@ -38,18 +38,24 @@ class BackupManager():
         self.enabled = False
 
     def enable_auto_backup(self):
+        """ Enable the automatic backup scheduler. This will
+            spawn a new thread that creates a backup every
+            number of seconds, specified by the set interval.
+        """
         if self.enabled or not isinstance(self.interval, int):
             return
 
         self.enabled = True
 
         self._scheduler = sched.scheduler()
-        self._thread = Thread(target=self.create_auto_backup,
+        self._thread = Thread(target=self._create_auto_backup,
                               args=[self._scheduler])
         self._thread.start()
         logger.debug("Enabled auto backup")
 
     def disable_auto_backup(self):
+        """ Disable the automatic backup scheduler, if enabled.
+        """
         if not self.enabled:
             return
 
@@ -59,7 +65,12 @@ class BackupManager():
 
         logger.debug("Disabled auto backup")
 
-    def create_auto_backup(self, scheduler: sched.scheduler):
+    def _create_auto_backup(self, scheduler: sched.scheduler):
+        """ Set up the backup scheduler. This procedure should
+            only be called by the backup thread.
+
+        :param scheduler: [TODO:description]
+        """
         if not isinstance(self.interval, int):
             return
 
@@ -72,6 +83,10 @@ class BackupManager():
                             action=self.create_backup)
 
     def create_backup(self):
+        """ Create a compressed backup of the pattern vault and
+            write the result to disk. Use the current date and
+            time to generate the file name.
+        """
         if not self.path.exists():
             self.path.mkdir()
 
@@ -81,12 +96,37 @@ class BackupManager():
         self._lock.acquire()
         try:
             path = self.path / filename
-            data = bz2.compress(pickle.dumps(self.pv))
-            with open(path, 'wb') as f:
-                pickle.dump(obj=data, file=f)
+            with bz2.open(path, "wb") as f:
+                f.write(pickle.dumps(obj=self.pv))
 
             logger.info(f"Saved backup to {path}")
         except Exception as err:
             logger.error(f"Unable to create backup: {err}")
         finally:
             self._lock.release()
+
+    @staticmethod
+    def restore_backup(filename: Path) -> PatternVault:
+        """ Restore a backup of a pattern vault instance by reading
+            and decompressing the provided file. Raises an exception
+            on failure.
+
+        :param filename: [TODO:description]
+        :return: [TODO:description]
+        :raises Exception: [TODO:description]
+        """
+        assert filename.exists(), f"File '{filename.name}' cannot be found"
+
+        pv = None
+        try:
+            with bz2.open(filename.resolve(), "rb") as f:
+                data = f.read()
+
+            pv = pickle.loads(data)
+            assert isinstance(pv, PatternVault), "Backup does not contain "\
+                                                 "expected data"
+        except Exception as err:
+            logger.error(f"Unable to restore backup: {err}")
+            raise Exception(err)
+
+        return pv
