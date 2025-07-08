@@ -6,7 +6,7 @@ GLADoSS is a Python program designed for the real-time detection of (possible fu
 
 ## Data Requirements
 
-Both incoming state information and outgoing reports are expected to be encoded as well-formed graphs conforming to the [_Resource Description Framework_ (RDF)](https://www.w3.org/TR/rdf11-concepts/). RDF is an open [W3C](https://www.w3.org/) standard in which knowledge, information, and data are encoded using binary statements, often called triples. Triples relate an object `o` to its subject `s` via a relationship `p`, and are represented via the infix notation: `s, p, o`. Here, both subject `s` and relationship `p` are denoted via _Universal Resource Identifiers_ (URI) which are a generalisation of the URL, whereas object `o` can be either a URI or a raw value, called a literal.
+Both incoming state information and outgoing reports are expected to be encoded as well-formed graphs conforming to the [_Resource Description Framework_ (RDF)](https://www.w3.org/TR/rdf11-concepts/). RDF is an open [W3C](https://www.w3.org/) standard in which knowledge, information, and data are encoded using binary statements, often called triples. Triples relate an object `o` to its subject `s` via a relationship `p`, and are represented via the infix notation: `s, p, o`. Here, both subject `s` and relationship `p` are denoted via _Universal Resource Identifiers_ (URI) which are a generalisation of the URL, whereas object `o` can be either a URI or a raw value, called a literal. Literals can have an optional datatype annotation, provided as URI, or language tag.
 
 The following graph is an example of the expected input data, and is encoded using the [Turtle serialization format](https://www.w3.org/TR/turtle/):
 
@@ -137,7 +137,7 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
 4) Start GLADoSS in another terminal (B)
 
-        $ python gladoss/run.py -v --grace_period=10 --report_level=0 dummy
+        $ python gladoss/run.py -v --grace-period=10 --report-level=0 dummy
 
 5) Run the demo
 

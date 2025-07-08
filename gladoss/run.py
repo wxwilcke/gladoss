@@ -338,13 +338,13 @@ if __name__ == "__main__":
         description="Graph-based Live Anomaly Detection on Semantic Streams",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         epilog="The development of this program has been funded by HEDGE-IoT")
-    parser.add_argument("--backup_interval", help="Intervals between backups. "
+    parser.add_argument("--backup-interval", help="Intervals between backups. "
                         + "Expects the input to be an integer followed by 'H'"
                         + ", 'D', or 'W', denoting hours, days, or weeks.",
                         type=timeSpanArg, default=None)
-    parser.add_argument("--backup_path", help="Directory to write backups to",
+    parser.add_argument("--backup-path", help="Directory to write backups to",
                         type=str, default=str(Path().resolve() / "backup"))
-    parser.add_argument("--backup_restore", help="Backup file from which to "
+    parser.add_argument("--backup-restore", help="Backup file from which to "
                         "import patterns on start.", type=str,
                         default=None)
     parser.add_argument("--seed", help="Seed for random number generator "
@@ -363,52 +363,52 @@ if __name__ == "__main__":
                              "status", default=False, action="store_true")
     parser_comm.add_argument("--retries", help="Number of retries on error",
                              default=3, type=int)
-    parser_comm.add_argument("--retry_delay", help="Number of seconds to wait "
+    parser_comm.add_argument("--retry-delay", help="Number of seconds to wait "
                              + "before retrying after the occurrence of an "
                              + "error", default=30, type=int)
-    parser_comm.add_argument("--return_receipt", help="Send acknowledgement "
+    parser_comm.add_argument("--return-receipt", help="Send acknowledgement "
                              + "to sender upon reception of message.",
                              action='store_true', default=False)
-    parser_comm.add_argument("--request_delay", help="Number of seconds to "
+    parser_comm.add_argument("--request-delay", help="Number of seconds to "
                              + "wait between polling the server.", default=0.1,
                              type=int)
 
     parser_patt = parser.add_argument_group('Pattern Recognition Settings')
-    parser_patt.add_argument("--pattern_decay", help="Number of epoch passed "
+    parser_patt.add_argument("--pattern-decay", help="Number of epoch passed "
                              "until an absent pattern component is forgotten. "
                              "A negative value disables this feature "
                              "entirely.", type=int, default=-1)
-    parser_patt.add_argument("--pattern_threshold", help="Number of epoch "
+    parser_patt.add_argument("--pattern-threshold", help="Number of epoch "
                              "passed until an new pattern component is "
                              "added to the pattern. A negative value disables"
                              " this feature entirely.", type=int, default=-1)
-    parser_patt.add_argument("--pattern_resolution", help="Number of "
+    parser_patt.add_argument("--pattern-resolution", help="Number of "
                              "significant figures to take into account when "
                              "evaluating a new sample. A negative value "
                              "disables this feature.", type=int, default=-1)
 
     parser_eval = parser.add_argument_group('Anomaly Detection Settings')
-    parser_eval.add_argument("--significance_level_critical",
+    parser_eval.add_argument("--significance-level-critical",
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
                              "trigger a critical warning.", type=float,
                              default=0.05, dest='alpha_critical')
-    parser_eval.add_argument("--significance_level_suspicious",
+    parser_eval.add_argument("--significance-level-suspicious",
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
                              "trigger a warning.", type=float, default=0.10,
                              dest='alpha_suspicious')
-    parser_eval.add_argument("--evaluate_structure", help="Evaluate the "
+    parser_eval.add_argument("--evaluate-structure", help="Evaluate the "
                              "structure of the observed state graph against "
                              "the associated graph pattern.", type=bool,
                              action=argparse.BooleanOptionalAction,
                              default=True)
-    parser_eval.add_argument("--evaluate_data", help="Evaluate the "
+    parser_eval.add_argument("--evaluate-data", help="Evaluate the "
                              "data of the observed state graph against "
                              "the associated graph pattern.", type=bool,
                              action=argparse.BooleanOptionalAction,
                              default=True)
-    parser_eval.add_argument("--grace_period", help="Number of updates to "
+    parser_eval.add_argument("--grace-period", help="Number of updates to "
                              "process per assertion before evaluating the "
                              "assertion during the validation procedure. "
                              "This can be regarded as the training time.",
@@ -424,16 +424,16 @@ if __name__ == "__main__":
                              "sorted in chronological ordered. This can "
                              "create a stronger distinction between "
                              "distributions.", type=int, default=10)
-    parser_eval.add_argument("--match_cwa", help="If enabled, employ the "
+    parser_eval.add_argument("--match-cwa", help="If enabled, employ the "
                              "Closed World Assumption during the evaluation "
                              "of an observed state graph: expected yet "
                              "missing triples will now trigger a warning.",
                              action='store_true', default=False)
-    parser_eval.add_argument("--match_exact", help="If enabled, any missing "
+    parser_eval.add_argument("--match-exact", help="If enabled, any missing "
                              "or extra triples in the observed state graph "
                              "will trigger a warning.",
                              action='store_true', default=False)
-    parser_eval.add_argument("--report_level", help="Reports of equal level "
+    parser_eval.add_argument("--report-level", help="Reports of equal level "
                              "and higher will be published to the endpoint: "
                              "NOMINAL behaviour (0), generic ERRORS (1), "
                              "INSUFFICIENT DATA (2), INCONSISTENCIES (3), "

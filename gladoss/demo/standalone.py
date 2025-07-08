@@ -49,13 +49,13 @@ if __name__ == "__main__":
                         default=False, action="store_true")
     parser.add_argument("--retries", help="Number of retries on error.",
                         default=3, type=int)
-    parser.add_argument("--retry_delay", help="Number of seconds to wait "
+    parser.add_argument("--retry-delay", help="Number of seconds to wait "
                         + "before retrying after the occurrence of an error",
                         default=30, type=int)
-    parser.add_argument("--return_receipt", help="Send acknowledgement "
+    parser.add_argument("--return-receipt", help="Send acknowledgement "
                         + "to sender upon reception of message.",
                         action='store_true', default=False)
-    parser.add_argument("--request_delay", help="Number of seconds to wait "
+    parser.add_argument("--request-delay", help="Number of seconds to wait "
                         + "between polling the server.", default=0.5, type=int)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "
                         + "console.", action='count', default=0)
