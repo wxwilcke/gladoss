@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+import ast
 from collections import Counter
 import importlib
 import logging
+from pathlib import Path
 import sys
 from typing import Collection, Optional
 
@@ -130,7 +132,7 @@ def init_rng(seed: Optional[int] = None) -> np.random.Generator:
     return np.random.Generator(np.random.PCG64(np.array([seed])))
 
 
-def import_class(module_map: dict[str, list[str]], name: str) -> Adaptor:
+def import_class(module_map: dict[str, str], name: str) -> Adaptor:
     """ Import specified module and class
 
     :param module_map: a map with adaptor names mapped to their module path
@@ -140,7 +142,7 @@ def import_class(module_map: dict[str, list[str]], name: str) -> Adaptor:
     """
     cls = None
     try:
-        mod_str, class_str = module_map[name]
+        mod_str, class_str = name, module_map[name]
         module = importlib.import_module(f'gladoss.adaptors.{mod_str}')
         cls = getattr(module, class_str)
     except (AttributeError, KeyError, ImportError) as e:
@@ -186,3 +188,22 @@ def infer_class(resource: IRIRef, graph: Collection[Statement]) -> IRIRef:
             return assertion.object
 
     return RDFS + 'Resource'
+
+
+def list_classes(path: Path) -> dict[str, str]:
+    """ Find and return all modules in the given directory
+        plus the classes defined in them.
+
+    :param path: [TODO:description]
+    :return: [TODO:description]
+    """
+    out = dict()
+    for p in path.glob('*.py'):
+        name = p.stem
+        with open(p, 'r') as f:
+            tree = ast.parse(f.read())
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    out[name] = node.name
+
+    return out

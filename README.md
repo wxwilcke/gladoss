@@ -63,7 +63,7 @@ _:BU12ymsmziok9c29pjtt9i rdfs:comment "Critical Anomaly"@en .
 
 GLADoSS can be installed using [PIP](https://pip.pypa.io/en/stable/), the package installer for Python. Instructions on how to do so are given next. These instructions assume that the system has working and updated [Python](https://www.python.org/) and [Git](https://git-scm.com/) installations. *It is strongly recommended to first set up a clean [virtual environment](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#create-and-use-virtual-environments) before continuing with installation (see next header).*
 
-To install GLADoSS,
+To install GLADoSS
 
 1) Clone this repository to your device
 
@@ -146,6 +146,24 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
     b) Watch the result on terminal B. Reports will be published after the second encounter of a state from the same device, and validation will be skipped for the first ten encounters.
 
 6) Terminate the simulator and GLADoSS by pressing *CTRL-C* several times.
+
+## Custom Adaptor
+
+Adaptors form the bridge between GLADoSS and the various knowledge producers or relays, handling incoming and outgoing communication as well as the translation between various data formats. Custom adaptors can be used to enable GLADoSS to work in different environments and with different forms of data.
+
+To create a custom adaptor
+
+1) Create a new Python file in `gladoss/adaptors`.
+
+2) Create a new class in the just-created file. This class must be a subclass of the abstract base class `Adaptor`.
+
+3) Write the necessary procedures. These procedures are defined in the abstract base class, and include
+
+    - procedures to set the headers and body of the various HTTP requests
+    - procedures to translate the incoming data to N-Triples format
+    - procedures to publish (and optionaly translate) the validation report
+
+In addition, a procedure has to be written that creates one on more connections, one per endpoint. If necessary, an initialisation and clean-up hook can also be used that will run before and after establishing the connection, and a context dictionary can be used to share data between procedures.
 
 ---
 

@@ -23,15 +23,11 @@ from gladoss.core.pattern import (AssertionPattern, GraphPattern, PatternVault,
                                   create_graph_pattern, update_graph_pattern)
 from gladoss.core.validator import ValidationReport, validate_state_graph
 from gladoss.core.utils import (create_pattern_map, gen_id, import_class,
-                                init_rng)
+                                init_rng, list_classes)
 
 
 logger = logging.getLogger(__name__)
-
-_ADAPTORS = {
-        "dummy": ["dummy", "DummyAdaptor"],
-        "knowledge_engine": ["knowledge_engine", "KE_Adaptor"]
-        }
+ROOT_PATH = Path(__file__).parent
 
 
 def signal_handler(signum, frame):
@@ -334,6 +330,10 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
 
 if __name__ == "__main__":
+    # find available adaptors
+    adaptors = list_classes(ROOT_PATH / "adaptors")
+    del adaptors['adaptor']  # exclude the abstract base class
+
     parser = argparse.ArgumentParser(
         prog="GLADoSS",
         description="Graph-based Live Anomaly Detection on Semantic Streams",
@@ -355,9 +355,12 @@ if __name__ == "__main__":
 
     parser_comm = parser.add_argument_group('Communication Settings')
     parser_comm.add_argument("adaptor", help="Adaptor appropriate for "
-                             + "endpoint", choices=list(_ADAPTORS.keys()),
+                             + "endpoint", choices=list(adaptors.keys()),
                              type=str)
-    parser_comm.add_argument("--endpoint", help="HTTP address to listen to",
+    parser_comm.add_argument("--endpoint", help="HTTP address to listen to. "
+                             "This is only needed if the application listens "
+                             "to exactly one endpoint and none is provided "
+                             "in a separate configuration file.",
                              default="http://127.0.0.1:8000", type=str)
     parser_comm.add_argument("--continuous", help="Keep listening for changes"
                              " in the response, irrespective of response "
@@ -486,7 +489,7 @@ if __name__ == "__main__":
     rng = init_rng(flags.seed)
 
     # import specified adaptor
-    adaptor = import_class(_ADAPTORS, flags.adaptor)
+    adaptor = import_class(adaptors, flags.adaptor)
 
     # start main loop
     main(rng, adaptor, flags, cconf, pconf, econf)

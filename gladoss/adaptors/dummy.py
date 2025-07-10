@@ -24,14 +24,22 @@ LITERAL = re.compile(r"\"(?P<value>.*)\"(?:"
 
 
 class DummyAdaptor(Adaptor):
-    """ Adaptor to dummy device for debugging purposes
+    """ Adaptor to dummy device for debugging and demo purposes.
 
         Expects data in the form {"label": <STRING>,
                                   "data": "s p o . [...]"},
         with
-        - s, p, o as 'ex:u' or '<http://www.example.org/u>'
-        - or o as 'v', 'v@lang', or 'v^^dt'
-        - and dt as 'ex:u' or '<http://www.example.org/u>'
+        - s, p, o as '<http://www.example.org/u>'
+        - or o as '"v"', '"v"@lang', or '"v"^^dt'
+        - and dt as '<http://www.example.org/u>'
+        - and lang as [a-z]{2}
+
+        Publishes data to standard output in the form "s p o . [...]",
+        with
+        - s, p, o as '<http://www.example.org/u>'
+        - or o as '"v"', '"v"@lang', or '"v"^^dt'
+        - and dt as or '<http://www.example.org/u>'
+        - and lang as [a-z]{2}
     """
 
     def init_hook(self: Self) -> None:
