@@ -1,0 +1,4 @@
+fastapi==0.115.8
+numpy==2.2.3
+pyRDF==2.3.0
+requests==2.32.3
