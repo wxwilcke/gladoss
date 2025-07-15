@@ -356,7 +356,7 @@ if __name__ == "__main__":
     parser_comm = parser.add_argument_group('Communication Settings')
     parser_comm.add_argument("adaptor", help="Adaptor appropriate for "
                              + "endpoint", choices=list(adaptors.keys()),
-                             type=str)
+                             type=str, nargs='?')
     parser_comm.add_argument("--endpoint", help="HTTP address to listen to. "
                              "This is only needed if the application listens "
                              "to exactly one endpoint and none is provided "
@@ -489,6 +489,8 @@ if __name__ == "__main__":
     rng = init_rng(flags.seed)
 
     # import specified adaptor
+    assert flags.adaptor is not None, "No adaptor specified - choose one " \
+                                      f"from {list(adaptors.keys())}"
     adaptor = import_class(adaptors, flags.adaptor)
 
     # start main loop
