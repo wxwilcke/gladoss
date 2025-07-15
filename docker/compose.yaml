@@ -1,0 +1,20 @@
+services:
+  gladoss:
+    build: .
+    container_name: gladoss
+    image: gladoss:latest
+    volumes:
+      - /tmp/:/mnt/backup
+      - /tmp/:/var/log/gladoss
+    expose:
+      - "8000"
+  gladoss-demo:
+    build: .
+    container_name: gladoss-demo
+    image: gladoss:latest
+    volumes:
+      - /tmp/:/var/log/gladoss
+    expose:
+      - "8000"
+    entrypoint: ''
+    command: gladoss-demo --verbose --cachesize=5 --port 8000
