@@ -41,15 +41,15 @@ RUN pip install .
 
 # create shortcuts
 RUN echo -e "#"'!'"/bin/sh\n"\
-            "python $WORKDIR/gladoss/run.py" \
+            "python $WORKDIR/src/gladoss/run.py" \
             "--backup-path=$BACKUPDIR" \
             '"$@"' \
             ">> $LOGDIR/out.log 2>&1" > /usr/local/bin/gladoss-run
 RUN chmod +x /usr/local/bin/gladoss-run
 
 RUN echo -e "#"'!'"/bin/sh\n"\
-            "python $WORKDIR/gladoss/demo/dummy-device.py" \
-            "--input=$WORKDIR/gladoss/demo/dummy-data.json" \
+            "python $WORKDIR/src/gladoss/demo/dummy-device.py" \
+            "--input=$WORKDIR/src/gladoss/demo/dummy-data.json" \
             '"$@"' \
             ">> $LOGDIR/demo.log 2>&1" > /usr/local/bin/gladoss-demo
 RUN chmod +x /usr/local/bin/gladoss-demo

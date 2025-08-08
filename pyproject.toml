@@ -10,12 +10,12 @@ authors = [
 ]
 description = "Online Anomaly Detection on Distributed RDF Streams"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "GPL-3.0-or-later"
+license-files = [ "LICENSE" ]
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
