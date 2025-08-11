@@ -329,7 +329,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     logger.info("Waiting on connections to close...")
 
 
-if __name__ == "__main__":
+def __main__():
     # find available adaptors
     adaptors = list_classes(ROOT_PATH / "adaptors")
     del adaptors['adaptor']  # exclude the abstract base class
@@ -495,3 +495,7 @@ if __name__ == "__main__":
 
     # start main loop
     main(rng, adaptor, flags, cconf, pconf, econf)
+
+
+if __name__ == "__main__":
+    __main__()

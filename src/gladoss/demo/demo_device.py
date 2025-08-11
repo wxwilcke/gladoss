@@ -12,6 +12,7 @@ from time import sleep, time
 from threading import Thread
 from queue import Queue
 from random import randrange
+import sys
 from typing import Any
 
 from fastapi import FastAPI, Response, Request, status, HTTPException
@@ -176,7 +177,7 @@ def main(flags: argparse.Namespace):
     cycler.join()
 
 
-if __name__ == "__main__":
+def __main__(argv: list[str]):
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", "-i", help="File (JSON) to read stream "
                         + "data from.", default="./dummy-data.json", type=str,
@@ -203,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", "-v", help="Show debug messages in "
                         + "console.", action='count', default=0)
 
-    flags = parser.parse_args()
+    flags = parser.parse_args(argv)
 
     # set log level
     log_level = logging.NOTSET
@@ -219,3 +220,7 @@ if __name__ == "__main__":
                                '- %(message)s')
 
     main(flags)
+
+
+if __name__ == "__main__":
+    __main__(sys.argv[1:])

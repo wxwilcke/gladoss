@@ -59,6 +59,16 @@ _:BU12ymsmziok9c29pjtt9i rdfs:label "CRITICAL"@en .
 _:BU12ymsmziok9c29pjtt9i rdfs:comment "Critical Anomaly"@en .
 ```
 
+## Run
+
+GLADoSS can be run via the following command:
+
+    $ python -m gladoss [OPTIONS] <ADAPTOR>
+
+with a mandatory adaptor (`ADAPTOR`) and zero of more optional options (`OPTIONS`). Us the help flag (`--help`) to view all possible options:
+
+    $ python -m gladoss -h
+
 ## Installation
 
 GLADoSS can be installed using [PIP](https://pip.pypa.io/en/stable/), the package installer for Python. Instructions on how to do so are given next. These instructions assume that the system has working and updated [Python](https://www.python.org/) and [Git](https://git-scm.com/) installations. *It is strongly recommended to first set up a clean [virtual environment](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#create-and-use-virtual-environments) before continuing with installation (see next header).*
@@ -127,19 +137,15 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
         $ source <name>/bin/activate
 
-2) Change the current directory to the root of the repository code
+2) Start the simulated smart device(s) in one terminal (A).
 
-        $ cd gladoss/
+        $ python -m gladoss demo -v --no-autocycle -i gladoss/demo/dummy-data.json
 
-3) Start the simulated smart device(s) in one terminal (A).
+3) Start GLADoSS in another terminal (B)
 
-        $ python gladoss/demo/dummy-device.py -v --no-autocycle -i gladoss/demo/dummy-data.json
+        $ python -m gladoss -v --grace-period=10 --report-level=0 dummy
 
-4) Start GLADoSS in another terminal (B)
-
-        $ python gladoss/run.py -v --grace-period=10 --report-level=0 dummy
-
-5) Run the demo
+4) Run the demo
 
     a) Select terminal A and press any key to simulate the publication of a state
 
