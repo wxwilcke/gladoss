@@ -2,7 +2,6 @@
 
 import logging
 import json
-import sys
 from typing import Any, Generator, Self
 
 from rdf import Statement
@@ -90,7 +89,7 @@ class Connector():
 
         return response.status_code
 
-    def listen(self) -> Generator[tuple[str, list[Statement]]]:
+    def listen(self) -> Generator[tuple[str, list[Statement]], None, None]:
         """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates
             or retries when receiving a 204 or 408 HTTP status.
