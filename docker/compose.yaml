@@ -3,6 +3,7 @@ services:
     build: .
     container_name: gladoss
     image: gladoss:latest
+    user: "${UID}:${GID}"
     volumes:
       - source: ./backup/
         target: /mnt/backup
@@ -20,6 +21,7 @@ services:
     build: .
     container_name: gladoss-demo
     image: gladoss:latest
+    user: "${UID}:${GID}"
     volumes:
       - source: ./logs/
         target: /var/log/gladoss

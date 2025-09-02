@@ -19,15 +19,18 @@ RUN addgroup $GROUP \
 
 # create the log directory
 RUN mkdir -p $LOGDIR \
- && chown root:$GROUP $LOGDIR
+ && chown root:$GROUP $LOGDIR \
+ && chmod g+rwxs $LOGDIR
 
 # create the backup directory
 RUN mkdir -p $BACKUPDIR \
- && chown root:$GROUP $BACKUPDIR
+ && chown root:$GROUP $BACKUPDIR \
+ && chmod g+rwxs $BACKUPDIR
 
 # create a working directory
 RUN mkdir -p $WORKDIR \
- && chown root:$GROUP $WORKDIR
+ && chown root:$GROUP $WORKDIR \
+ && chmod g+rwxs $WORKDIR
 
 # copy the application to the image
 ADD --keep-git-dir=false --chown=root:$GROUP https://gitlab.com/wxwilcke/gladoss.git $WORKDIR
@@ -41,17 +44,19 @@ RUN pip install .
 
 # create shortcuts
 RUN echo -e "#"'!'"/bin/sh\n"\
+            "TIMESTAMP="'$'"(date +%s)\n"\
             "python $WORKDIR/src/gladoss/run.py" \
             "--backup-path=$BACKUPDIR" \
             '"$@"' \
-            ">> $LOGDIR/out.log 2>&1" > /usr/local/bin/gladoss-run
+            ">> $LOGDIR/run-"'$'"TIMESTAMP.log 2>&1" > /usr/local/bin/gladoss-run
 RUN chmod +x /usr/local/bin/gladoss-run
 
 RUN echo -e "#"'!'"/bin/sh\n"\
+            "TIMESTAMP="'$'"(date +%s)\n"\
             "python $WORKDIR/src/gladoss/demo/dummy-device.py" \
             "--input=$WORKDIR/src/gladoss/demo/dummy-data.json" \
             '"$@"' \
-            ">> $LOGDIR/demo.log 2>&1" > /usr/local/bin/gladoss-demo
+            ">> $LOGDIR/demo-"'$'"TIMESTAMP.log 2>&1" > /usr/local/bin/gladoss-demo
 RUN chmod +x /usr/local/bin/gladoss-demo
 
 # specify entrypoint - users must only edit this script
