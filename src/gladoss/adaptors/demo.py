@@ -23,7 +23,7 @@ LITERAL = re.compile(r"\"(?P<value>.*)\"(?:"
                      rf"(?:\^\^(?P<dtype>{URI})))?")
 
 
-class DummyAdaptor(Adaptor):
+class DemoAdaptor(Adaptor):
     """ Adaptor to dummy device for debugging and demo purposes.
 
         Expects data in the form {"label": <STRING>,
@@ -59,7 +59,7 @@ class DummyAdaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        return {"adaptor": "dummy"}
+        return {"adaptor": "demo"}
 
     def set_payload(self: Self) -> dict[str, Any]:
         """ Returns payload for polling the endpoint. Defaults

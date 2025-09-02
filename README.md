@@ -143,7 +143,7 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
 3) Start GLADoSS in another terminal (B)
 
-        $ python -m gladoss -v --grace-period=10 --report-level=0 dummy
+        $ python -m gladoss -v --grace-period=10 --report-level=0 demo
 
 4) Run the demo
 

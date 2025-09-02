@@ -4,16 +4,28 @@ services:
     container_name: gladoss
     image: gladoss:latest
     volumes:
-      - /tmp/:/mnt/backup
-      - /tmp/:/var/log/gladoss
-    expose:
-      - "8000"
+      - source: ./backup/
+        target: /mnt/backup
+        type: bind
+        bind:
+          create_host_path: true
+      - source: ./logs/
+        target: /var/log/gladoss
+        type: bind
+        bind:
+          create_host_path: true
+    ports:
+      - "8000:8000"
   gladoss-demo:
     build: .
     container_name: gladoss-demo
     image: gladoss:latest
     volumes:
-      - /tmp/:/var/log/gladoss
+      - source: ./logs/
+        target: /var/log/gladoss
+        type: bind
+        bind:
+          create_host_path: true
     expose:
       - "8000"
     entrypoint: ''

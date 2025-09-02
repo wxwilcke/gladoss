@@ -10,7 +10,7 @@ import logging
 import signal
 from threading import Event
 
-from gladoss.adaptors.dummy import DummyAdaptor
+from gladoss.adaptors.demo import DemoAdaptor
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,8 @@ def main(flags: argparse.Namespace):
     :param flags: User-provided parameters
     """
     logging.info("Listening for messages")
-    adaptor = DummyAdaptor(controller=controller,  # type: ignore
-                           config=flags)
+    adaptor = DemoAdaptor(controller=controller,  # type: ignore
+                          config=flags)
 
     conn = adaptor.connectors.pop()  # the demo only defines one connector
     for graph_id, graph in conn.listen():
