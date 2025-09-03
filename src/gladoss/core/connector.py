@@ -108,7 +108,8 @@ class Connector():
                                                   package_headers,
                                                   package_payload)
             except requests.exceptions.RequestException:
-                logger.info("Cannot establish connection to server")
+                logger.info("Cannot establish connection to server "
+                            f"{self.endpoint}")
 
                 if not self.continuous and retries >= self.num_retries:
                     logging.debug("Reached maximum number of retries")

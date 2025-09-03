@@ -4,4 +4,4 @@
 ADAPTOR=demo
 
 # run the application with the specified arguments
-gladoss-run --verbose "$ADAPTOR"
+gladoss-run --verbose --endpoint gladoss-demo:8000 --continuous "$ADAPTOR"

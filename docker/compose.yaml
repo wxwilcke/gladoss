@@ -15,8 +15,10 @@ services:
         type: bind
         bind:
           create_host_path: true
+    networks:
+      - semantic_network
     ports:
-      - "8000:8000"
+      - "8001:8000"
   gladoss-demo:
     build: .
     container_name: gladoss-demo
@@ -28,7 +30,13 @@ services:
         type: bind
         bind:
           create_host_path: true
+    networks:
+      - semantic_network
     ports:
       - "8000:8000"
     entrypoint: ''
     command: gladoss-demo --verbose --cachesize=5 --host "0.0.0.0" --port 8000
+
+networks:
+  semantic_network:
+    driver: bridge
