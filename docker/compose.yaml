@@ -17,8 +17,8 @@ services:
           create_host_path: true
     networks:
       - semantic_network
-    ports:
-      - "8001:8000"
+    expose:
+      - 8000
   gladoss-demo:
     build: .
     container_name: gladoss-demo
@@ -32,8 +32,8 @@ services:
           create_host_path: true
     networks:
       - semantic_network
-    ports:
-      - "8000:8000"
+    expose:
+      - 8000
     entrypoint: ''
     command: gladoss-demo --verbose --cachesize=5 --host "0.0.0.0" --port 8000
 

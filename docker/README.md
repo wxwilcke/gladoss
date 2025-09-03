@@ -4,11 +4,13 @@ The latest version of GLADoSS can be deployed via Docker, by building and then r
 
     # docker-compose up gladoss
 
-The above command will build the image (if not already done so before) and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup and logging locations (default to `/tmp/`) can be set in the `compose.yaml` file.
+The above command will build the image (if not already done so before) and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup and logging locations can be set in the `compose.yaml` file.
 
 The following command can be used to stop the container:
 
     # docker-compose down gladoss
+
+When using the provided compose file the running containers are connected via a dedicated Docker network named `semantic_network`. Only messages sent via this network are visible to the containers. To allow for communication between arbitrary devices, add the devices to this network (if dockerized) or edit the network settings in the compose file to use a different network (e.g. that of the host). 
 
 Note that the image will have to be rebuild each time a custom adaptor is added.
 
