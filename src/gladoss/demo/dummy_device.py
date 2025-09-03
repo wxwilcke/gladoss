@@ -172,7 +172,7 @@ def main(flags: argparse.Namespace):
     cycler = Thread(target=cycleItems, args=[data, flags])
     cycler.start()
 
-    uvicorn.run(app, port=flags.port)
+    uvicorn.run(app, host=flags.host, port=flags.port)
 
     cycler.join()
 
@@ -194,6 +194,9 @@ def __main__(argv: list[str]):
                         "expire before continuing. If disabled, continue "
                         "only via a keypress.", default=True, type=bool,
                         action=argparse.BooleanOptionalAction)
+    parser.add_argument("--host", help="Make endpoint evailable at this "
+                        + "address (default '127.0.0.1')", default="127.0.0.1",
+                        type=str)
     parser.add_argument("--port", help="Bind socket to this port (default "
                         + "8000)", default=8000, type=int)
     parser.add_argument("--realtime", help="Use actual time of publication "
