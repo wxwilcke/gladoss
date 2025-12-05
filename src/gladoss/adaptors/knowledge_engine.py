@@ -8,6 +8,7 @@ from typing import Any, Collection, Optional, Self
 
 import requests
 from rdf import IRIRef, Literal, Statement
+from rdf.namespaces import RDF, RDFS, SHACL
 
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.core.connector import Connector
@@ -29,25 +30,25 @@ FILE_DIR = os.path.dirname(__file__)
 FILENAME_CONF = "knowledge_engine.toml"
 CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 REPORT_GRAPH_PATTERN = """
-?root rdf:type sh:ValidationReport .
-?root dct:date ?date .
-?root dct:identifier ?identifier .
-?root dct:conformsTo ?specification .
-?root sh:conforms ?conforms .
-?root dct:hasPart ?result .
+?report rdf:type sh:ValidationReport .
+?report dct:date ?reportDate .
+?report dct:identifier ?reportIdentifier .
+?report dct:conformsTo ?reportLanguage .
+?report sh:conforms ?validationPassed .
+?report dct:hasPart ?result .
 
 ?result rdf:type sh:ValidationResult .
-?result rdfs:label ?status_msg .
-?result sh:focusNode ?focusNode .
+?result rdfs:label ?resultStatusMsg .
+?result sh:focusNode ?resultFocusNode .
 ?result sh:resultPath ?resultPath .
-?result sh:value ?value .
-?result sh:sourceShape ?sourceShape .
-?result sh:resultMessage ?status_msg_long .
-?result sh:resultSeverity ?severity .
+?result sh:value ?resultValue .
+?result sh:sourceShape ?resultSourceShape .
+?result sh:resultMessage ?resultStatusMsgLong .
+?result sh:resultSeverity ?resultSeverity .
 
-?severity rdf:type sh:Severity .
-?severity rdfs:label ?status_code .
-?severity rdfs:comment ?status_description .
+?resultSeverity rdf:type sh:Severity .
+?resultSeverity rdfs:label ?severityLabel .
+?resultSeverity rdfs:comment ?severityDescription .
 """
 REPORT_PREFIXES = {
         "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
@@ -55,6 +56,7 @@ REPORT_PREFIXES = {
         "dct": "http://purl.org/dc/terms/",
         "sh": "http://www.w3.org/ns/shacl#"
         }
+DCT = IRIRef("http://purl.org/dc/terms/")
 
 
 class KE_Adaptor(Adaptor):
@@ -113,7 +115,7 @@ class KE_Adaptor(Adaptor):
         if response.status_code == requests.codes.ok:  # 200: ok
             return response.json()['KnowledgeInteractionId']  # type: str
 
-    def deregister_kb(self: Self, endpoint: str, kb_id: str):
+    def deregister_kb(self: Self, endpoint: str, kb_id: str) -> bool:
         """ Deregister knowledge base.
 
         :param endpoint: [TODO:description]
@@ -126,7 +128,8 @@ class KE_Adaptor(Adaptor):
 
         return response.status_code == requests.codes.ok  # 200: ok
 
-    def deregister_ki(self: Self, endpoint: str, kb_id: str, ki_id: str):
+    def deregister_ki(self: Self, endpoint: str, kb_id: str, ki_id: str)\
+            -> bool:
         """ Deregister knowledge interaction.
 
         :param endpoint: [TODO:description]
@@ -173,7 +176,7 @@ class KE_Adaptor(Adaptor):
         kb_id = conf['knowledgeBaseId']
         kb_name = conf['knowledgeBaseName']
         kb_desc = conf['knowledgeBaseDescription']
-        for ki in conf['knowledgeInteractions']:  # register all interactions
+        for ki in conf['knowledgeInteraction']:  # register all interactions
             ki_endpoint = ki['knowledgeInteractionEndpoint']
             if ki_endpoint not in self.context['reactKnowledgeInteractions']:
                 # keep track of registered knowledge interactions
@@ -184,7 +187,6 @@ class KE_Adaptor(Adaptor):
                     'knowledgeInteractionType': "ReactKnowledgeInteraction",
                     'knowledgeInteractionName': ki['knowledgeInteractionName'],
                     'argumentGraphPattern': ki_pattern,
-                    'resultGraphPattern': "",  # empty response
                     'prefixes': ki['prefixes']
                     }
             try:
@@ -194,7 +196,8 @@ class KE_Adaptor(Adaptor):
 
                 ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
                 if ki_id is None:
-                    logger.error("Unable to register knowledge interaction")
+                    logger.error("Unable to register react knowledge "
+                                 "interaction")
 
                     continue
 
@@ -231,6 +234,10 @@ class KE_Adaptor(Adaptor):
                     }
 
             ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
+            if ki_id is None:
+                logger.error("Unable to register post knowledge interaction")
+
+                continue
 
             # keep track of registered knowledge interactions
             self.context['postKnowledgeInteractions'][ki_endpoint] = ki_id
@@ -243,9 +250,11 @@ class KE_Adaptor(Adaptor):
         for ki_endpoint, ki_set in self.context['reactKnowledgeInteractions']:
             endpoint = ki_endpoint + "/sc/ki"
             for ki_id in ki_set:
-                self.deregister_ki(endpoint, kb_id, ki_id)
+                if not self.deregister_ki(endpoint, kb_id, ki_id):
+                    logger.error("Unable to deregister knowledge interaction")
 
-            self.deregister_kb(endpoint, kb_id)
+            if not self.deregister_kb(endpoint, kb_id):
+                logger.error("Unable to deregister knowledge base")
 
     def publish_report(self: Self, identifier: str,
                        data: Collection[Statement]) -> bool:
@@ -254,7 +263,8 @@ class KE_Adaptor(Adaptor):
             performing a post knowledge interaction to the
             endpoint from which the state graph was received.
 
-        :param identifier: [TODO:description]
+        :param identifier: the react knowledge interaction ID associated with
+                           a distinct argument graph pattern.
         :param data: [TODO:description]
         :return: [TODO:description]
         """
@@ -263,8 +273,8 @@ class KE_Adaptor(Adaptor):
             package_headers = self.set_report_headers(identifier)
             package_payload = self.set_report_payload(identifier, data)
 
-            ki_endpoint = self.context['reactKnowledge'
-                                       'InteractionsInv'][identifier]
+            ki_endpoint\
+                = self.context['reactKnowledgeInteractionsInv'][identifier]
 
             success = self.post_ki(ki_endpoint,
                                    package_headers,
@@ -278,7 +288,7 @@ class KE_Adaptor(Adaptor):
         """ Add connectors to adaptor, one for each different endpoint.
         """
         # connections to listen on
-        for ki_endpoint in self.context['reactKowledgeInteractions'].keys():
+        for ki_endpoint in self.context['reactKnowledgeInteractions'].keys():
             self.connectors.add(Connector(
                 adaptor=self,
                 endpoint=ki_endpoint + "/sc/handle",
@@ -300,7 +310,7 @@ class KE_Adaptor(Adaptor):
 
         return {"Knowledge-Base-Id": kb_id}
 
-    def set_payload(self: Self) -> dict[str, Any]:
+    def set_payload(self: Self) -> list[Any] | dict[str, Any]:
         """ Returns payload for polling the endpoint. Defaults
             to empty payload.
 
@@ -311,20 +321,20 @@ class KE_Adaptor(Adaptor):
 
     def set_report_headers(self: Self, identifier: str) -> dict[str, Any]:
         """ Returns headers for publishing the validation report
-            to the endpoint. Defaults to empty headers
+            to the endpoint.
 
         :param self: [TODO:description]
         :return: [TODO:description]
         """
         headers = dict()
         try:
-            ki_endpoint = self.context['reactKnowledge'
-                                       'InteractionsInv'][identifier]
+            ki_endpoint\
+                = self.context['reactKnowledgeInteractionsInv'][identifier]
             ki_id = self.context['postKnowledgeInteractions'][ki_endpoint]
 
             headers = {
                     'Knowledge-Base-Id': self.context['knowledgeBaseId'],
-                    'Knowledge-Interaction-Id': ki_id
+                    'Knowledge-Interaction-Id': ki_id  # ID of post KI
                     }
         except KeyError:
             logger.error("Unable to retrieve identifiers for report "
@@ -333,7 +343,8 @@ class KE_Adaptor(Adaptor):
         return headers
 
     def set_report_payload(self: Self, identifier: str,
-                           data: Collection[Statement]) -> dict[str, Any]:
+                           data: Collection[Statement])\
+            -> list[Any] | dict[str, Any]:
         """ Returns payload for publishing the validation report
             to the endpoint, by converting the provided shape graph
             to binding sets.
@@ -341,13 +352,18 @@ class KE_Adaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
+        payload = {
+                    "recipientSelector": {
+                        "knowledgeBases": []
+                     },
+                    "bindingSet": self.translate_inv(data)
+                  }
 
-        return self.translate_inv(data)  # TODO
+        return payload
 
     def set_receipt_headers(self: Self, data: dict[str, Any])\
             -> dict[str, Any]:
-        """ Returns headers for sending a receipt. Defaults
-            to empty headers.
+        """ Returns headers for sending a receipt.
 
         :param self: [TODO:description]
         :return: [TODO:description]
@@ -365,9 +381,8 @@ class KE_Adaptor(Adaptor):
         return headers
 
     def set_receipt_payload(self: Self, data: dict[str, Any])\
-            -> dict[str, Any]:
-        """ Returns payload for sending a receipt. Defaults
-            to empty payload.
+            -> list[Any] | dict[str, Any]:
+        """ Returns payload for sending a receipt.
 
         :param self: [TODO:description]
         :return: [TODO:description]
@@ -377,7 +392,7 @@ class KE_Adaptor(Adaptor):
             req_id = data['handleRequestId']
             payload = {
                     'handleRequestId': req_id,
-                    'bindingSet': list()  # empty response
+                    'bindingSet': []  # empty response
                     }
         except KeyError:
             logger.error("Unable to retrieve identifiers from message "
@@ -428,6 +443,131 @@ class KE_Adaptor(Adaptor):
 
         return data_translated
 
+    def translate_inv(data: Collection[Statement]) -> list[dict[str, str]]:
+        """ Translates a validation report into a binding set with as many
+            entries as there are results. Returns an empty binding set if
+            no results are to be reported.
+
+        :param data:
+        :return: [TODO:description]
+        """
+        def to_string(node: IRIRef | Literal) -> str:
+            if isinstance(node, Literal):
+                node_str = f"\"{node}\""
+                if node.datatype is not None:
+                    node_str += f"^^{to_string(node.datatype)}"
+                elif node.language is not None:
+                    node_str += f"@{node.language}"
+
+                return node_str
+
+            return f"<{node}>"
+
+        binding_set = list()
+
+        root = None
+        report = dict()
+        results = dict()
+        severities = dict()
+        for statement in data:
+            if statement.predicate == RDF + "type":
+                sbj = statement.subject
+                if statement.object == SHACL + "ValidationReport":
+                    root = sbj
+                    report[sbj] = {"report": sbj}
+
+                    continue
+                if statement.object == SHACL + "ValidationResult":
+                    results[sbj] = {"result": sbj}
+
+                    continue
+
+                if statement.object == SHACL + "Severity":
+                    severities[sbj] = {"severity": sbj}
+
+                    continue
+
+        if root is not None:
+            for statement in data:
+                sbj = statement.subject
+                if sbj == root:
+                    if statement.predicate == DCT + "date":
+                        report[sbj]["reportDate"] = statement.object
+
+                        continue
+                    if statement.predicate == DCT + "identifier":
+                        report[sbj]["reportIdentifier"] = statement.object
+
+                        continue
+                    if statement.predicate == DCT + "conformsTo":
+                        report[sbj]["reportLanguage"] = statement.object
+
+                        continue
+                    if statement.predicate == SHACL + "conforms":
+                        report[sbj]["validationPassed"] = statement.object
+
+                        continue
+
+                if sbj in results.keys():
+                    if statement.predicate == RDFS + "label":
+                        results[sbj]["resultStatusMsg"] = statement.object
+
+                        continue
+                    if statement.predicate == SHACL + "focusNode":
+                        results[sbj]["resultFocusNode"] = statement.object
+
+                        continue
+                    if statement.predicate == SHACL + "resultPath":
+                        results[sbj]["resultPath"] = statement.object
+
+                        continue
+                    if statement.predicate == SHACL + "value":
+                        results[sbj]["resultValue"] = statement.object
+
+                        continue
+                    if statement.predicate == SHACL + "sourceShape":
+                        results[sbj]["resultSourceShape"] = statement.object
+
+                        continue
+                    if statement.predicate == SHACL + "resultMessage":
+                        results[sbj]["resultStatusMsgLong"] = statement.object
+
+                        continue
+                    if statement.predicate == SHACL + "severity":
+                        results[sbj]["resultSeverity"] = statement.object
+
+                        continue
+
+                if sbj in severities.keys():
+                    if statement.predicate == RDFS + "label":
+                        severities[sbj]["severityLabel"] = statement.object
+
+                        continue
+                    if statement.predicate == RDFS + "comment":
+                        severities[sbj]["severityDescription"]\
+                                = statement.object
+
+                        continue
+
+            # integrate dictionaries
+            for result in results.values():
+                bindings = dict()
+                for k, v in report[root].items():
+                    bindings[k] = to_string(v)
+
+                for k, v in result.items():
+                    bindings[k] = to_string(v)
+
+                if "resultSeverity" in result.keys():
+                    sev = result["resultSeverity"]
+                    if sev in severities.keys():
+                        for k, v in severities[sev].items():
+                            bindings[k] = to_string(v)
+
+                binding_set.append(bindings)
+
+        return binding_set
+
     def instantiate_graph(self: Self, statements_str: list[str],
                           bindings: dict[str, str]) -> list[str]:
         """ Replace variable names by bounded values. This will fail
@@ -445,17 +585,44 @@ class KE_Adaptor(Adaptor):
                 continue
 
             i = 0
-            for var, vbind in bindings.items():
-                if f"?{var}" in s:
-                    # TODO: check if literals are correctly encased in quotes
-                    s = s.replace(f"?{var}", vbind)
-                    i += 1
+            flag = False
+            s_lst = list()
+            for j in range(len(s)):
+                char = s[j]
+                if char == '"':
+                    # reached a literal; no need to continue
+                    j = len(s)
 
-                if i >= 3:
-                    # at most three bindings per statement
                     break
 
-            out.append(s)
+                if char == '?':
+                    # possible variable
+                    if i > 0:
+                        # add chars since last variable
+                        s_lst.append(s[i:j])
+
+                    i = j
+                    flag = True
+
+                    continue
+
+                if flag and not char.isalnum():  # end of variable
+                    var = s[i+1:j]
+                    if var in bindings.keys():
+                        if len(s_lst) <= 0 and i > 0:
+                            # add chars in front
+                            s_lst.append(s[:i])
+
+                        binding = bindings[var]
+                        s_lst.append(binding)
+
+                    i = j
+                    flag = False
+
+                    continue
+
+            s_lst.append(s[i:j+1])  # add remainder
+            out.append(''.join(s_lst))
 
         return out
 

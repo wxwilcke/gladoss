@@ -61,7 +61,7 @@ class DemoAdaptor(Adaptor):
         """
         return {"adaptor": "demo"}
 
-    def set_payload(self: Self) -> dict[str, Any]:
+    def set_payload(self: Self) -> list[Any] | dict[str, Any]:
         """ Returns payload for polling the endpoint. Defaults
             to empty payload.
 
@@ -83,7 +83,7 @@ class DemoAdaptor(Adaptor):
         return super().set_receipt_headers(data)
 
     def set_receipt_payload(self: Self, data: dict[str, Any])\
-            -> dict[str, Any]:
+            -> list[Any] | dict[str, Any]:
         """ Returns payload for sending a receipt. Defaults
             to empty payload.
 

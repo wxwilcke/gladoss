@@ -61,7 +61,7 @@ class Adaptor(ABC):
         return dict()
 
     @abstractmethod
-    def set_payload(self: Self) -> dict[str, Any]:
+    def set_payload(self: Self) -> list[Any] | dict[str, Any]:
         """ Returns payload for polling the endpoint. Defaults
             to empty payload.
 
@@ -83,7 +83,7 @@ class Adaptor(ABC):
 
     @abstractmethod
     def set_receipt_payload(self: Self, data: dict[str, Any])\
-            -> dict[str, Any]:
+            -> list[Any] | dict[str, Any]:
         """ Returns payload for sending a receipt. Defaults
             to empty payload.
 
