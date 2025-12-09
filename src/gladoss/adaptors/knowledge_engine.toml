@@ -1,21 +1,18 @@
 # Example configuration for SAREF use case
 
-knowledgeBaseId = "http://example.org/ai"
+knowledgeBaseId = "http://example.org/gladoss"
 knowledgeBaseName = "GLADoSS"
 knowledgeBaseDescription = "Graph-based Live Anomaly Detection on Semantic Streams"
 
 [[knowledgeInteraction]]
-knowledgeInteractionEndpoint = "http://127.0.0.1:8000"
-knowledgeInteractionName = "Device Observations Request"
+knowledgeInteractionEndpoint = "http://127.0.0.1:8280/rest"
+knowledgeInteractionName = "DeviceObservationsRequest"
 argumentGraphPattern = """
-  ?obs rdf:type saref:Observation .
-  ?obs saref:madeBy ?device . 
-  ?obs saref:hasTimestamp ?timestamp . 
-  ?obs saref:hasResult ?result .
-  ?result rdf:type saref:PropertyValue .
-  ?result saref:isValueOfProperty ?prop .
-  ?result saref:hasValue ?value .
-  ?result saref:isMeasuredIn ?unit .
+  ?sensor rdf:type saref:Sensor .
+  ?measurement saref:measurementMadeBy ?sensor .
+  ?measurement saref:isMeasuredIn saref:TemperatureUnit .
+  ?measurement saref:hasValue ?temperature .
+  ?measurement saref:hasTimestamp ?timestamp .
   """
 [knowledgeInteraction.prefixes]
 rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"

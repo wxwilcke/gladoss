@@ -3,7 +3,7 @@
 import logging
 import os
 import re
-import toml
+import tomllib
 from typing import Any, Collection, Optional, Self
 
 import requests
@@ -77,7 +77,7 @@ class KE_Adaptor(Adaptor):
     """
 
     def register_kb(self: Self, endpoint: str, kb_id: str, kb_name: str,
-                    kb_desc: str) -> Optional[dict[str, Any]]:
+                    kb_desc: str) -> bool:
         """ Register knowledge base if it has not been registered yet.
 
         :param endpoint: [TODO:description]
@@ -86,7 +86,8 @@ class KE_Adaptor(Adaptor):
         :param kb_desc: [TODO:description]
         """
         endpoint = endpoint + "/sc"
-        headers = {'Knowledge-Base-Id': kb_id}
+        headers = {'Knowledge-Base-Id': kb_id,
+                   'Content-Type': 'application/json'}
 
         response = requests.get(endpoint, headers=headers)
         if response.status_code == requests.codes.not_found:  # 404: not found
@@ -95,10 +96,7 @@ class KE_Adaptor(Adaptor):
                        'knowledgeBaseDescription': kb_desc}
             response = requests.post(endpoint, json=payload)
 
-        if response.status_code == requests.codes.ok:  # 200: ok
-            smartconnectors = response.json()  # type: list
-            assert len(smartconnectors) == 1, "Expects exactly one SC"
-            return smartconnectors.pop()  # type: dict[str, Any]
+        return response.status_code == requests.codes.ok  # 200: ok
 
     def register_ki(self: Self, endpoint: str, kb_id: str,
                     ki_payload: dict[str, str]) -> Optional[str]:
@@ -109,11 +107,12 @@ class KE_Adaptor(Adaptor):
         :param ki_payload: [TODO:description]
         """
         endpoint = endpoint + "/sc/ki"
-        headers = {'Knowledge-Base-Id': kb_id}
+        headers = {'Knowledge-Base-Id': kb_id,
+                   'Content-Type': 'application/json'}
 
         response = requests.post(endpoint, headers=headers, json=ki_payload)
         if response.status_code == requests.codes.ok:  # 200: ok
-            return response.json()['KnowledgeInteractionId']  # type: str
+            return response.json()['knowledgeInteractionId']  # type: str
 
     def deregister_kb(self: Self, endpoint: str, kb_id: str) -> bool:
         """ Deregister knowledge base.
@@ -164,7 +163,7 @@ class KE_Adaptor(Adaptor):
         """
         conf = dict()
         with open(CONF_PATH, 'rb') as f:
-            conf = toml.load(f)
+            conf = tomllib.load(f)
 
         # use context to share data between hooks
         self.context['reactKnowledgeInteractions'] = dict()
@@ -190,8 +189,7 @@ class KE_Adaptor(Adaptor):
                     'prefixes': ki['prefixes']
                     }
             try:
-                sc = self.register_kb(ki_endpoint, kb_id, kb_name, kb_desc)
-                if sc is None:
+                if not self.register_kb(ki_endpoint, kb_id, kb_name, kb_desc):
                     raise Exception("Unable to register knowledge base")
 
                 ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
@@ -229,7 +227,6 @@ class KE_Adaptor(Adaptor):
                     'knowledgeInteractionType': "PostKnowledgeInteraction",
                     'knowledgeInteractionName': "AnomalyReportPublication",
                     'argumentGraphPattern': REPORT_GRAPH_PATTERN,
-                    'resultGraphPattern': "",  # empty response
                     'prefixes': REPORT_PREFIXES
                     }
 
@@ -292,7 +289,7 @@ class KE_Adaptor(Adaptor):
             self.connectors.add(Connector(
                 adaptor=self,
                 endpoint=ki_endpoint + "/sc/handle",
-                continuous=self.config.continues,
+                continuous=self.config.continuous,
                 num_retries=self.config.retries,
                 retry_delay=self.config.retry_delay,
                 request_delay=self.config.request_delay,
@@ -334,7 +331,8 @@ class KE_Adaptor(Adaptor):
 
             headers = {
                     'Knowledge-Base-Id': self.context['knowledgeBaseId'],
-                    'Knowledge-Interaction-Id': ki_id  # ID of post KI
+                    'Knowledge-Interaction-Id': ki_id,  # ID of post KI
+                    'Content-Type': 'application/json'
                     }
         except KeyError:
             logger.error("Unable to retrieve identifiers for report "
@@ -352,12 +350,7 @@ class KE_Adaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        payload = {
-                    "recipientSelector": {
-                        "knowledgeBases": []
-                     },
-                    "bindingSet": self.translate_inv(data)
-                  }
+        payload = self.translate_inv(data)
 
         return payload
 
@@ -371,8 +364,9 @@ class KE_Adaptor(Adaptor):
         headers = dict()
         try:
             headers = {
-                    'Knowledge-Base-Id': data['requestingKnowledgeBaseId'],
-                    'Knowledge-Interaction-Id': data['knowledgeInteractionId']
+                    'Knowledge-Base-Id': self.context['knowledgeBaseId'],
+                    'Knowledge-Interaction-Id': data['knowledgeInteractionId'],
+                    'Content-Type': 'application/json'
                     }
         except KeyError:
             logger.error("Unable to retrieve identifiers from message "
@@ -443,7 +437,8 @@ class KE_Adaptor(Adaptor):
 
         return data_translated
 
-    def translate_inv(data: Collection[Statement]) -> list[dict[str, str]]:
+    def translate_inv(self: Self, data: Collection[Statement])\
+            -> list[dict[str, str]]:
         """ Translates a validation report into a binding set with as many
             entries as there are results. Returns an empty binding set if
             no results are to be reported.
