@@ -204,8 +204,8 @@ class KE_Adaptor(Adaptor):
                 self.context['reactKnowledge'
                              'InteractionsInv'][ki_id] = ki_endpoint
                 self.context['argumentGraphPatterns'][ki_id] = ki_pattern
-            except Exception as e:
-                logger.error(f"Unable to register at endpoint: {e}.")
+            except Exception:
+                logger.error(f"Unable to register at endpoint: {ki_endpoint}.")
 
         self.context['knowledgeBaseId'] = kb_id
 
@@ -213,7 +213,10 @@ class KE_Adaptor(Adaptor):
         self.config.return_receipt = True
 
         # register KIs for report publication
-        self.register_report_publications()
+        try:
+            self.register_report_publications()
+        except Exception:
+            logger.error("Unable to register post knowledge interaction")
 
     def register_report_publications(self: Self) -> None:
         """ Register a single post knowledge interaction per known
