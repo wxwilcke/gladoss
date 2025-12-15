@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 import functools
 import logging
+import os
 from pathlib import Path
 from queue import Queue
 import signal
@@ -28,6 +29,7 @@ from gladoss.core.utils import (create_pattern_map, gen_id, import_class,
 
 logger = logging.getLogger(__name__)
 ROOT_PATH = Path(__file__).parent
+ADAPTER_ENV_NAME = "GLADOSS_ADAPTOR_DIRECTORY"
 
 
 def signal_handler(signum, frame):
@@ -330,8 +332,17 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
 
 def __main__():
+    adaptor_dir = os.environ.get(ADAPTER_ENV_NAME)
+    adaptor_lst = [ROOT_PATH / "adaptors"]
+    if adaptor_dir is not None:
+        adaptor_dir = Path(adaptor_dir)
+        if not adaptor_dir.exists():
+            logger.warning(f"Unable to find path '{adaptor_dir}'")
+        else:
+            adaptor_lst.append(adaptor_dir)
+
     # find available adaptors
-    adaptors = list_classes(ROOT_PATH / "adaptors")
+    adaptors = list_classes(adaptor_lst)
     del adaptors['adaptor']  # exclude the abstract base class
 
     parser = argparse.ArgumentParser(
@@ -355,7 +366,9 @@ def __main__():
 
     parser_comm = parser.add_argument_group('Communication Settings')
     parser_comm.add_argument("adaptor", help="Adaptor appropriate for "
-                             + "endpoint", choices=list(adaptors.keys()),
+                             + f"endpoint. Set '{ADAPTER_ENV_NAME}' to "
+                             + "support dynamic loading of bespoke adaptors.",
+                             choices=list(adaptors.keys()),
                              type=str, nargs='?')
     parser_comm.add_argument("--endpoint", help="HTTP address to listen to. "
                              "This is only needed if the application listens "

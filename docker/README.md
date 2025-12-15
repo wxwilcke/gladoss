@@ -1,10 +1,12 @@
 # GLADoSS Docker Image
 
-The latest version of GLADoSS can be deployed via Docker, by building and then running an image using the files provided in this directory. Hereto, clone or download these files to a local directory and execute the following command:
+The latest version of GLADoSS can be deployed via Docker, by building and then running an image using the files provided in this directory. Hereto, clone or download these files to a local directory and execute the following commands:
 
-    # docker-compose up gladoss
+    # docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) .
 
-The above command will build the image (if not already done so before) and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup and logging locations can be set in the `compose.yaml` file.
+    # docker-compose up -d gladoss
+
+The above commands will build the image and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup and logging locations can be set in the `compose.yaml` file.
 
 The following command can be used to stop the container:
 
@@ -20,7 +22,7 @@ The application can be run in demo mode, in which it will simulate a smart devic
 
 The following command starts the application in demo mode:
 
-    # docker-compose up gladoss-demo
+    # docker-compose up -d gladoss-demo
 
 The following command can be used to stop the container:
 

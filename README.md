@@ -159,7 +159,7 @@ Adaptors form the bridge between GLADoSS and the various knowledge producers or 
 
 To create a custom adaptor
 
-1) Create a new Python file in `gladoss/adaptors`.
+1) Create a new Python file in a directory of choice, for example `adaptors/custom_adaptor.py`.
 
 2) Create a new class in the just-created file. This class must be a subclass of the abstract base class `Adaptor`.
 
@@ -170,6 +170,10 @@ To create a custom adaptor
     - procedures to publish (and optionaly translate) the validation report
 
 In addition, a procedure has to be written that creates one on more connections, one per endpoint. If necessary, an initialisation and clean-up hook can also be used that will run before and after establishing the connection, and a context dictionary can be used to share data between procedures.
+
+4) Set the environment variable `GLADOSS_ADAPTOR_DIRECTORY` to point to the directory that contains your adaptors, and tell GLADoSS to use your custom adaptor:
+
+    env GLADOSS_ADAPTOR_DIRECTORY=./adaptors/ ../pythonenv/bin/python -m gladoss -v custom_adaptor
 
 ---
 

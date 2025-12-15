@@ -3,18 +3,27 @@
 FROM python:3.13-alpine3.22
 LABEL org.opencontainers.image.authors="w.x.wilcke@vu.nl"
 
-ENV GROUP=gladoss
-ENV USER=gladoss
-ENV WORKDIR=/usr/local/gladoss
-ENV LOGDIR=/var/log/gladoss
-ENV BACKUPDIR=/mnt/backup
+ARG GROUP=gladoss
+ARG USER=gladoss
+ARG UID=1000
+ARG GID=1000
+
+ARG WORKDIR=/usr/local/gladoss
+ARG ADAPTORDIR=/etc/gladoss/adaptors
+ARG LOGDIR=/var/log/gladoss
+ARG BACKUPDIR=/mnt/backup
+
+ENV PYTHONUSERBASE=$WORKDIR
+ENV GLADOSS_ADAPTOR_DIRECTORY=$ADAPTORDIR
 
 # create a user and group to run the application under
-RUN addgroup $GROUP \
+RUN addgroup --gid $GID $GROUP \
 && adduser --disabled-password \
            --gecos "" \
            --no-create-home \
+           --shell /bin/false \
            --ingroup $GROUP \
+           --uid $UID \
            $USER
 
 # create the log directory
@@ -27,10 +36,14 @@ RUN mkdir -p $BACKUPDIR \
  && chown root:$GROUP $BACKUPDIR \
  && chmod g+rwxs $BACKUPDIR
 
+# create the dynamic adaptor directory
+RUN mkdir -p $ADAPTORDIR \
+ && chown root:$GROUP $ADAPTORDIR \
+ && chmod g+rwxs $ADAPTORDIR
+
 # create a working directory
 RUN mkdir -p $WORKDIR \
- && chown root:$GROUP $WORKDIR \
- && chmod g+rwxs $WORKDIR
+ && chown root:$GROUP $WORKDIR
 
 # copy the application to the image
 ADD --keep-git-dir=false --chown=root:$GROUP https://gitlab.com/wxwilcke/gladoss.git $WORKDIR
@@ -39,8 +52,9 @@ RUN chown -R root:$GROUP $WORKDIR
 WORKDIR $WORKDIR
 
 # install the application dependencies and the application itself
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install .
+RUN export PYTHONUSERBASE
+RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --user .
 
 # create shortcuts
 RUN echo -e "#"'!'"/bin/sh\n"\
@@ -53,14 +67,14 @@ RUN chmod +x /usr/local/bin/gladoss-run
 
 RUN echo -e "#"'!'"/bin/sh\n"\
             "TIMESTAMP="'$'"(date +%s)\n"\
-            "python $WORKDIR/src/gladoss/demo/dummy_device.py" \
-            "--input=$WORKDIR/src/gladoss/demo/dummy-data.json" \
+            "python $WORKDIR/src/gladoss/demo/demo_device.py" \
+            "--input=$WORKDIR/src/gladoss/demo/demo-data.json" \
             '"$@"' \
             ">> $LOGDIR/demo-"'$'"TIMESTAMP.log 2>&1" > /usr/local/bin/gladoss-demo
 RUN chmod +x /usr/local/bin/gladoss-demo
 
 # specify entrypoint - users must only edit this script
-COPY --chown=root:$GROUP entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chown=root:$GROUP entrypoint-ke.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER gladoss
