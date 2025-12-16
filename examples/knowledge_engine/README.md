@@ -74,10 +74,10 @@ setup.
 1) Run the Knowledge Engine container with an appropriate name and network:
 
 ```bash
-# docker run --network semantic_network \
-             --name knowledge-engine \
-             --port 8280:8280 \
-             ghcr.io/tno/knowledge-engine/smart-connector:1.4.0
+docker run --network semantic_network \
+           --name knowledge-engine \
+           --port 8280:8280 \
+           ghcr.io/tno/knowledge-engine/smart-connector:1.4.0
 ```
 
 2) Set the correct endpoint in the adaptor configuration file:
@@ -97,7 +97,7 @@ gladoss-run --verbose --continuous knowledge_engine
 4) Build a fresh container image with the aforementioned entrypoint file:
 
 ```bash
-# docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t gladoss-ke .
+docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t gladoss-ke .
 ```
 
 5) Run the GLADoSS container with the same network as above and with (at least)
@@ -105,12 +105,12 @@ the adaptor directory mounted at the appropriate mount point in the container
 (`/etc/gladoss/adaptors/`):
 
 ```bash
-# docker run --network semantic_network \
-             --name gladoss-ke \
-             --mount src=./backup/,target=/mnt/backup,type=bind \
-             --mount src=./logs/,target=/var/log/gladoss,type=bind \
-             --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
-             gladoss-ke
+docker run --network semantic_network \
+           --name gladoss-ke \
+           --mount src=./backup/,target=/mnt/backup,type=bind \
+           --mount src=./logs/,target=/var/log/gladoss,type=bind \
+           --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
+           gladoss-ke
 ```
 
 Alternatively, Docker compose can be used to manage the container.
