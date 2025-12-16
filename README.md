@@ -153,6 +153,8 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
 6) Terminate the simulator and GLADoSS by pressing *CTRL-C* several times.
 
+The demo is also available as Docker container (see `docker/`)
+
 ## Custom Adaptor
 
 Adaptors form the bridge between GLADoSS and the various knowledge producers or relays, handling incoming and outgoing communication as well as the translation between various data formats. Custom adaptors can be used to enable GLADoSS to work in different environments and with different forms of data.
@@ -173,8 +175,9 @@ In addition, a procedure has to be written that creates one on more connections,
 
 4) Set the environment variable `GLADOSS_ADAPTOR_DIRECTORY` to point to the directory that contains your adaptors, and tell GLADoSS to use your custom adaptor:
 
-    env GLADOSS_ADAPTOR_DIRECTORY=./adaptors/ ../pythonenv/bin/python -m gladoss -v custom_adaptor
-
+```bash
+env GLADOSS_ADAPTOR_DIRECTORY=${PWD}/adaptors/ python -m gladoss -v custom_adaptor
+```
 ---
 
 This project is funded by the Hedge-IoT project

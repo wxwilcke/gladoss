@@ -1,31 +1,51 @@
 # GLADoSS Docker Image
 
-The latest version of GLADoSS can be deployed via Docker, by building and then running an image using the files provided in this directory. Hereto, clone or download these files to a local directory and execute the following commands:
+The latest version of GLADoSS can be deployed via Docker by building and then running an image using the files provided in this directory. Hereto, clone or download these files to a local directory and follow the instruction below.
+
+1) Provide the appropriate adaptor in the entrypoint file. By default this is set to use the `demo` adaptor.
 
 ```bash
-# docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t gladoss .
+gladoss-run --verbose --continuous demo
+```
 
-# docker run --network semantic_network \
-             --name gladoss \
-             --mount src=./backup/,target=/mnt/backup,type=bind \
-             --mount src=./logs/,target=/var/log/gladoss,type=bind \
-             --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
-             gladoss
+2) Build a fresh container image with the aforementioned entrypoint file..
+
+```bash
+docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t gladoss .
+```
+
+3) Run the GLADoSS container on the `semantic_network` and with local directories for logs, backups, and (custom) adaptors accessible from the container.
+
+```bash
+docker run --network semantic_network \
+           --name gladoss \
+           --mount src=./backup/,target=/mnt/backup,type=bind \
+           --mount src=./logs/,target=/var/log/gladoss,type=bind \
+           --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
+           gladoss
 ```
 
 Alternatively, Docker compose can be used to manage the container:
 
 ```bash
-# docker-compose up -d gladoss
+docker-compose up -d gladoss
 ```
 
-The above commands will build the image and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup and logging locations can be set in the `compose.yaml` file.
+The above commands will build the image and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup, logging, and (custom) adaptor locations can be set in the `compose.yaml` file.
 
 The following command can be used to stop the container:
 
-    # docker-compose down gladoss
+```bash
+docker stop gladoss
+```
 
-When using the provided compose file the running containers are connected via a dedicated Docker network named `semantic_network`. Only messages sent via this network are visible to the containers. To allow for communication between arbitrary devices, add the devices to this network (if dockerized) or edit the network settings in the compose file to use a different network (e.g. that of the host). 
+or when Docker compose is used:
+
+```bash
+docker-compose down gladoss
+```
+
+When using the above commands or the provided compose file the running containers are connected via a dedicated Docker network named `semantic_network`. Only messages sent via this network are visible to the containers. To allow for communication between arbitrary devices, add the devices to this network (if dockerized) or edit the network settings in the compose file to use a different network (e.g. that of the host). 
 
 Note that the image will have to be rebuild each time a custom adaptor is added.
 
