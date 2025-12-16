@@ -74,7 +74,7 @@ RUN echo -e "#"'!'"/bin/sh\n"\
 RUN chmod +x /usr/local/bin/gladoss-demo
 
 # specify entrypoint - users must only edit this script
-COPY --chown=root:$GROUP entrypoint-ke.sh /usr/local/bin/entrypoint.sh
+COPY --chown=root:$GROUP entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER gladoss

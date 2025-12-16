@@ -205,7 +205,7 @@ class KE_Adaptor(Adaptor):
                              'InteractionsInv'][ki_id] = ki_endpoint
                 self.context['argumentGraphPatterns'][ki_id] = ki_pattern
             except Exception:
-                logger.error(f"Unable to register at endpoint: {ki_endpoint}.")
+                logger.error(f"Unable to register at endpoint '{ki_endpoint}'")
 
         self.context['knowledgeBaseId'] = kb_id
 

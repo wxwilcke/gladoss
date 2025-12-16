@@ -1,8 +1,10 @@
 services:
   gladoss:
-    build: .
-    container_name: gladoss
-    image: gladoss:latest
+    build:
+      context: .
+      dockerfile: ../docker/Dockerfile 
+    container_name: gladoss-ke
+    image: gladoss-ke:latest
     volumes:
       - source: ./backup/
         target: /mnt/backup
@@ -21,24 +23,6 @@ services:
           create_host_path: true
     networks:
       - semantic_network
-    expose:
-      - 8000
-  gladoss-demo:
-    build: .
-    container_name: gladoss-demo
-    image: gladoss:latest
-    volumes:
-      - source: ./logs/
-        target: /var/log/gladoss
-        type: bind
-        bind:
-          create_host_path: true
-    networks:
-      - semantic_network
-    expose:
-      - 8000
-    entrypoint: ''
-    command: gladoss-demo --verbose --cachesize=5 --host "0.0.0.0" --port 8000
 
 networks:
   semantic_network:

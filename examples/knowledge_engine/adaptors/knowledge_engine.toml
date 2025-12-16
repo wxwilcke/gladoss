@@ -5,7 +5,7 @@ knowledgeBaseName = "GLADoSS"
 knowledgeBaseDescription = "Graph-based Live Anomaly Detection on Semantic Streams"
 
 [[knowledgeInteraction]]
-knowledgeInteractionEndpoint = "http://127.0.0.1:8280/rest"
+knowledgeInteractionEndpoint = "http://knowledge-engine:8280/rest"
 knowledgeInteractionName = "DeviceObservationsRequest"
 argumentGraphPattern = """
   ?sensor rdf:type saref:Sensor .
