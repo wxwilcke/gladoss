@@ -1,7 +1,7 @@
 # GLADoSS - Graph-based Live Anomaly Detection on Semantic Streams
 
 - [Official Repository (GitLab)](https://gitlab.com/wxwilcke/gladoss)
-- [Mirror Repository (GitHub)](https://gitlab.com/wxwilcke/gladoss)
+- [Mirror Repository (GitHub)](https://github.com/wxwilcke/gladoss)
 
 **THIS IS A WORK IN PROGRESS**
 
