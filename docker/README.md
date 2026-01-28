@@ -8,19 +8,20 @@ The latest version of GLADoSS can be deployed via Docker by building and then ru
 gladoss-run --verbose --continuous demo
 ```
 
+The `continuous` flag tells GLADoSS to keep listening for incoming messages regardless of communication and/or data issues.
+
 2) Build a fresh container image with the aforementioned entrypoint file..
 
 ```bash
 docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t gladoss .
 ```
 
-3) Run the GLADoSS container on the `semantic_network` and with local directories for logs, backups, and (custom) adaptors accessible from the container.
+3) Run the GLADoSS container on the `semantic_network` and with local directories for backups and (custom) adaptors accessible from the container.
 
 ```bash
 docker run --network semantic_network \
            --name gladoss \
            --mount src=./backup/,target=/mnt/backup,type=bind \
-           --mount src=./logs/,target=/var/log/gladoss,type=bind \
            --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
            gladoss
 ```
@@ -31,7 +32,13 @@ Alternatively, Docker compose can be used to manage the container:
 docker-compose up -d gladoss
 ```
 
-The above commands will build the image and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup, logging, and (custom) adaptor locations can be set in the `compose.yaml` file.
+The above commands will build the image and start the application as a service. The `entrypoint.sh` file can be edited to customise the parameters with which the application will be run, whereas custom backup and (custom) adaptor locations can be set in the `compose.yaml` file.
+
+Once the container is running the following command can be used to view the log output:
+
+```bash
+docker logs -f gladoss
+```
 
 The following command can be used to stop the container:
 

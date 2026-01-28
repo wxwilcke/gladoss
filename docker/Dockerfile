@@ -10,7 +10,6 @@ ARG GID=1000
 
 ARG WORKDIR=/usr/local/gladoss
 ARG ADAPTORDIR=/etc/gladoss/adaptors
-ARG LOGDIR=/var/log/gladoss
 ARG BACKUPDIR=/mnt/backup
 
 ENV PYTHONUSERBASE=$WORKDIR
@@ -25,11 +24,6 @@ RUN addgroup --gid $GID $GROUP \
            --ingroup $GROUP \
            --uid $UID \
            $USER
-
-# create the log directory
-RUN mkdir -p $LOGDIR \
- && chown root:$GROUP $LOGDIR \
- && chmod g+rwxs $LOGDIR
 
 # create the backup directory
 RUN mkdir -p $BACKUPDIR \
@@ -61,16 +55,14 @@ RUN echo -e "#"'!'"/bin/sh\n"\
             "TIMESTAMP="'$'"(date +%s)\n"\
             "python $WORKDIR/src/gladoss/run.py" \
             "--backup-path=$BACKUPDIR" \
-            '"$@"' \
-            ">> $LOGDIR/run-"'$'"TIMESTAMP.log 2>&1" > /usr/local/bin/gladoss-run
+            '"$@"' > /usr/local/bin/gladoss-run
 RUN chmod +x /usr/local/bin/gladoss-run
 
 RUN echo -e "#"'!'"/bin/sh\n"\
             "TIMESTAMP="'$'"(date +%s)\n"\
             "python $WORKDIR/src/gladoss/demo/demo_device.py" \
             "--input=$WORKDIR/src/gladoss/demo/demo-data.json" \
-            '"$@"' \
-            ">> $LOGDIR/demo-"'$'"TIMESTAMP.log 2>&1" > /usr/local/bin/gladoss-demo
+            '"$@"' > /usr/local/bin/gladoss-demo
 RUN chmod +x /usr/local/bin/gladoss-demo
 
 # specify entrypoint - users must only edit this script

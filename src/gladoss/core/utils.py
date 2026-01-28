@@ -178,6 +178,8 @@ def infer_class(resource: IRIRef, graph: Collection[Statement]) -> IRIRef:
         type declaration. Defaults to rdfs:Resource if no such
         declaration can be found.
 
+        TODO: include background info
+
     :param resource: [TODO:description]
     :param graph: [TODO:description]
     :return: [TODO:description]

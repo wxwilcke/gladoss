@@ -2,7 +2,7 @@ services:
   gladoss:
     build:
       context: .
-      dockerfile: ../docker/Dockerfile 
+      dockerfile: ./Dockerfile 
     container_name: gladoss-ke
     image: gladoss-ke:latest
     volumes:
@@ -11,18 +11,26 @@ services:
         type: bind
         bind:
           create_host_path: true
-      - source: ./logs/
-        target: /var/log/gladoss
-        type: bind
-        bind:
-          create_host_path: true
-      - source: ./adaptors/
+      - source: ../adaptors/
         target: /etc/gladoss/adaptors
         type: bind
         bind:
           create_host_path: true
     networks:
       - semantic_network
+    depends_on:
+      knowledge_engine:
+        condition: service_healthy
+  knowledge_engine:
+    container_name: knowledge_engine
+    image: ghcr.io/tno/knowledge-engine/smart-connector:1.4.0
+    ports:
+      - 8280:8280
+    networks:
+      - semantic_network
+    healthcheck:
+      test: wget http://localhost:8280/rest/sc -O /dev/null
+      interval: 1s
 
 networks:
   semantic_network:

@@ -9,11 +9,6 @@ services:
         type: bind
         bind:
           create_host_path: true
-      - source: ./logs/
-        target: /var/log/gladoss
-        type: bind
-        bind:
-          create_host_path: true
       - source: ./adaptors/
         target: /etc/gladoss/adaptors
         type: bind
@@ -27,12 +22,6 @@ services:
     build: .
     container_name: gladoss-demo
     image: gladoss:latest
-    volumes:
-      - source: ./logs/
-        target: /var/log/gladoss
-        type: bind
-        bind:
-          create_host_path: true
     networks:
       - semantic_network
     expose:

@@ -75,8 +75,8 @@ setup.
 
 ```bash
 docker run --network semantic_network \
-           --name knowledge-engine \
-           --port 8280:8280 \
+           --name knowledge_engine \
+           --publish 8280:8280 \
            ghcr.io/tno/knowledge-engine/smart-connector:1.4.0
 ```
 
@@ -84,7 +84,7 @@ docker run --network semantic_network \
 
 ```toml
 [...]
-knowledgeInteractionEndpoint = "http://knowledge-engine:8280/rest"
+knowledgeInteractionEndpoint = "http://knowledge_engine:8280/rest"
 [...]
 ```
 
@@ -97,7 +97,7 @@ gladoss-run --verbose --continuous knowledge_engine
 4) Build a fresh container image with the aforementioned entrypoint file:
 
 ```bash
-docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t gladoss-ke .
+docker build -t gladoss-ke docker/
 ```
 
 5) Run the GLADoSS container with the same network as above and with (at least)
@@ -108,9 +108,23 @@ the adaptor directory mounted at the appropriate mount point in the container
 docker run --network semantic_network \
            --name gladoss-ke \
            --mount src=./backup/,target=/mnt/backup,type=bind \
-           --mount src=./logs/,target=/var/log/gladoss,type=bind \
            --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
            gladoss-ke
 ```
 
-Alternatively, Docker compose can be used to manage the container.
+Alternatively, Docker compose can be used to manage the container:
+
+```bash
+docker-compose --project-directory docker/ up -d
+```
+
+The above command will first start a Knowledge Engine instance and, if
+successful, will start GLADoSS.
+
+### Monitoring output
+
+Once the container is running the following command can be used to view the log output:
+
+```bash
+docker logs -f gladoss-ke
+```

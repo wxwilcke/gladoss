@@ -172,7 +172,7 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
         procedure should only be called by the manager, which itself should
         run on a thread different from the main thread to avoid blocking
         when waiting for a new observation to arrive. The manager can be
-        told to terminte its pool of workers and itself by putting a None
+        told to terminate its pool of workers and itself by putting a None
         value in the observation queue.
 
     :param rng: [TODO:description]
