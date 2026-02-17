@@ -4,4 +4,4 @@
 ADAPTOR=knowledge_engine
 
 # run the application with the specified arguments
-gladoss-run --verbose --continuous "$ADAPTOR"
+gladoss-run --verbose --report-level=3 --continuous "$ADAPTOR"
