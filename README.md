@@ -62,6 +62,38 @@ _:BU12ymsmziok9c29pjtt9i rdfs:label "CRITICAL"@en .
 _:BU12ymsmziok9c29pjtt9i rdfs:comment "Critical Anomaly"@en .
 ```
 
+## Anomalies
+
+The following anomalies can be detected by GLADoSS:
+
+- Structural Violations¹
+    - Exact Match Requirement Violation:
+        - Number of observed assertions is higher than expected.
+        - Closed-World Assumption Violation:
+            - Number of observed assertions is lower than expected. 
+- Semantic Violations
+    - Resource Type Violation:
+        - Observed resource type differs from expected resource type.
+    - Object Type Violation:
+        - Observed object type differs from expected object type.
+    - Data Type Violation:
+        - Observed Literal value data type differs from expected literal value data type.
+    - Data Language Violation:
+        - Observed literal value language differs from expected literal value language.
+    - Predicate Equality Violation:
+        - Observed predicate at this position differs from expected predicate.
+- Value Violations
+    - Value Equality Violation:
+        - Observed IRI value differs from expected IRI value.
+        - Observed Literal value differs from expected literal value.
+    - Critical Value Violation²:
+        - Observed Literal value differs significantly at the critical level.
+    - Suspicious Value Violation²:
+        - Observed Literal value differs significantly at the suspicious level.
+
+1. Structure validation is disabled by default
+2. Only relevant when validating distributions of dynamic assertions
+
 ## Run
 
 GLADoSS can be run via the following command:

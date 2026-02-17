@@ -1,7 +1,13 @@
 # Configuration for dummy data generation
 #
-# type: IRIREF | string | float | int | dateTime
-# changes_every: [1, inf]
+# type: IRIREF | string | float | int | gYear | dateTime
+# changes_every: [1, inf]  # static if omitted
+# anomaly_every: [1, inf]  # only relevant for numerical data (incl time/date)
+                           # or static strings and IRIRefs
+# anomaly_duration: [1, inf]  # once if omitted
+# anomaly_multiplier: [-inf, inf]  # only relevant for numerical data
+# value: string  # random if omitted
+# sort: bool  # ascending sort
 
 [[data]]
 namespace = "http://example.org/demo/"
@@ -20,42 +26,48 @@ pattern = """
 rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 saref = "https://saref.etsi.org/core/"
 
-[[data.dynamic]]
+[[data.node]]
 name = "obs"
 type = "IRIRef"
 changes_every = 1
 
-[[data.dynamic]]
+[[data.node]]
 name = "result"
 type = "IRIRef"
 changes_every = 1
 
-[[data.dynamic]]
+[[data.node]]
 name = "timestamp"
 type = "dateTime"
 changes_every = 1
-from = "2025-01-01T12:00:00"
-to = "2025-02-01T12:00:00"
+from = "2026-01-01T12:00:00"
+to = "2026-01-05T12:00:00"
+sort = true
 
-[[data.dynamic]]
+[[data.node]]
 name = "value"
 type = "float"
 changes_every = 1
 from = -10.0
 to = 40.0
+anomaly_every = 80
+anomaly_duration = 5
+anomaly_multiplier = 1.0
 
-[[data.static]]
+[[data.node]]
 name = "device"
 type = "IRIRef"
 
-[[data.static]]
+[[data.node]]
 name = "prop"
 type = "IRIRef"
 value = "Energy"
 
-[[data.static]]
+[[data.node]]
 name = "unit"
 type = "string"
 value = "kWh"
+anomaly_every = 100
+anomaly_duration = 1
 
 # [[data]]  # add one or more graph generation configurations

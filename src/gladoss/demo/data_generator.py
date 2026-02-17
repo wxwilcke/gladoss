@@ -9,12 +9,8 @@ from typing import Any
 import tomllib
 
 import numpy as np
-import scipy as sp
 
 from gladoss.core.utils import init_rng, gen_id
-
-
-# TODO: Add ability to inject anomalies into the generated data
 
 
 logger = logging.getLogger(__name__)
@@ -27,40 +23,10 @@ FILENAME_DATA = "dummy-data.json"
 XSD_NS = "http://www.w3.org/2001/XMLSchema#"
 
 
-def mkstatic(rng: np.random.Generator, conf: list[dict[str, Any]],
-             namespace: str) -> dict[str, str]:
-    """ Generate data which keeps the same value throughout the
-        entire simulated series.
-
-    :param rng: [TODO:description]
-    :param conf: [TODO:description]
-    :param namespace: [TODO:description]
-    :return: [TODO:description]
-    """
-    out = dict()
-    for node in conf:
-        name = node['name']
-        if node['type'] == "IRIRef":
-            value = namespace
-            if 'value' in node.keys():
-                value += node['value']
-            else:
-                id_str = gen_id(rng)
-                value += f"{id_str}"
-
-            value = f"<{value}>"
-        else:  # Literal
-            value = '\"' + node['value'] + '\"'
-            value += f"^^<{XSD_NS}{node['type']}>"
-
-        out[name] = value
-
-    return out
-
-
-def gen_entities(rng: np.random.Generator, changes_every: int, samplesize: int,
-                 namespace: str) -> list[str]:
-    """ Generate IRIRefs that can change over time.
+def gen_entities(rng: np.random.Generator, conf: dict[str, Any],
+                 samplesize: int, namespace: str)\
+                         -> tuple[list[str], list[bool]]:
+    """ Generate IRIRefs.
 
     :param rng: [TODO:description]
     :param changes_every: [TODO:description]
@@ -70,17 +36,44 @@ def gen_entities(rng: np.random.Generator, changes_every: int, samplesize: int,
     """
     out = list()
 
-    id_str = gen_id(rng)
-    value = namespace + f"{id_str}"
+    # provided or randomly generated value
+    value = '<' + namespace + conf.get('value', gen_id(rng)) + '>'
+
+    # anomaly injection
+    # this only makes sense if the value is set to static
+    anomaly_every = conf.get('anomaly_every')
+    anomaly_duration = conf.get('anomaly_duration', 1)
+
+    # track anomalies
+    anomaly_mask = list()
+
+    changes_every = conf.get('changes_every', 1)
     for i in range(1, samplesize+1):
-        if i % changes_every == 0:
+        value_new = None
+        anomaly = False
+        if anomaly_every is not None\
+                and i >= anomaly_every\
+                and i % anomaly_every <= (anomaly_duration-1):
+            value_new = '<' + namespace + gen_id(rng) + '>'
+
+            anomaly = True
+        elif changes_every is not None and i % changes_every == 0:
             id_str = gen_id(rng)
-            value = namespace + f"{id_str}"
+            value_new = '<' + namespace + f"{id_str}" + '>'
 
-        value = f"<{value}>"
-        out.append(value)
+        if value_new is None:
+            out.append(value)
+        else:
+            out.append(value_new)
 
-    return out
+        anomaly_mask.append(anomaly)
+
+    if conf.get('sort', False):
+        # sort in natural order
+        out, anomaly_mask\
+                = (list(t) for t in zip(*sorted(zip(out, anomaly_mask))))
+
+    return (out, anomaly_mask)
 
 
 def gen_random_sentence(rng: np.random.Generator) -> str:
@@ -111,6 +104,49 @@ def gen_random_sentence(rng: np.random.Generator) -> str:
     return s
 
 
+def gen_anomaly(rng: np.random.Generator, dtype: str,
+                v_from: Any, v_to: Any, multiplier: float) -> Any:
+    """ Generate one literal value of a certain datatype out
+        of distribution.
+
+    :param rng: [TODO:description]
+    :param dtype: [TODO:description]
+    :param v_from: [TODO:description]
+    :param v_to: [TODO:description]
+    :param multiplier: [TODO:description]
+    :return: [TODO:description]
+    """
+    if dtype == "string":
+        # anomalies within dynamic string content isn't supported by the
+        # anomaly detector, so this only makes sense if the value is set
+        # as static.
+        return gen_random_sentence(rng)
+    elif dtype == "float":
+        v_delta = v_to - v_from
+        if rng.random() >= 0.5:
+            mu = (multiplier * (v_to + v_delta)) / 2
+        else:
+            mu = (multiplier * (v_from - v_delta)) / 2
+        sigma = (v_to - v_from) / 6
+
+        v = sigma * rng.standard_normal() + mu
+
+        return float(v)
+    elif dtype == "int":
+        return int(gen_value(rng, "float", v_from, v_to))
+    elif dtype == "gYear":
+        return int(gen_value(rng, "float", v_from, v_to))
+    elif dtype == "dateTime":
+        v_from = datetime.fromisoformat(v_from).timestamp()
+        v_to = datetime.fromisoformat(v_to).timestamp()
+
+        unix_timestamp = gen_value(rng, "float", v_from, v_to)
+
+        return datetime.fromtimestamp(unix_timestamp).isoformat()
+    else:
+        return ""
+
+
 def gen_value(rng: np.random.Generator, dtype: str,
               v_from: Any, v_to: Any) -> Any:
     """ Generate one literal value of a certain datatype.
@@ -125,11 +161,16 @@ def gen_value(rng: np.random.Generator, dtype: str,
         return gen_random_sentence(rng)
     elif dtype == "float":
         mu = (v_from + v_to) / 2
-        sigma = (v_to - v_from) / 4
+        sigma = (v_to - v_from) / 6
 
-        v = sp.stats.Normal(mu=mu, sigma=sigma).sample(shape=1, rng=rng)[0]
+        v = sigma * rng.standard_normal() + mu
+        while v < v_from or v > v_to:
+            v = sigma * rng.standard_normal() + mu
+
         return float(v)
     elif dtype == "int":
+        return int(gen_value(rng, "float", v_from, v_to))
+    elif dtype == "gYear":
         return int(gen_value(rng, "float", v_from, v_to))
     elif dtype == "dateTime":
         v_from = datetime.fromisoformat(v_from).timestamp()
@@ -143,8 +184,8 @@ def gen_value(rng: np.random.Generator, dtype: str,
 
 
 def gen_literals(rng: np.random.Generator, conf: dict[str, Any],
-                 samplesize: int) -> list[str]:
-    """ Generate a collection of literals which change over time.
+                 samplesize: int) -> tuple[list[str], list[bool]]:
+    """ Generate a collection of literals.
 
     :param rng: [TODO:description]
     :param conf: [TODO:description]
@@ -153,29 +194,58 @@ def gen_literals(rng: np.random.Generator, conf: dict[str, Any],
     """
     out = list()
 
-    v_from, v_to = conf['from'], conf['to']
-    dtype = conf['type']
+    # range and datatype
+    v_from, v_to = conf.get('from'), conf.get('to')
+    dtype = conf.get('type', 'string')
 
-    value = str(gen_value(rng, dtype, v_from, v_to))
-    value += f"^^<{XSD_NS}{dtype}>"
+    # provided or randomly generated value
+    value = conf.get('value')
+    if value is None:
+        value = str(gen_value(rng, dtype, v_from, v_to))
+        value += f"^^<{XSD_NS}{dtype}>"
+
+    # anomaly injection
+    anomaly_every = conf.get('anomaly_every')
+    anomaly_duration = conf.get('anomaly_duration', 1)
+    anomaly_mp = conf.get('anomaly_multiplier')
+
+    # track anomalies
+    anomaly_mask = list()
+
+    changes_every = conf.get('changes_every')
     for i in range(1, samplesize+1):
-        if i % conf['changes_every'] == 0:
-            value = "\"" + str(gen_value(rng, dtype, v_from, v_to)) + "\""
-            value += f"^^<{XSD_NS}{dtype}>"
+        value_new = None
+        anomaly = False
+        if anomaly_every is not None\
+                and i >= anomaly_every\
+                and i % anomaly_every <= (anomaly_duration-1):
+            value_new = str(gen_anomaly(rng, dtype, v_from, v_to, anomaly_mp))
+            value_new = f"\"{value_new}\"^^<{XSD_NS}{dtype}>"
 
-        out.append(value)
+            anomaly = True
+        elif changes_every is not None and i % changes_every == 0:
+            value_new = str(gen_value(rng, dtype, v_from, v_to))
+            value_new = f"\"{value_new}\"^^<{XSD_NS}{dtype}>"
 
-    if dtype == "dateTime":
-        # sort time in chronical order
-        out = sorted(out)
+        if value_new is None:
+            out.append(value)
+        else:
+            out.append(value_new)
 
-    return out
+        anomaly_mask.append(anomaly)
+
+    if conf.get('sort', False):
+        # sort in natural order
+        out, anomaly_mask\
+                = (list(t) for t in zip(*sorted(zip(out, anomaly_mask))))
+
+    return (out, anomaly_mask)
 
 
-def mkdynamic(rng: np.random.Generator, conf: list[dict[str, Any]],
-              namespace: str, samplesize: int)\
-        -> dict[str, list[str]]:
-    """ Generate changing values.
+def mknodes(rng: np.random.Generator, conf: list[dict[str, Any]],
+            namespace: str, samplesize: int)\
+        -> dict[str, tuple[list[str], list[bool]]]:
+    """ Generate node values.
 
     :param rng: [TODO:description]
     :param conf: [TODO:description]
@@ -187,8 +257,7 @@ def mkdynamic(rng: np.random.Generator, conf: list[dict[str, Any]],
     for node in conf:
         name = node['name']
         if node['type'] == "IRIRef":
-            out[name] = gen_entities(rng, node['changes_every'],
-                                     samplesize, namespace)
+            out[name] = gen_entities(rng, node, samplesize, namespace)
         else:  # literal
             out[name] = gen_literals(rng, node, samplesize)
 
@@ -234,8 +303,8 @@ def expandPrefixes(pattern: str, prefixes: dict[str, str]) -> str:
 
 
 def mkdata(label: str, pattern: str, prefixes: dict[str, str],
-           anchors: dict[str, str], variables: dict[str, list[str]],
-           samplesize: int) -> list[dict[str, str]]:
+           values: dict[str, tuple[list[str], list[bool]]], samplesize: int)\
+        -> list[dict[str, str]]:
     """ Combine generated data with provided pattern by replacing
         the variables with their bindings.
 
@@ -251,13 +320,15 @@ def mkdata(label: str, pattern: str, prefixes: dict[str, str],
     out = list()
     for i in range(samplesize):
         g = pattern
-        for var, binding in anchors.items():
-            g = g.replace('?'+var, binding)
 
-        for var, binding_lst in variables.items():
+        anomaly = False
+        for var, (binding_lst, anomaly_msk) in values.items():
             g = g.replace('?'+var, binding_lst[i])
 
-        out.append({'label': label, 'data': g})
+            if anomaly_msk[i]:
+                anomaly = True
+
+        out.append({'label': label, 'anomaly': anomaly, 'data': g})
 
     return out
 
@@ -275,22 +346,19 @@ def main(conf: dict[str, Any], flags: argparse.Namespace)\
     data = list()
     samplesize = flags.samplesize
     for entry in conf['data']:
-        dynamic_nodes = entry['dynamic']
-        static_nodes = entry['static']
         namespace = entry['namespace']
+        nodes = entry['node']
 
         # generate graph label
         label = gen_id(rng)
 
         # generate values
-        anchors = mkstatic(rng, static_nodes, namespace)
-        variables = mkdynamic(rng, dynamic_nodes, namespace, samplesize)
+        values = mknodes(rng, nodes, namespace, samplesize)
 
         # generate data
         pattern = entry['pattern']
         prefixes = entry['prefixes']
-        samples = mkdata(label, pattern, prefixes, anchors, variables,
-                         samplesize)
+        samples = mkdata(label, pattern, prefixes, values, samplesize)
 
         data.append(samples)
 
@@ -303,7 +371,7 @@ if __name__ == "__main__":
                         + "file (toml)", default=os.path.join(FILE_DIR,
                                                               FILENAME_CONF))
     parser.add_argument("-n", "--samplesize", help="The number of samples to "
-                        + "generate", default=100, type=int)
+                        + "generate", default=400, type=int)
     parser.add_argument("-o", "--output", help="The path to the output "
                         + "file (json)", default=os.path.join(FILE_DIR,
                                                               FILENAME_DATA))
