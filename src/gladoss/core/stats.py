@@ -17,7 +17,9 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
 
 logger = logging.getLogger(__name__)
 
-# TODO: change each dist to trend analysis?
+# TODO: This task might be improved by replacing the distributions by neural
+# networks for time series analysis. For numerical data LSTMs could be
+# employed, trained incrementally.
 
 
 class Distribution():
@@ -46,7 +48,7 @@ class Distribution():
 
     def addSample(self, sample: str | float) -> None:
         """ Add a single sample to the distribution and push
-            the time forward by steps.
+            the time forward by one step.
 
         :param sample: the sample to add
         """
@@ -161,15 +163,15 @@ class Distribution():
                     # decrease sample count
                     self.samples[sample] -= 1
 
-                if self.samples[sample] <= 0:
-                    # remove sample from index
-                    del self.samples[sample]
+                    if self.samples[sample] <= 0:
+                        # remove sample from index
+                        del self.samples[sample]
 
                 # clean up decay tracker
                 del self._decay_tracker[self._t]
 
     def __repr__(self) -> str:
-        return ", ".join(sorted(self.data))
+        return ", ".join([str(v) for v in sorted(self.data)])
 
     def __hash__(self) -> int:
         return hash(repr(self))
@@ -280,7 +282,7 @@ class DiscreteDistribution(Distribution):
 
 
 def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\
-        -> np.ndarray:
+        -> tuple[np.ndarray]:
     """ Compute proportions for each unique sample in the data.
         Adds NaN for elements that are present in the population
         (and thus in the provided sample index) yet which are absent
@@ -291,8 +293,9 @@ def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\
         are omitted since these co-vary with proportion and thus not
         tell us anything more.
 
-    :param samples: [TODO:description]
-    :param samples_idx: [TODO:description]
+    :param samples: Samples to compute test statistics for
+    :param samples_idx: Map between values and index used to align computed
+                        test statistics across sample sets
     :return: [TODO:description]
     """
     counter = Counter([v for v in samples])
@@ -304,7 +307,7 @@ def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\
 
         proportions[samples_idx[k]] = p
 
-    return proportions
+    return (proportions,)
 
 
 def test_statistic_continuous(samples: np.ndarray, samples_idx: dict) ->\
@@ -312,7 +315,12 @@ def test_statistic_continuous(samples: np.ndarray, samples_idx: dict) ->\
     """ Compute the mean, median, and sample standard deviation
         for the provided sample.
 
-    :param samples: [TODO:description]
+        Note that the sample indices are not used by this function yet
+        are asked to provide a uniform interface for all test statistics.
+
+    :param samples: Samples to compute test statistics for
+    :param samples_idx: Map between values and index used to align computed
+                        test statistics across sample sets
     :return: [TODO:description]
     """
     mean = np.mean(samples)
@@ -342,14 +350,16 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
         rejecting the null hypothesis at the provided significance
         level alpha.
 
-    :param rng: [TODO:description]
-    :param sample_a: [TODO:description]
-    :param sample_b: [TODO:description]
-    :param test_statistic_func [TODO:type]: [TODO:description]
-    :param num_samples: [TODO:description]
-    :param num_resamples: [TODO:description]
-    :param alpha: [TODO:description]
-    :return: [TODO:description]
+    :param rng: NumPy random number generator
+    :param sample_a: 1D NDArray with samples
+    :param sample_b: 1D NDArray with samples
+    :param test_statistic_func: Function to compute test statistics
+    :param num_samples: Number of samples to draw from provided sample lists
+    :param num_resamples: Number of times to recompute test statistics
+    :param alpha_critical: Critical significance level
+    :param alpha_suspicious: Suspicious significance level
+    :return: List with outcome of hypothesis tests for critical and suspicious
+             significance levels (in that order)
     """
     # compute p-values via bootstrap method
     p_values = two_sample_bootstrap_hypothesis_test(rng, sample_a, sample_b,
@@ -362,11 +372,11 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
     for i in range(len(levels)):
         alpha = levels[i]
 
+        # two-sided significance test
         reject_h0_lst = (p_values < alpha/2) | (p_values > 1 - alpha/2)
-        reject_h0 = (reject_h0_lst.sum() / len(reject_h0_lst)) > 0.5
-
-        outcomes[i] = HypothesisTest.REJECT_H0 if reject_h0\
-            else HypothesisTest.NOT_REJECT_H0
+        if (reject_h0_lst.sum() / len(reject_h0_lst)) > 0.5:
+            # majority vote
+            outcomes[i] = HypothesisTest.REJECT_H0
 
     return outcomes
 
@@ -383,7 +393,7 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
         statistic t is computed for both samples A and B. The null hypothesis
         H0 is P(t_A < t_B) = 0.5 whereas the alternative hypothesis Ha is
         P(t_A < t_B) != 0.5. For H0 to be rejected, either 'p < a/2' or
-        'p > 1 - a/2', with a the significance level.
+        'p > 1 - a/2', with 'a' the significance level.
 
         This is a non-parametric test that makes no assumption about the
         underlying distribution. Samples should be i.i.d., which is not
@@ -395,13 +405,13 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
         the computed p-values, by reducing the denominator by an equal
         amount. This only concerns discrete data.
 
-    :param rng: [TODO:description]
-    :param sample_a: [TODO:description]
-    :param sample_b: [TODO:description]
-    :param test_statistic_func [TODO:type]: [TODO:description]
-    :param num_samples: [TODO:description]
-    :param num_resamples: [TODO:description]
-    :return: [TODO:description]
+    :param rng: NumPy random number generator
+    :param sample_a: 1D NDArray with samples
+    :param sample_b: 1D NDArray with samples
+    :param test_statistic_func: Function to compute test statistics
+    :param num_samples: Number of samples to draw from provided sample lists
+    :param num_resamples: Number of times to recompute test statistics
+    :return: 1D NDArray with p-value per test statistic
     """
     # TODO: reuse results from previous calls if provided?
 
@@ -429,17 +439,15 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
     num_nan = np.count_nonzero(np.isnan(results_a) | np.isnan(results_b),
                                axis=0)
 
-    # Test hypothesis and aAggregate results per test statistic.
-    # Remove zeros if present (caused by values in A yet not in B)
+    # Test hypothesis and aggregate results per test statistic.
+    # Comparisons between NaN values (in either or both samples) resolve
+    # to False
     results = (results_a < results_b).sum(axis=0)
-    nonzero_mask = results.nonzero()
-    results = results[nonzero_mask]  # omit zeros
 
     # Subtract invalid comparisons per statistic from the denominator since
     # these should not impact the final proportion.
     num_tests = results_a.shape[1]  # number of test statistics per row
     num_resamples_adjusted = np.tile(num_resamples, reps=num_tests) - num_nan
-    num_resamples_adjusted = num_resamples_adjusted[nonzero_mask]
 
     # Compute p-values by counting the proportion of values that support H0.
     p_values = results / num_resamples_adjusted

@@ -357,7 +357,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 
     # evaluate whether the new sample could've come from the same distribution
     # as the previously observed samples
-    if len(status_msg_lst) > 0:  # if no previous violations have been detected
+    if len(status_msg_lst) <= 0:  # if no previous violations have been found
         status_msg_lst = validate_graph_data_distribution_fit(rng, assertion,
                                                               ap, value_new,
                                                               test_statistic,
