@@ -644,5 +644,7 @@ class KE_Adaptor(Adaptor):
                 dtype = IRIRef(dtype)
 
             tail = Literal(value, datatype=dtype, language=lang)
+        else:
+            tail = IRIRef(tail)
 
         return Statement(head, relation, tail)
