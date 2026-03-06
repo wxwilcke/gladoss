@@ -343,24 +343,66 @@ def validate_graph_data_distribution(assertion: Statement,
     # test whether a newly observed value falls outside the prediction interval
     if len(status_msg_lst) <= 0:  # if no previous violations have been found
         if isinstance(value_new, str):
-            # TODO: non-numerical data is not supported at this moment
-            return status_msg_lst
-
-        status_msg_lst = validate_graph_data_distribution_fit(assertion, ap,
-                                                              value_new,
-                                                              alpha_critical,
-                                                              alpha_suspicious)
+            status_msg_lst = validate_graph_data_categorical(assertion, ap,
+                                                             value_new)
+        elif isinstance(value_new, int) or isinstance(value_new, float):
+            status_msg_lst = validate_graph_data_numerical(assertion, ap,
+                                                           value_new,
+                                                           alpha_critical,
+                                                           alpha_suspicious)
+        else:
+            raise NotImplementedError()
 
     return status_msg_lst
 
 
-def validate_graph_data_distribution_fit(assertion: Statement,
-                                         ap: AssertionPattern,
-                                         value_new: int | float,
-                                         alpha_critical: float,
-                                         alpha_suspicious: float)\
+def validate_graph_data_categorical(assertion: Statement,
+                                    ap: AssertionPattern,
+                                    value_new: str)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
-    """ Test whether a newly observed value falls ouside the computed
+    """ Test whether a newly observed value is a member of the set
+        of nominal values, and, if this is not the case, flag the
+        value as a critical anomaly.
+
+        This test is designed for categorical data.
+
+    :param assertion: [TODO:description]
+    :param ap: [TODO:description]
+    :param value_new: [TODO:description]
+    :return: [TODO:description]
+    """
+    # TODO: this currently only checks on membership; a better
+    #       approach would incorporate the likelyhood of observing
+    #       the new value.
+
+    population = np.array(ap.value.data)
+    members = np.unique(population)
+
+    status_msg_lst = list()
+    if value_new not in members:
+        members_str = "; ".join(members)
+
+        status_msg = "Critical Value Violation"
+        status_msg_long = \
+            "Observed value is not a member of the set of expected values "\
+            "{BECAUSE} "\
+            f"EXPECTED: {{{members_str}}}"\
+            f"OBSERVED: {assertion} {QED}"
+        status_code = ValidationReport.StatusCode.CRITICAL
+
+        status_msg_lst.append((status_msg, status_msg_long, status_code))
+        logger.info(status_msg_long)
+
+    return status_msg_lst
+
+
+def validate_graph_data_numerical(assertion: Statement,
+                                  ap: AssertionPattern,
+                                  value_new: int | float,
+                                  alpha_critical: float,
+                                  alpha_suspicious: float)\
+        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+    """ Test whether a newly observed value falls outside the computed
         symmetric non-parametric prediction interval (l, u] at the provided
         critical and suspicious levels, in which case the value is flagged
         as a (non-) critical anomaly.
