@@ -88,7 +88,11 @@ def create_validation_report(rng: np.random.Generator,
     :return: [TODO:description]
     """
     try:
-        logger.info(f"Creating validation report ({pattern._id})")
+        if pattern._t >= econf.grace_period:
+            logger.info(f"Creating validation report ({pattern._id})")
+        else:
+            logger.info("Within grace period: skipping validation "
+                        f"({pattern._id})")
         report = validate_state_graph(rng, pattern, graph, pattern_map, econf)
     except Exception as err:
         logger.error(err)
@@ -152,7 +156,8 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                               ValidationReport.StatusCode.SUSPICIOUS,
                               ValidationReport.StatusCode.NODATA]:
-        logger.info(f"Graph passed validation ({graph_id})")
+        if pattern._t >= econf.grace_period:
+            logger.info(f"Graph passed validation ({graph_id})")
 
         # either the state graph passed the validation check
         # or a non-critical deviation has been detected

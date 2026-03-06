@@ -18,10 +18,8 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
                                                cast_literal, infer_datatype)
 from gladoss.core.pattern import AssertionPattern, GraphPattern
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
-                                Distribution, HypothesisTest,
-                                test_statistic_continuous,
-                                test_statistic_discrete,
-                                two_sample_hypothesis_test)
+                                Distribution,
+                                nonparametric_prediction_interval)
 
 
 logger = logging.getLogger(__name__)
@@ -31,8 +29,7 @@ EMDASH = '\N{EM DASH}'
 QED = '\N{END OF PROOF}'
 
 
-def validate_state_graph(rng: np.random.Generator,
-                         pattern: GraphPattern,
+def validate_state_graph(pattern: GraphPattern,
                          graph: Collection[Statement],
                          pattern_map: tuple[list[tuple[Statement,
                                                        AssertionPattern]],
@@ -53,13 +50,13 @@ def validate_state_graph(rng: np.random.Generator,
     """
     # validate structure, semantics, and data
     status_msg_lst_map, status_msg_lst\
-        = validate_state_graph_components(rng, pattern, pattern_map, config)
+        = validate_state_graph_components(pattern, pattern_map, config)
 
     # summarize validation results by highest code
     status_code_max = ValidationReport.StatusCode.NOMINAL
     for _, _, status_code in chain.from_iterable([*status_msg_lst_map.values(),
                                                   status_msg_lst]):
-        if status_code_max > status_code:
+        if status_code > status_code_max:
             status_code_max = status_code
 
             if status_code_max >= ValidationReport.StatusCode.CRITICAL:
@@ -82,8 +79,7 @@ def validate_state_graph(rng: np.random.Generator,
                             status_msg_lst=status_msg_lst)
 
 
-def validate_state_graph_components(rng: np.random.Generator,
-                                    pattern: GraphPattern,
+def validate_state_graph_components(pattern: GraphPattern,
                                     pattern_map: tuple[
                                         list[tuple[Statement,
                                                    AssertionPattern]],
@@ -133,21 +129,17 @@ def validate_state_graph_components(rng: np.random.Generator,
 
             logger.info(f"Validating graph data {i}/{len(assertion_ap_pairs)} "
                         f"({pattern._id})")
-            status_msg_lst = validate_graph_data(rng, assertion, ap,
+            status_msg_lst = validate_graph_data(assertion, ap,
                                                  config.alpha_critical,
-                                                 config.alpha_suspicious,
-                                                 config.samplesize,
-                                                 config.samplegap)
+                                                 config.alpha_suspicious)
 
             status_msg_lst_data[ap._id] = status_msg_lst
 
     return status_msg_lst_data, status_msg_lst_struc
 
 
-def validate_graph_data(rng: np.random.Generator,
-                        assertion: Statement, ap: AssertionPattern,
-                        alpha_critical: float, alpha_suspicious: float,
-                        samplesize: int, interruption: int)\
+def validate_graph_data(assertion: Statement, ap: AssertionPattern,
+                        alpha_critical: float, alpha_suspicious: float)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate the data of a single assertion by checking resource and data
         types, comparing provided and expected values, and performing
@@ -168,7 +160,7 @@ def validate_graph_data(rng: np.random.Generator,
     if isinstance(ap.value, Resource):
         status_msg_lst = validate_graph_data_resource(assertion, ap)
     elif isinstance(ap.value, Distribution):
-        if ap.value.num_samples < samplesize * 2:
+        if ap.value.num_samples < 100:
             status_msg = "Insufficient Data"
             status_msg_long = \
                 "Insufficient samples have yet been observed "\
@@ -183,11 +175,9 @@ def validate_graph_data(rng: np.random.Generator,
             # skip further evaluation
             return [(status_msg, status_msg_long, status_code)]
 
-        status_msg_lst = validate_graph_data_distribution(rng, assertion, ap,
+        status_msg_lst = validate_graph_data_distribution(assertion, ap,
                                                           alpha_critical,
-                                                          alpha_suspicious,
-                                                          samplesize,
-                                                          interruption)
+                                                          alpha_suspicious)
 
     return status_msg_lst
 
@@ -308,12 +298,10 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
     return status_msg_lst
 
 
-def validate_graph_data_distribution(rng: np.random.Generator,
-                                     assertion: Statement,
+def validate_graph_data_distribution(assertion: Statement,
                                      ap: AssertionPattern,
                                      alpha_critical: float,
-                                     alpha_suspicious: float,
-                                     samplesize: int, interruption: int)\
+                                     alpha_suspicious: float)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate various aspects of a newly observed value against the
         distribution that belongs to the associated pattern.
@@ -343,114 +331,94 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 
     # evaluate distribution types via meta data
     status_msg_lst = list()
-    test_statistic = None
     if isinstance(ap.value, DiscreteDistribution):
-        test_statistic = test_statistic_discrete
         status_msg_lst = validate_graph_data_discrete(assertion, ap,
                                                       dtype_observed)
     elif isinstance(ap.value, ContinuousDistribution):
-        test_statistic = test_statistic_continuous
         status_msg_lst = validate_graph_data_continuous(assertion, ap,
                                                         dtype_observed)
     else:
         raise NotImplementedError()
 
-    # evaluate whether the new sample could've come from the same distribution
-    # as the previously observed samples
+    # test whether a newly observed value falls outside the prediction interval
     if len(status_msg_lst) <= 0:  # if no previous violations have been found
-        status_msg_lst = validate_graph_data_distribution_fit(rng, assertion,
-                                                              ap, value_new,
-                                                              test_statistic,
+        if isinstance(value_new, str):
+            # TODO: non-numerical data is not supported at this moment
+            return status_msg_lst
+
+        status_msg_lst = validate_graph_data_distribution_fit(assertion, ap,
+                                                              value_new,
                                                               alpha_critical,
-                                                              alpha_suspicious,
-                                                              samplesize,
-                                                              interruption)
+                                                              alpha_suspicious)
 
     return status_msg_lst
 
 
-def validate_graph_data_distribution_fit(rng: np.random.Generator,
-                                         assertion: Statement,
+def validate_graph_data_distribution_fit(assertion: Statement,
                                          ap: AssertionPattern,
-                                         value_new: str | int | float,
-                                         test_statistic: Callable,
+                                         value_new: int | float,
                                          alpha_critical: float,
-                                         alpha_suspicious: float,
-                                         samplesize: int, interruption: int)\
+                                         alpha_suspicious: float)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
-    """ Test whether the n most recently observed values, including the newly
-        observed value, follow the same underlying distribution as the oldest
-        N - n observed values. The outcome of this test will be negative if the
-        evidence suggests that the distributions differ at a critical
-        significance level, and will be positive otherwise. Failure to pass at
-        a suspicious significance level will trigger a warning.
+    """ Test whether a newly observed value falls ouside the computed
+        symmetric non-parametric prediction interval (l, u] at the provided
+        critical and suspicious levels, in which case the value is flagged
+        as a (non-) critical anomaly.
 
-    :param rng: [TODO:description]
     :param assertion: [TODO:description]
     :param ap: [TODO:description]
     :param value_new: [TODO:description]
-    :param test_statistic: [TODO:description]
     :param alpha_critical: [TODO:description]
     :param alpha_suspicious: [TODO:description]
-    :param samplesize: [TODO:description]
-    :param interruption: [TODO:description]
     :return: [TODO:description]
     """
-    # obtain most recent n samples and append the newly observed sample.
-    # The result will be regarded as a sample of the population  that
-    # will be evaluated against the true distribution.
-    sample = np.array(ap.value.lastn(n=samplesize) + [value_new])
+    population = np.array(ap.value.data)
 
-    # obtain all samples that are older than the most recent n samples,
-    # with or without a brief interval in between to strengthen the
-    # difference between these subsets. The result will be regarded as the
-    # true distribution of the population.
-    population = np.array(ap.value.data[:-samplesize - interruption])
+    pi_violation = False
+    for alpha in [alpha_critical, alpha_suspicious]:
+        # compute prediction interval (lower, upper]
+        pi_lower, pi_upper = nonparametric_prediction_interval(population,
+                                                               alpha)
 
-    # test whether the sample might have been drawn from the same
-    # distribution as the one underlying the population.
-    num_samples = int(len(sample) * 0.67)  # arbitrary chosen amount
-    test_critical, test_suspicious\
-        = two_sample_hypothesis_test(rng, sample_a=population,
-                                     sample_b=sample,
-                                     test_statistic_func=test_statistic,
-                                     num_samples=num_samples,
-                                     alpha_critical=alpha_critical,
-                                     alpha_suspicious=alpha_suspicious)
+        if value_new <= pi_lower or value_new > pi_upper:
+            # outside of prediction interval
+            pi_violation = True
+
+            break  # forgo future tests if a violation is detected
 
     # infer validity from test results
     status_msg_lst = list()
-    if test_critical == HypothesisTest.REJECT_H0:
-        # enough evidence to reject the zero hypothesis that both samples were
-        # drawn from the same underlying distribution at the critical level:
-        # this suggests the presence of a critical anomaly
-        status_msg = "Critical Value Violation"
-        status_msg_long = \
-            "Evidence from the statistical evaluation suggests that this "\
-            "triple of the observed state graph differs significantly from "\
-            "the associated graph pattern at the critical level "\
-            f"({alpha_critical}). {BECAUSE} "\
-            f"OBSERVED: {assertion} {QED}"
-        status_code = ValidationReport.StatusCode.CRITICAL
+    if pi_violation:
+        if alpha == alpha_critical:
+            # observed value falls outside of prediction interval at the
+            # critical level: this suggests the presence of a critical anomaly
+            status_msg = "Critical Value Violation"
+            status_msg_long = \
+                "Evidence from the statistical evaluation suggests that this "\
+                "triple of the observed state graph differs significantly "\
+                "from the associated graph pattern at the critical level "\
+                f"({alpha_critical}). {BECAUSE} "\
+                f"OBSERVED: {assertion} {QED}"
+            status_code = ValidationReport.StatusCode.CRITICAL
 
-        status_msg_lst.append((status_msg, status_msg_long, status_code))
-        logger.info(status_msg_long)
-    elif test_suspicious == HypothesisTest.REJECT_H0:
-        # enough evidence to reject the zero hypothesis that both samples were
-        # drawn from the same underlying distribution at the suspicious level:
-        # this might suggest the presence of an anomaly
-        status_msg = "Suspicious Value Violation"
-        status_msg_long = \
-            "Evidence from the statistical evaluation suggests that this "\
-            "triple of the observed state graph differs significantly from "\
-            "the associated graph pattern at the suspicious level "\
-            f"({alpha_suspicious}). {BECAUSE} "\
-            f"OBSERVED: {assertion} {QED}"
+            status_msg_lst.append((status_msg, status_msg_long, status_code))
+            logger.info(status_msg_long)
+        elif alpha == alpha_suspicious:
+            # observed value falls outside of prediction interval at
+            # the suspicious level: this suggests the presence of a
+            # non-critical anomaly
+            status_msg = "Suspicious Value Violation"
+            status_msg_long = \
+                "Evidence from the statistical evaluation suggests that this "\
+                "triple of the observed state graph differs significantly "\
+                "from the associated graph pattern at the suspicious level "\
+                f"({alpha_suspicious}). {BECAUSE} "\
+                f"OBSERVED: {assertion} {QED}"
 
-        status_code = ValidationReport.StatusCode.CRITICAL
+            status_code = ValidationReport.StatusCode.CRITICAL
 
-        status_msg_lst.append((status_msg, status_msg_long, status_code))
-        logger.info(status_msg_long)
+            status_msg_lst.append((status_msg, status_msg_long, status_code))
+            logger.info(status_msg_long)
 
     return status_msg_lst
 

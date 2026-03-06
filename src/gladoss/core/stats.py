@@ -17,9 +17,7 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
 
 logger = logging.getLogger(__name__)
 
-# TODO: This task might be improved by replacing the distributions by neural
-# networks for time series analysis. For numerical data LSTMs could be
-# employed, trained incrementally.
+# TODO: consider swapping distributions for LSTMs with OCSVMs 
 
 
 class Distribution():
@@ -453,3 +451,82 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
     p_values = results / num_resamples_adjusted
 
     return p_values
+
+
+def nonparametric_prediction_interval_range(n: int,
+                                            p: float)\
+        -> tuple[float | int, float | int]:
+    """ Compute range of non-parametric prediction interval (l, u] for a
+        population of size N and probability P. By employing order statistics,
+        this procedure assumes that the probability that a value X is covered
+        by the interval (S(l), S(u)] is at least (u - l) / (|S| + 1), with
+        S(i) the i-th value in the population sample sorted in ascending order:
+
+        P(X in (S(l), S(u)]) >= (u - l)/(|S| + 1)
+
+        The returned prediction interval range is symmetric (lower and upper
+        bound) and zero-based.
+
+    :param n: [TODO:description]
+    :param p: [TODO:description]
+    :return: [TODO:description]
+    """
+    assert n >= 100
+
+    # number of observations within the interval
+    coverage = (n + 1) * p
+
+    # index of lower and upper prediction intervals
+    # subtract 1 for 0-based index
+    pi_lower_i = max(0, (((n + 1) - coverage) / 2) - 1)
+    pi_upper_i = min((n - pi_lower_i) - 1, n - 1)
+
+    return pi_lower_i, pi_upper_i
+
+
+def nonparametric_prediction_interval(population: np.ndarray,
+                                      p: float)\
+        -> tuple[float, float]:
+    """ Compute non-parametric prediction interval (l, u] for a given
+        population sample and probability P. For intervals that fall
+        between two values a weigted average is taken.
+
+        This is a non-parametric test that makes no assumption about the
+        underlying distribution. Samples should be i.i.d., which is not
+        necessarily the case for time series data (eg temperature), but
+        which can still be assumed to hold to an extent in those cases when
+        the temporal resolution is sufficiently low.
+
+    :param population: [TODO:description]
+    :param alpha: [TODO:description]
+    :return: [TODO:description]
+    """
+    def predicate_interval(sample: np.ndarray,
+                           pi_i: int | float) -> float:
+        weight = pi_i % 1
+        if weight > 0:
+            # weigted average of the values from two adjacent points
+            pi_bound_low = sample[int(np.floor(pi_i))]
+            pi_bound_high = sample[int(np.ceil(pi_i))]
+
+            diff_weighted = (pi_bound_high - pi_bound_low) * weight
+
+            pi = pi_bound_low + diff_weighted
+        else:
+            # exact index
+            pi = sample[int(pi_i)]
+
+        return pi
+
+    # order ascendingly
+    population_sorted = np.sort(population)
+
+    # compute range of prediction intervals
+    n = len(population_sorted)
+    pi_lower_i, pi_upper_i = nonparametric_prediction_interval_range(n, p)
+
+    # compute values associated with the range
+    pi_lower = predicate_interval(population_sorted, pi_lower_i)
+    pi_upper = predicate_interval(population_sorted, pi_upper_i)
+
+    return (pi_lower.item(), pi_upper.item())
