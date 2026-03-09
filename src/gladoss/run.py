@@ -151,7 +151,6 @@ def process_graph(mkid: Callable,
     pattern_map = create_pattern_map(graph, pattern)
     report = create_validation_report(pattern, graph, pattern_map, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
-                              ValidationReport.StatusCode.SUSPICIOUS,
                               ValidationReport.StatusCode.NODATA]:
         if pattern._t >= econf.grace_period:
             logger.info(f"Graph passed validation ({graph_id})")
@@ -312,7 +311,8 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             # publish report if requested by the report level
             assert isinstance(report, ValidationReport)
             if report.status_code >= econf.report_level:
-                publish_validation_report(adaptor, report, mkid)
+                if not publish_validation_report(adaptor, report, mkid):
+                    logger.info("Unable to publish validation report")
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 

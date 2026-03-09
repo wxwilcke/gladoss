@@ -127,6 +127,8 @@ class Connector():
 
                     # Optionally answer the poll response
                     if self.return_receipt:
+                        logger.debug("Sending message receipt to endpoint "
+                                     f"{self.endpoint})")
                         ack_headers = self.adaptor.set_receipt_headers(data)
                         ack_payload = self.adaptor.set_receipt_payload(data)
                         try:

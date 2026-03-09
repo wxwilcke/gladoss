@@ -191,13 +191,18 @@ class KE_Adaptor(Adaptor):
             try:
                 if not self.register_kb(ki_endpoint, kb_id, kb_name, kb_desc):
                     raise Exception("Unable to register knowledge base")
+                logger.info("Registered knowledge base at endpoint "
+                            f"{ki_endpoint}")
 
                 ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
                 if ki_id is None:
-                    logger.error("Unable to register react knowledge "
+                    logger.error("Unable to register REACT knowledge "
                                  "interaction")
 
                     continue
+
+                logger.info("Registered REACT knowledge interaction at "
+                            f"endpoint {ki_endpoint}")
 
                 self.context['reactKnowledge'
                              'Interactions'][ki_endpoint].add(ki_id)
@@ -216,7 +221,7 @@ class KE_Adaptor(Adaptor):
         try:
             self.register_report_publications()
         except Exception:
-            logger.error("Unable to register post knowledge interaction")
+            logger.error("Unable to register POST knowledge interaction")
 
     def register_report_publications(self: Self) -> None:
         """ Register a single post knowledge interaction per known
@@ -241,6 +246,9 @@ class KE_Adaptor(Adaptor):
 
             # keep track of registered knowledge interactions
             self.context['postKnowledgeInteractions'][ki_endpoint] = ki_id
+
+            logger.info("Registered POST knowledge interaction at "
+                        f"endpoint {ki_endpoint}")
 
     def cleanup_hook(self: Self):
         """ Deregister the knowledge base and all associated knowledge

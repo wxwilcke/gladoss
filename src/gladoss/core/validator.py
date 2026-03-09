@@ -18,7 +18,8 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
                                                cast_literal, infer_datatype)
 from gladoss.core.pattern import AssertionPattern, GraphPattern
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
-                                Distribution,
+                                Distribution, HypothesisTest,
+                                two_sample_hypothesis_test,
                                 nonparametric_prediction_interval)
 
 
@@ -332,9 +333,11 @@ def validate_graph_data_distribution(assertion: Statement,
     # evaluate distribution types via meta data
     status_msg_lst = list()
     if isinstance(ap.value, DiscreteDistribution):
+        # test_statistic = test_statistic_discrete
         status_msg_lst = validate_graph_data_discrete(assertion, ap,
                                                       dtype_observed)
     elif isinstance(ap.value, ContinuousDistribution):
+        # test_statistic = test_statistic_continuous
         status_msg_lst = validate_graph_data_continuous(assertion, ap,
                                                         dtype_observed)
     else:
@@ -342,6 +345,14 @@ def validate_graph_data_distribution(assertion: Statement,
 
     # test whether a newly observed value falls outside the prediction interval
     if len(status_msg_lst) <= 0:  # if no previous violations have been found
+        # status_msg_lst = validate_graph_data_distribution_fit(rng, assertion,
+        #                                                       ap, value_new,
+        #                                                       test_statistic,
+        #                                                       alpha_critical,
+        #                                                       alpha_suspicious,
+        #                                                       samplesize,
+        #                                                      interruption)
+
         if isinstance(value_new, str):
             status_msg_lst = validate_graph_data_categorical(assertion, ap,
                                                              value_new)
@@ -364,7 +375,8 @@ def validate_graph_data_categorical(assertion: Statement,
         of nominal values, and, if this is not the case, flag the
         value as a critical anomaly.
 
-        This test is designed for categorical data.
+        This test is designed for categorical data and can be used
+        for point anomalies.
 
     :param assertion: [TODO:description]
     :param ap: [TODO:description]
@@ -406,6 +418,10 @@ def validate_graph_data_numerical(assertion: Statement,
         symmetric non-parametric prediction interval (l, u] at the provided
         critical and suspicious levels, in which case the value is flagged
         as a (non-) critical anomaly.
+
+        This test is designed for numerical data and can be used for point
+        anomalies. Do not use this test when new observations are expected
+        to fall outside of the data (eg instance IRIs and blank nodes).
 
     :param assertion: [TODO:description]
     :param ap: [TODO:description]
@@ -461,6 +477,97 @@ def validate_graph_data_numerical(assertion: Statement,
 
             status_msg_lst.append((status_msg, status_msg_long, status_code))
             logger.info(status_msg_long)
+
+    return status_msg_lst
+
+
+def validate_graph_data_distribution_fit(rng: np.random.Generator,
+                                         assertion: Statement,
+                                         ap: AssertionPattern,
+                                         value_new: str | int | float,
+                                         test_statistic: Callable,
+                                         alpha_critical: float,
+                                         alpha_suspicious: float,
+                                         samplesize: int, interruption: int)\
+        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+    """ Test whether the n most recently observed values, including the newly
+        observed value, follow the same underlying distribution as the oldest
+        N - n observed values. The outcome of this test will be negative if the
+        evidence suggests that the distributions differ at a critical
+        significance level, and will be positive otherwise. Failure to pass at
+        a suspicious significance level will trigger a warning.
+
+        This test can be used for collective and contextual anomalies with the
+        limitation that the anomaly occurs for a sufficiently long period (wrt
+        sample size and interruption parameters) and that the anomaly is only
+        detected with certainty at the end of that period.
+
+    :param rng: [TODO:description]
+    :param assertion: [TODO:description]
+    :param ap: [TODO:description]
+    :param value_new: [TODO:description]
+    :param test_statistic: [TODO:description]
+    :param alpha_critical: [TODO:description]
+    :param alpha_suspicious: [TODO:description]
+    :param samplesize: [TODO:description]
+    :param interruption: [TODO:description]
+    :return: [TODO:description]
+    """
+    # obtain most recent n samples and append the newly observed sample.
+    # The result will be regarded as a sample of the population  that
+    # will be evaluated against the true distribution.
+    sample = np.array(ap.value.lastn(n=samplesize) + [value_new])
+
+    # obtain all samples that are older than the most recent n samples,
+    # with or without a brief interval in between to strengthen the
+    # difference between these subsets. The result will be regarded as the
+    # true distribution of the population.
+    population = np.array(ap.value.data[:-samplesize - interruption])
+
+    # test whether the sample might have been drawn from the same
+    # distribution as the one underlying the population.
+    num_samples = int(len(sample) * 0.67)  # arbitrary chosen amount
+    test_critical, test_suspicious\
+        = two_sample_hypothesis_test(rng, sample_a=population,
+                                     sample_b=sample,
+                                     test_statistic_func=test_statistic,
+                                     num_samples=num_samples,
+                                     alpha_critical=alpha_critical,
+                                     alpha_suspicious=alpha_suspicious)
+
+    # infer validity from test results
+    status_msg_lst = list()
+    if test_critical == HypothesisTest.REJECT_H0:
+        # enough evidence to reject the zero hypothesis that both samples were
+        # drawn from the same underlying distribution at the critical level:
+        # this suggests the presence of a critical anomaly
+        status_msg = "Critical Value Violation"
+        status_msg_long = \
+            "Evidence from the statistical evaluation suggests that this "\
+            "triple of the observed state graph differs significantly from "\
+            "the associated graph pattern at the critical level "\
+            f"({alpha_critical}). {BECAUSE} "\
+            f"OBSERVED: {assertion} {QED}"
+        status_code = ValidationReport.StatusCode.CRITICAL
+
+        status_msg_lst.append((status_msg, status_msg_long, status_code))
+        logger.info(status_msg_long)
+    elif test_suspicious == HypothesisTest.REJECT_H0:
+        # enough evidence to reject the zero hypothesis that both samples were
+        # drawn from the same underlying distribution at the suspicious level:
+        # this might suggest the presence of an anomaly
+        status_msg = "Suspicious Value Violation"
+        status_msg_long = \
+            "Evidence from the statistical evaluation suggests that this "\
+            "triple of the observed state graph differs significantly from "\
+            "the associated graph pattern at the suspicious level "\
+            f"({alpha_suspicious}). {BECAUSE} "\
+            f"OBSERVED: {assertion} {QED}"
+
+        status_code = ValidationReport.StatusCode.CRITICAL
+
+        status_msg_lst.append((status_msg, status_msg_long, status_code))
+        logger.info(status_msg_long)
 
     return status_msg_lst
 
