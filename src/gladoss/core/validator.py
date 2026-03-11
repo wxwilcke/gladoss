@@ -132,7 +132,8 @@ def validate_state_graph_components(pattern: GraphPattern,
                         f"({pattern._id})")
             status_msg_lst = validate_graph_data(assertion, ap,
                                                  config.alpha_critical,
-                                                 config.alpha_suspicious)
+                                                 config.alpha_suspicious,
+                                                 config.evaluate_timestamps)
 
             status_msg_lst_data[ap._id] = status_msg_lst
 
@@ -140,7 +141,8 @@ def validate_state_graph_components(pattern: GraphPattern,
 
 
 def validate_graph_data(assertion: Statement, ap: AssertionPattern,
-                        alpha_critical: float, alpha_suspicious: float)\
+                        alpha_critical: float, alpha_suspicious: float,
+                        skip_timestamp_eval: bool)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate the data of a single assertion by checking resource and data
         types, comparing provided and expected values, and performing
@@ -178,7 +180,8 @@ def validate_graph_data(assertion: Statement, ap: AssertionPattern,
 
         status_msg_lst = validate_graph_data_distribution(assertion, ap,
                                                           alpha_critical,
-                                                          alpha_suspicious)
+                                                          alpha_suspicious,
+                                                          skip_timestamp_eval)
 
     return status_msg_lst
 
@@ -302,7 +305,8 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
 def validate_graph_data_distribution(assertion: Statement,
                                      ap: AssertionPattern,
                                      alpha_critical: float,
-                                     alpha_suspicious: float)\
+                                     alpha_suspicious: float,
+                                     skip_timestamp_eval: bool)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate various aspects of a newly observed value against the
         distribution that belongs to the associated pattern.
@@ -342,6 +346,22 @@ def validate_graph_data_distribution(assertion: Statement,
                                                         dtype_observed)
     else:
         raise NotImplementedError()
+
+    if isinstance(ap.value, DiscreteDistribution)\
+            and ap.value.fluidity() >= 1.0:
+        # distribution only contains unique values which suggests a random
+        # process. therefore skip statistical testing.
+        logger.debug("Possible random process. Skipping statistical evaluation"
+                     f" for '{assertion}'")
+        return status_msg_lst
+
+    # skip the statistical evaluation of timestamps
+    if skip_timestamp_eval and ap.value.dtype in (XSD+'date',
+                                                  XSD+'dateTime',
+                                                  XSD+'datetimeStamp'):
+        logger.debug("Encountered timestamp. Skipping statistical evaluation"
+                     f" for '{assertion}'")
+        return status_msg_lst
 
     # test whether a newly observed value falls outside the prediction interval
     if len(status_msg_lst) <= 0:  # if no previous violations have been found

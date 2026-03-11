@@ -17,7 +17,7 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
 
 logger = logging.getLogger(__name__)
 
-# TODO: consider swapping distributions for LSTMs with OCSVMs 
+# TODO: consider swapping distributions for LSTMs with OCSVMs
 
 
 class Distribution():
@@ -167,6 +167,19 @@ class Distribution():
 
                 # clean up decay tracker
                 del self._decay_tracker[self._t]
+
+    def fluidity(self) -> float:
+        """ Measure of change in [0, 1] of the values that make up the
+            distribution. A value of zero implies no change (a static value,
+            eg a fixed IRI) whereas a value of one implies that no value is
+            seen more than once (eg random categorical data or dynamic
+            continuous values).
+
+        :return: [TODO:description]
+        """
+        num_items = len(self.samples.keys())
+        return 0. if num_items <= 1\
+            else float(num_items / self.samples.total())
 
     def __repr__(self) -> str:
         return ", ".join([str(v) for v in sorted(self.data)])

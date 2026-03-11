@@ -426,6 +426,11 @@ def __main__():
                              "the associated graph pattern.", type=bool,
                              action=argparse.BooleanOptionalAction,
                              default=True)
+    parser_eval.add_argument("--evaluate-timestamps", help="Evaluate any "
+                             "timestamps of the observed state graph against "
+                             "the associated graph pattern.", type=bool,
+                             action=argparse.BooleanOptionalAction,
+                             default=False)
     parser_eval.add_argument("--grace-period", help="Number of updates to "
                              "process per assertion before evaluating the "
                              "assertion during the validation procedure. "
