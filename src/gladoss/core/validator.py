@@ -452,6 +452,7 @@ def validate_graph_data_numerical(assertion: Statement,
     """
     population = np.array(ap.value.data)
 
+    pi_lower, pi_upper = 0., 0.
     pi_violation = False
     for alpha in [alpha_critical, alpha_suspicious]:
         # compute prediction interval (lower, upper]
@@ -472,10 +473,9 @@ def validate_graph_data_numerical(assertion: Statement,
             # critical level: this suggests the presence of a critical anomaly
             status_msg = "Critical Value Violation"
             status_msg_long = \
-                "Evidence from the statistical evaluation suggests that this "\
-                "triple of the observed state graph differs significantly "\
-                "from the associated graph pattern at the critical level "\
-                f"({alpha_critical}). {BECAUSE} "\
+                f"Observed value not within {int((1 - alpha_critical) * 100)}"\
+                "% prediction interval. {BECAUSE} "\
+                f"EXPECTED: ({pi_lower}, {pi_upper}]"\
                 f"OBSERVED: {assertion} {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
 
@@ -487,12 +487,11 @@ def validate_graph_data_numerical(assertion: Statement,
             # non-critical anomaly
             status_msg = "Suspicious Value Violation"
             status_msg_long = \
-                "Evidence from the statistical evaluation suggests that this "\
-                "triple of the observed state graph differs significantly "\
-                "from the associated graph pattern at the suspicious level "\
-                f"({alpha_suspicious}). {BECAUSE} "\
+                "Observed value not within "\
+                f"{int((1 - alpha_suspicious) * 100)}% prediction interval. "\
+                "{BECAUSE} "\
+                f"EXPECTED: ({pi_lower}, {pi_upper}]"\
                 f"OBSERVED: {assertion} {QED}"
-
             status_code = ValidationReport.StatusCode.CRITICAL
 
             status_msg_lst.append((status_msg, status_msg_long, status_code))
@@ -561,12 +560,12 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
         # enough evidence to reject the zero hypothesis that both samples were
         # drawn from the same underlying distribution at the critical level:
         # this suggests the presence of a critical anomaly
-        status_msg = "Critical Value Violation"
+        status_msg = "Critical Pattern Violation"
         status_msg_long = \
-            "Evidence from the statistical evaluation suggests that this "\
-            "triple of the observed state graph differs significantly from "\
-            "the associated graph pattern at the critical level "\
-            f"({alpha_critical}). {BECAUSE} "\
+            f"Last {samplesize} observed values differ significantly "\
+            "from the expected pattern associated with this triple at "\
+            f"the critical level ({alpha_critical}). "\
+            f"{BECAUSE} "\
             f"OBSERVED: {assertion} {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
@@ -576,15 +575,15 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
         # enough evidence to reject the zero hypothesis that both samples were
         # drawn from the same underlying distribution at the suspicious level:
         # this might suggest the presence of an anomaly
-        status_msg = "Suspicious Value Violation"
+        status_msg = "Suspicious Pattern Violation"
         status_msg_long = \
-            "Evidence from the statistical evaluation suggests that this "\
-            "triple of the observed state graph differs significantly from "\
-            "the associated graph pattern at the suspicious level "\
-            f"({alpha_suspicious}). {BECAUSE} "\
+            f"Last {samplesize} observed values differ significantly "\
+            "from the expected pattern associated with this triple at "\
+            f"the suspicious level ({alpha_suspicious}). "\
+            f"{BECAUSE} "\
             f"OBSERVED: {assertion} {QED}"
 
-        status_code = ValidationReport.StatusCode.CRITICAL
+        status_code = ValidationReport.StatusCode.SUSPICIOUS
 
         status_msg_lst.append((status_msg, status_msg_long, status_code))
         logger.info(status_msg_long)
