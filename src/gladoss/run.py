@@ -68,7 +68,8 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     return success
 
 
-def create_validation_report(pattern: GraphPattern,
+def create_validation_report(rng: np.random.Generator,
+                             pattern: GraphPattern,
                              graph: Collection[Statement],
                              pattern_map: tuple[list[tuple[Statement,
                                                            AssertionPattern]],
@@ -91,7 +92,7 @@ def create_validation_report(pattern: GraphPattern,
         else:
             logger.info("Within grace period: skipping validation "
                         f"({pattern._id})")
-        report = validate_state_graph(pattern, graph, pattern_map, econf)
+        report = validate_state_graph(rng, pattern, graph, pattern_map, econf)
     except Exception as err:
         logger.error(err)
 
@@ -115,7 +116,7 @@ def create_validation_report(pattern: GraphPattern,
     return report
 
 
-def process_graph(mkid: Callable,
+def process_graph(rng: np.random.Generator, mkid: Callable,
                   pv: PatternVault, graph: Collection[Statement],
                   graph_id: str, pconf: SimpleNamespace,
                   econf: SimpleNamespace, r: Queue):
@@ -149,7 +150,7 @@ def process_graph(mkid: Callable,
     logger.debug(f"Associated pattern found ({graph_id})")
 
     pattern_map = create_pattern_map(graph, pattern)
-    report = create_validation_report(pattern, graph, pattern_map, econf)
+    report = create_validation_report(rng, pattern, graph, pattern_map, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                               ValidationReport.StatusCode.NODATA]:
         if pattern._t >= econf.grace_period:
@@ -166,7 +167,7 @@ def process_graph(mkid: Callable,
     r.put((thread_id, report))
 
 
-def process_observation(mkid: Callable,
+def process_observation(rng: np.random.Generator, mkid: Callable,
                         pv: PatternVault, pconf: SimpleNamespace,
                         econf: SimpleNamespace, q: Queue, r: Queue) -> None:
     """ Process incoming messages by spawning a new thread on demand. This
@@ -199,7 +200,7 @@ def process_observation(mkid: Callable,
         # listen for new observations in parallel
         thread_id = f"worker-{len(jobs_active)+1}"
         thread = threading.Thread(target=process_graph, name=thread_id,
-                                  args=(mkid, pv, graph, graph_id,
+                                  args=(rng, mkid, pv, graph, graph_id,
                                         pconf, econf, r))
         thread.start()
         jobs_active.append(thread)
@@ -283,7 +284,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
     # start a manager which spawns new threads as new observations arrive
     manager = threading.Thread(target=process_observation, name="manager",
-                               args=(mkid, pv, pconf, econf, q, r))
+                               args=(rng, mkid, pv, pconf, econf, q, r))
     manager.start()
 
     # loop until all connections have been terminated

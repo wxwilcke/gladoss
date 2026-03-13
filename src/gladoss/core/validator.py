@@ -19,6 +19,8 @@ from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
 from gladoss.core.pattern import AssertionPattern, GraphPattern
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 Distribution, HypothesisTest,
+                                test_statistic_discrete,
+                                test_statistic_continuous,
                                 two_sample_hypothesis_test,
                                 nonparametric_prediction_interval)
 
@@ -30,7 +32,8 @@ EMDASH = '\N{EM DASH}'
 QED = '\N{END OF PROOF}'
 
 
-def validate_state_graph(pattern: GraphPattern,
+def validate_state_graph(rng: np.random.Generator,
+                         pattern: GraphPattern,
                          graph: Collection[Statement],
                          pattern_map: tuple[list[tuple[Statement,
                                                        AssertionPattern]],
@@ -51,7 +54,7 @@ def validate_state_graph(pattern: GraphPattern,
     """
     # validate structure, semantics, and data
     status_msg_lst_map, status_msg_lst\
-        = validate_state_graph_components(pattern, pattern_map, config)
+        = validate_state_graph_components(rng, pattern, pattern_map, config)
 
     # summarize validation results by highest code
     status_code_max = ValidationReport.StatusCode.NOMINAL
@@ -80,7 +83,8 @@ def validate_state_graph(pattern: GraphPattern,
                             status_msg_lst=status_msg_lst)
 
 
-def validate_state_graph_components(pattern: GraphPattern,
+def validate_state_graph_components(rng: np.random.Generator,
+                                    pattern: GraphPattern,
                                     pattern_map: tuple[
                                         list[tuple[Statement,
                                                    AssertionPattern]],
@@ -130,19 +134,23 @@ def validate_state_graph_components(pattern: GraphPattern,
 
             logger.info(f"Validating graph data {i}/{len(assertion_ap_pairs)} "
                         f"({pattern._id})")
-            status_msg_lst = validate_graph_data(assertion, ap,
+            status_msg_lst = validate_graph_data(rng, assertion, ap,
                                                  config.alpha_critical,
                                                  config.alpha_suspicious,
-                                                 config.evaluate_timestamps)
+                                                 config.evaluate_timestamps,
+                                                 config.samplesize,
+                                                 config.samplegap)
 
             status_msg_lst_data[ap._id] = status_msg_lst
 
     return status_msg_lst_data, status_msg_lst_struc
 
 
-def validate_graph_data(assertion: Statement, ap: AssertionPattern,
+def validate_graph_data(rng: np.random.Generator,
+                        assertion: Statement, ap: AssertionPattern,
                         alpha_critical: float, alpha_suspicious: float,
-                        skip_timestamp_eval: bool)\
+                        skip_timestamp_eval: bool, samplesize: int,
+                        interruption: int)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate the data of a single assertion by checking resource and data
         types, comparing provided and expected values, and performing
@@ -178,10 +186,13 @@ def validate_graph_data(assertion: Statement, ap: AssertionPattern,
             # skip further evaluation
             return [(status_msg, status_msg_long, status_code)]
 
-        status_msg_lst = validate_graph_data_distribution(assertion, ap,
+        status_msg_lst = validate_graph_data_distribution(rng,
+                                                          assertion, ap,
                                                           alpha_critical,
                                                           alpha_suspicious,
-                                                          skip_timestamp_eval)
+                                                          skip_timestamp_eval,
+                                                          samplesize,
+                                                          interruption)
 
     return status_msg_lst
 
@@ -302,11 +313,14 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
     return status_msg_lst
 
 
-def validate_graph_data_distribution(assertion: Statement,
+def validate_graph_data_distribution(rng: np.random.Generator,
+                                     assertion: Statement,
                                      ap: AssertionPattern,
                                      alpha_critical: float,
                                      alpha_suspicious: float,
-                                     skip_timestamp_eval: bool)\
+                                     skip_timestamp_eval: bool,
+                                     samplesize: int,
+                                     interruption: int)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate various aspects of a newly observed value against the
         distribution that belongs to the associated pattern.
@@ -337,13 +351,15 @@ def validate_graph_data_distribution(assertion: Statement,
     # evaluate distribution types via meta data
     status_msg_lst = list()
     if isinstance(ap.value, DiscreteDistribution):
-        # test_statistic = test_statistic_discrete
-        status_msg_lst = validate_graph_data_discrete(assertion, ap,
-                                                      dtype_observed)
+        test_statistic = test_statistic_discrete
+        status_msg_lst.extend(
+                validate_graph_data_discrete(assertion, ap,
+                                             dtype_observed))
     elif isinstance(ap.value, ContinuousDistribution):
-        # test_statistic = test_statistic_continuous
-        status_msg_lst = validate_graph_data_continuous(assertion, ap,
-                                                        dtype_observed)
+        test_statistic = test_statistic_continuous
+        status_msg_lst.extend(
+                validate_graph_data_continuous(assertion, ap,
+                                               dtype_observed))
     else:
         raise NotImplementedError()
 
@@ -365,24 +381,32 @@ def validate_graph_data_distribution(assertion: Statement,
 
     # test whether a newly observed value falls outside the prediction interval
     if len(status_msg_lst) <= 0:  # if no previous violations have been found
-        # status_msg_lst = validate_graph_data_distribution_fit(rng, assertion,
-        #                                                       ap, value_new,
-        #                                                       test_statistic,
-        #                                                       alpha_critical,
-        #                                                       alpha_suspicious,
-        #                                                       samplesize,
-        #                                                      interruption)
-
         if isinstance(value_new, str):
-            status_msg_lst = validate_graph_data_categorical(assertion, ap,
-                                                             value_new)
+            status_msg_lst.extend(
+                    validate_graph_data_categorical(assertion, ap,
+                                                    value_new))
         elif isinstance(value_new, int) or isinstance(value_new, float):
-            status_msg_lst = validate_graph_data_numerical(assertion, ap,
-                                                           value_new,
-                                                           alpha_critical,
-                                                           alpha_suspicious)
+            status_msg_lst.extend(
+                    validate_graph_data_numerical(assertion, ap,
+                                                  value_new,
+                                                  alpha_critical,
+                                                  alpha_suspicious))
         else:
             raise NotImplementedError()
+
+        # test whether the most recent n observed values are drawn from the
+        # same distribution as those observed before.
+        if ap._t % (samplesize//2) <= 0:
+            # run this test infrequently as it can only detect deviations
+            # between sets of values.
+            status_msg_lst.extend(
+                    validate_graph_data_distribution_fit(rng, assertion,
+                                                         ap, value_new,
+                                                         test_statistic,
+                                                         alpha_critical,
+                                                         alpha_suspicious,
+                                                         samplesize,
+                                                         interruption))
 
     return status_msg_lst
 
