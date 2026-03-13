@@ -94,7 +94,7 @@ def create_validation_report(rng: np.random.Generator,
                         f"({pattern._id})")
         report = validate_state_graph(rng, pattern, graph, pattern_map, econf)
     except Exception as err:
-        logger.error(err)
+        logger.error(f"Exception during validation: {err}")
 
         # convert to simpler form for validation report
         assertion_ap_pairs, _, _ = pattern_map
@@ -479,6 +479,7 @@ def __main__():
                                             'alpha_suspicious',
                                             'evaluate_structure',
                                             'evaluate_data',
+                                            'evaluate_timestamps',
                                             'grace_period',
                                             'samplesize',
                                             'samplegap',
