@@ -63,6 +63,7 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
 
     # publish report to endpoint
     logger.info(f"Publishing validation report ({report.pattern._id})")
+    logger.debug(f" {{\n{'\n  '.join(report_graph)}\n  }}")
     success = adaptor.publish_report(report.pattern._id, report_graph)
 
     return success
@@ -133,6 +134,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     """
     thread_id = threading.current_thread().name
     logger.info(f"Received new graph message ({graph_id})")
+    logger.debug(f" {{\n{'\n  '.join(graph)}\n  }}")
 
     pattern = pv.find_associated_graph_pattern(graph_id)
     if pattern is None:
