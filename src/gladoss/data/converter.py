@@ -32,8 +32,8 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
     :param mkid: [TODO:description]
     :return: [TODO:description]
     """
-    logger.info("Generating SHACL validation report for graph pattern "
-                f"{report.pattern._id}")
+    logger.debug("Exporting validation report to SHACL "
+                 f"({report.pattern._id})")
 
     # default value
     conforms = True

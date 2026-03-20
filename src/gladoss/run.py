@@ -58,12 +58,13 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     :return: [TODO:description]
     """
     # represent validation report as graph
-    logger.info(f"Creating validation publication ({report.pattern._id})")
+    logger.debug(f"Preparing publication of validation report "
+                 f"({report.pattern._id})")
     report_graph = report.to_graph(mkid)
+    logger.debug(f" {{\n{'\n  '.join([str(s) for s in report_graph])}\n  }}")
 
     # publish report to endpoint
     logger.info(f"Publishing validation report ({report.pattern._id})")
-    logger.debug(f" {{\n{'\n  '.join(report_graph)}\n  }}")
     success = adaptor.publish_report(report.pattern._id, report_graph)
 
     return success
@@ -134,7 +135,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     """
     thread_id = threading.current_thread().name
     logger.info(f"Received new graph message ({graph_id})")
-    logger.debug(f" {{\n{'\n  '.join(graph)}\n  }}")
+    logger.debug(f" {{\n{'\n  '.join([str(s) for s in graph])}\n  }}")
 
     pattern = pv.find_associated_graph_pattern(graph_id)
     if pattern is None:
@@ -313,9 +314,13 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
             # publish report if requested by the report level
             assert isinstance(report, ValidationReport)
+            logger.debug("Processing validation report with status "
+                         f"{report.status_code.name} "
+                         f"({report.pattern._id})")
             if report.status_code >= econf.report_level:
                 if not publish_validation_report(adaptor, report, mkid):
-                    logger.info("Unable to publish validation report")
+                    logger.info("Unable to publish validation report "
+                                f"({report.pattern._id})")
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 
@@ -465,7 +470,7 @@ def __main__():
                              "INSUFFICIENT DATA (2), INCONSISTENCIES (3), "
                              "SUSPICIOUS warnings (4), and CRITICAL "
                              "warnings (5)",
-                             type=int, default=5)
+                             type=int, default=3)
 
     flags = parser.parse_args()
 
@@ -501,6 +506,10 @@ def __main__():
     logging.basicConfig(level=log_level,
                         format='[%(asctime)s] [%(levelname)s] [%(threadName)s]'
                                ' %(filename)s - %(message)s')
+
+    logger.debug("\n".join([f"{k}: {v}" for k, v in cconf.__dict__.items()]))
+    logger.debug("\n".join([f"{k}: {v}" for k, v in pconf.__dict__.items()]))
+    logger.debug("\n".join([f"{k}: {v}" for k, v in econf.__dict__.items()]))
 
     # register SIGINT signal handler
     global controller

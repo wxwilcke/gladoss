@@ -58,8 +58,8 @@ post_data() {
     {
         "sensor": "ex:Sensor",
         "measurement": "ex:Measurement",
-        "temperature": "\"$VALUE\"",
-        "timestamp": "\"$TIMESTAMP\""
+        "temperature": "\"$VALUE\"^^<http://www.w3.org/2001/XMLSchema#float>",
+        "timestamp": "\"$TIMESTAMP\"^^<http://www.w3.org/2001/XMLSchema#dateTime>"
     }
 ]
 EOF
@@ -99,7 +99,7 @@ do
         echo " Publishing sensor reading: $VALUE °C (simulating faulty sensor)"
     else
         VALUE=$((15 + $RANDOM % 10)).$(($RANDOM % 10))
-        echo " Publishing sensor reading: $VALUE °C"
+        echo " $i - Publishing sensor reading: $VALUE °C"
     fi
 
     out=$(post_data "$VALUE")

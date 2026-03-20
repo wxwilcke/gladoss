@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 URI_CHARSET = r"[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]"
 URI = rf"<?{URI_CHARSET}+>?"
-RESOURCE = rf"(?:{URI})|(?:'.*'(?:(?:@[a-z]{{2}})|(?:\^\^{URI}))?)"
+RESOURCE = rf"(?:{URI})|(?:\".*\"(?:(?:@[a-z]{{2}})|(?:\^\^{URI}))?)"
 STATEMENT = re.compile(rf"(?P<head>{URI})"
                        rf"\s*(?P<relation>{URI})"
                        rf"\s*(?P<tail>{RESOURCE})\s*\.")
-LITERAL = re.compile(r"(?P<value>'.*')(?:"
+LITERAL = re.compile(r"(?P<value>\".*\")(?:"
                      r"(?:@(?P<lang>[a-z]{{2}}))|"
                      rf"(?:\^\^(?P<dtype>{URI})))?")
 
@@ -182,6 +182,7 @@ class KE_Adaptor(Adaptor):
                 self.context['reactKnowledgeInteractions'][ki_endpoint] = set()
 
             ki_pattern = ki['argumentGraphPattern']
+            ki_prefixes = ki['prefixes']
             ki_payload = {
                     'knowledgeInteractionType': "ReactKnowledgeInteraction",
                     'knowledgeInteractionName': ki['knowledgeInteractionName'],
@@ -208,7 +209,8 @@ class KE_Adaptor(Adaptor):
                              'Interactions'][ki_endpoint].add(ki_id)
                 self.context['reactKnowledge'
                              'InteractionsInv'][ki_id] = ki_endpoint
-                self.context['argumentGraphPatterns'][ki_id] = ki_pattern
+                self.context['argumentGraphPatterns'][ki_id] = [ki_pattern,
+                                                                ki_prefixes]
             except Exception:
                 logger.error(f"Unable to register at endpoint '{ki_endpoint}'")
 
@@ -429,13 +431,14 @@ class KE_Adaptor(Adaptor):
                           + f"with knowledge interaction {ki_id}")
             return data_translated
 
-        ki_pattern = self.context['argumentGraphPatterns'][ki_id]  # type: str
+        ki_pattern, ki_prefixes = self.context['argumentGraphPatterns'][ki_id]
         bindings = data["bindingSet"]  # type: list[dict[str,str]]
         try:
-            statements_str = [s.strip() for s in ki_pattern.splitlines()]
+            statements_lst = self.create_pattern_template(ki_pattern,
+                                                          ki_prefixes)
             for bset in bindings:
                 graph = list()
-                for s in self.instantiate_graph(statements_str, bset):
+                for s in self.instantiate_graph(statements_lst, bset):
                     match = re.fullmatch(STATEMENT, s)
                     if match is not None:
                         fact = self.process_fact(match)
@@ -574,11 +577,80 @@ class KE_Adaptor(Adaptor):
 
         return binding_set
 
+    def create_pattern_template(self, pattern: str, prefixes: dict[str, str])\
+            -> list[str]:
+        """ Expand prefixes by their full namespaces.
+
+        :param prefixes: [TODO:description]
+        :return: [TODO:description]
+        """
+        out = list()
+        for s in pattern.splitlines():
+            s = s.strip()
+            if len(s) <= 0:
+                continue
+            if ':' not in s:
+                out.append(s)
+
+                continue
+
+            i = 0
+            in_prefix = False
+            in_iri = False
+            s_lst = list()
+            for j in range(len(s)):
+                char = s[j]
+                if char == '"':
+                    # reached a literal; no need to continue since
+                    # the pattern does not support datatype annotations
+                    j = len(s)
+
+                    break
+
+                if char == "<":
+                    in_iri = True
+                if char == ">" and in_iri:
+                    in_iri = False
+                if in_iri:
+                    continue
+
+                if char == ':' and j > 0:
+                    # prefix deliminator
+                    h = i  # remember original end
+                    i = j - 1
+                    while i > 0:
+                        if s[i].isspace():  # pre prefix start
+                            i += 1
+
+                            break
+
+                        i -= 1
+
+                    prefix = s[i:j]
+                    ns = prefixes.get(prefix)
+                    if ns is not None:
+                        s_lst.append(s[h:i])  # add prior
+                        s_lst.append("<" + ns)
+
+                        i = j + 1
+                        in_prefix = True
+                    else:
+                        i = h  # reset to original
+
+                if in_prefix and char.isspace():  # end of prefixed IRI
+                    s_lst.append(s[i:j] + ">")
+
+                    in_prefix = False
+                    i = j
+
+            s_lst.append(s[i:j+1])  # add remainder
+            out.append(''.join(s_lst))
+
+        return out
+
     def instantiate_graph(self: Self, statements_str: list[str],
                           bindings: dict[str, str]) -> list[str]:
-        """ Replace variable names by bounded values. This will fail
-            if a variable name occurs inside a string literal, but
-            this is very unlikely.
+        """ Replace variable names by bounded values.
 
         :param statements_str: the triple pattern as strings
         :param bindings: a map between variable names and their values
@@ -588,6 +660,11 @@ class KE_Adaptor(Adaptor):
         out = list()
         for s in statements_str:
             if len(s) <= 0:
+                continue
+
+            if '?' not in s:
+                out.append(s)
+
                 continue
 
             i = 0
@@ -612,7 +689,7 @@ class KE_Adaptor(Adaptor):
 
                     continue
 
-                if flag and not char.isalnum():  # end of variable
+                if flag and char.isspace():  # end of variable
                     var = s[i+1:j]
                     if var in bindings.keys():
                         if len(s_lst) <= 0 and i > 0:
@@ -638,8 +715,8 @@ class KE_Adaptor(Adaptor):
         :param match: A matching regex object
         :return: The corresponding RDF statement
         """
-        head = IRIRef(match.group('head'))
-        relation = IRIRef(match.group('relation'))
+        head = IRIRef(match.group('head')[1:-1])
+        relation = IRIRef(match.group('relation')[1:-1])
 
         tail = match.group('tail')  # type: str
         tail_literal = re.fullmatch(LITERAL, tail)
@@ -649,10 +726,11 @@ class KE_Adaptor(Adaptor):
             dtype = tail_literal.group('dtype')
 
             if dtype:
-                dtype = IRIRef(dtype)
+                dtype = IRIRef(dtype[1:-1])
 
+            value = value[1: -1]  # strip escaped quotation marks
             tail = Literal(value, datatype=dtype, language=lang)
         else:
-            tail = IRIRef(tail)
+            tail = IRIRef(tail[1:-1])
 
         return Statement(head, relation, tail)

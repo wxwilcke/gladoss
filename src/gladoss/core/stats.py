@@ -99,6 +99,8 @@ class Distribution():
             value = cast_literal(dtype, resource)
             dist.addSample(value)  # type: ignore
 
+            logger.debug(f"Created {type(dist)} for resource of type {dtype} "
+                         f"('{resource}')")
         else:  # IRIRef
             # create a new distribution and add values
             # use xsd:anyURI as IRI type
@@ -106,6 +108,8 @@ class Distribution():
                                         dtype=XSD+'anyURI')
 
             dist.addSample(resource.value)
+
+            logger.debug(f"Created {type(dist)} for resource ('{resource}')")
 
         return dist
 

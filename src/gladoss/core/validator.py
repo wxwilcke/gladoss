@@ -3,6 +3,7 @@
 from __future__ import annotations
 from datetime import datetime
 from enum import IntEnum
+from functools import total_ordering
 from itertools import chain
 import logging
 from types import SimpleNamespace
@@ -67,7 +68,7 @@ def validate_state_graph(rng: np.random.Generator,
                 # no need to continue
                 break
 
-    logger.info(f"Validation priority status {status_code_max.name} "
+    logger.info(f"Validation status {status_code_max.name} "
                 f"({pattern._id})")
 
     # convert to simpler form for validation report
@@ -441,8 +442,8 @@ def validate_graph_data_categorical(assertion: Statement,
         status_msg = "Critical Value Violation"
         status_msg_long = \
             "Observed value is not a member of the set of expected values "\
-            "{BECAUSE} "\
-            f"EXPECTED: {{{members_str}}}"\
+            f"{BECAUSE} "\
+            f"EXPECTED: {{{members_str}}} "\
             f"OBSERVED: {assertion} {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
@@ -498,8 +499,8 @@ def validate_graph_data_numerical(assertion: Statement,
             status_msg = "Critical Value Violation"
             status_msg_long = \
                 f"Observed value not within {int((1 - alpha_critical) * 100)}"\
-                "% prediction interval. {BECAUSE} "\
-                f"EXPECTED: ({pi_lower}, {pi_upper}]"\
+                f"% prediction interval. {BECAUSE} "\
+                f"EXPECTED: ({pi_lower}, {pi_upper}] "\
                 f"OBSERVED: {assertion} {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
 
@@ -762,6 +763,7 @@ def validate_graph_structure(pattern: GraphPattern,
 
 
 class ValidationReport():
+    @total_ordering
     class StatusCode(IntEnum):
         NOMINAL = 0, "Nominal Behaviour"
         ERROR = 1, "Generic Error"
@@ -780,10 +782,44 @@ class ValidationReport():
             self._description_ = description
 
         def __eq__(self, other):
-            return self.value == other.value
+            if isinstance(other, ValidationReport.StatusCode):
+                return self.value == other.value
+            elif isinstance(other, int):
+                return self.value == other
+            else:
+                raise TypeError()
 
         def __lt__(self, other):
-            return self.value < other.value
+            if isinstance(other, ValidationReport.StatusCode):
+                return self.value < other.value
+            elif isinstance(other, int):
+                return self.value < other
+            else:
+                raise TypeError()
+
+        def __gt__(self, other):
+            if isinstance(other, ValidationReport.StatusCode):
+                return self.value > other.value
+            elif isinstance(other, int):
+                return self.value > other
+            else:
+                raise TypeError()
+
+        def __le__(self, other):
+            if isinstance(other, ValidationReport.StatusCode):
+                return self.value <= other.value
+            elif isinstance(other, int):
+                return self.value <= other
+            else:
+                raise TypeError()
+
+        def __ge__(self, other):
+            if isinstance(other, ValidationReport.StatusCode):
+                return self.value >= other.value
+            elif isinstance(other, int):
+                return self.value >= other
+            else:
+                raise TypeError()
 
         # this makes sure that the description is read-only
         @property

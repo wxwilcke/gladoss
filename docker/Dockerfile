@@ -40,7 +40,8 @@ RUN mkdir -p $WORKDIR \
  && chown root:$GROUP $WORKDIR
 
 # copy the application to the image
-ADD --keep-git-dir=false --chown=root:$GROUP https://gitlab.com/wxwilcke/gladoss.git $WORKDIR
+COPY --from=base src/ $WORKDIR/src/
+COPY --from=base pyproject.toml requirements.txt $WORKDIR/
 RUN chown -R root:$GROUP $WORKDIR
 
 WORKDIR $WORKDIR
