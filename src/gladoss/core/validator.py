@@ -150,7 +150,7 @@ def validate_state_graph_components(rng: np.random.Generator,
 def validate_graph_data(rng: np.random.Generator,
                         assertion: Statement, ap: AssertionPattern,
                         alpha_critical: float, alpha_suspicious: float,
-                        skip_timestamp_eval: bool, samplesize: int,
+                        timestamp_eval: bool, samplesize: int,
                         interruption: int)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate the data of a single assertion by checking resource and data
@@ -191,7 +191,7 @@ def validate_graph_data(rng: np.random.Generator,
                                                           assertion, ap,
                                                           alpha_critical,
                                                           alpha_suspicious,
-                                                          skip_timestamp_eval,
+                                                          timestamp_eval,
                                                           samplesize,
                                                           interruption)
 
@@ -319,7 +319,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                                      ap: AssertionPattern,
                                      alpha_critical: float,
                                      alpha_suspicious: float,
-                                     skip_timestamp_eval: bool,
+                                     timestamp_eval: bool,
                                      samplesize: int,
                                      interruption: int)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
@@ -373,9 +373,8 @@ def validate_graph_data_distribution(rng: np.random.Generator,
         return status_msg_lst
 
     # skip the statistical evaluation of timestamps
-    if skip_timestamp_eval and ap.value.dtype in (XSD+'date',
-                                                  XSD+'dateTime',
-                                                  XSD+'datetimeStamp'):
+    if not timestamp_eval and ap.value.dtype in (XSD+'dateTime',
+                                                 XSD+'datetimeStamp'):
         logger.debug("Encountered timestamp. Skipping statistical evaluation"
                      f" for '{assertion}'")
         return status_msg_lst
@@ -477,12 +476,15 @@ def validate_graph_data_numerical(assertion: Statement,
     """
     population = np.array(ap.value.data)
 
+    prob_critical = 1. - alpha_critical
+    prob_suspicious = 1. - alpha_suspicious
+
     pi_lower, pi_upper = 0., 0.
     pi_violation = False
-    for alpha in [alpha_critical, alpha_suspicious]:
+    for prob in [prob_critical, prob_suspicious]:
         # compute prediction interval (lower, upper]
         pi_lower, pi_upper = nonparametric_prediction_interval(population,
-                                                               alpha)
+                                                               prob)
 
         if value_new <= pi_lower or value_new > pi_upper:
             # outside of prediction interval
@@ -493,12 +495,12 @@ def validate_graph_data_numerical(assertion: Statement,
     # infer validity from test results
     status_msg_lst = list()
     if pi_violation:
-        if alpha == alpha_critical:
+        if prob == prob_critical:
             # observed value falls outside of prediction interval at the
             # critical level: this suggests the presence of a critical anomaly
             status_msg = "Critical Value Violation"
             status_msg_long = \
-                f"Observed value not within {int((1 - alpha_critical) * 100)}"\
+                f"Observed value not within {int((prob_critical) * 100)}"\
                 f"% prediction interval. {BECAUSE} "\
                 f"EXPECTED: ({pi_lower}, {pi_upper}] "\
                 f"OBSERVED: {assertion} {QED}"
@@ -506,14 +508,14 @@ def validate_graph_data_numerical(assertion: Statement,
 
             status_msg_lst.append((status_msg, status_msg_long, status_code))
             logger.info(status_msg_long)
-        elif alpha == alpha_suspicious:
+        elif prob == 1 - alpha_suspicious:
             # observed value falls outside of prediction interval at
             # the suspicious level: this suggests the presence of a
             # non-critical anomaly
             status_msg = "Suspicious Value Violation"
             status_msg_long = \
                 "Observed value not within "\
-                f"{int((1 - alpha_suspicious) * 100)}% prediction interval. "\
+                f"{int((prob_suspicious) * 100)}% prediction interval. "\
                 "{BECAUSE} "\
                 f"EXPECTED: ({pi_lower}, {pi_upper}]"\
                 f"OBSERVED: {assertion} {QED}"

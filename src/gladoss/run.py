@@ -418,11 +418,11 @@ def __main__():
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
                              "trigger a critical warning.", type=float,
-                             default=0.05, dest='alpha_critical')
+                             default=0.01, dest='alpha_critical')
     parser_eval.add_argument("--significance-level-suspicious",
                              help="Significance level (alpha) for the test "
                              "statistic. A p-value less than this level will "
-                             "trigger a warning.", type=float, default=0.10,
+                             "trigger a warning.", type=float, default=0.05,
                              dest='alpha_suspicious')
     parser_eval.add_argument("--evaluate-structure", help="Evaluate the "
                              "structure of the observed state graph against "

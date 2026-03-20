@@ -13,8 +13,16 @@ The `continuous` flag tells GLADoSS to keep listening for incoming messages rega
 2) Build a fresh container image with the aforementioned entrypoint file..
 
 ```bash
-docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t gladoss .
+docker build --build-context base=.. \
+             --build-arg UID=$(id -u) \
+             --build-arg GID=$(id -g) \
+             -f Dockerfile \
+             -t gladoss .
 ```
+
+This build uses the default `Dockerfile` which assumes that the source code is
+locally available (e.g. following `git clone`). To use upstream instead,
+replace `Dockerfile` in the build command by `git.Dockerfile`.
 
 3) Run the GLADoSS container on the `semantic_network` and with local directories for backups and (custom) adaptors accessible from the container.
 
