@@ -7,7 +7,7 @@ import tomllib
 from typing import Any, Collection, Optional, Self
 
 import requests
-from rdf import IRIRef, Literal, Statement
+from rdf import BNode, IRIRef, Literal, Statement
 from rdf.namespaces import RDF, RDFS, SHACL
 
 from gladoss.adaptors.adaptor import Adaptor
@@ -286,6 +286,7 @@ class KE_Adaptor(Adaptor):
             ki_endpoint\
                 = self.context['reactKnowledgeInteractionsInv'][identifier]
 
+            logger.debug(f"POST {{\n{package_headers}\n{package_payload}\n}}")
             success = self.post_ki(ki_endpoint,
                                    package_headers,
                                    package_payload)
@@ -469,6 +470,8 @@ class KE_Adaptor(Adaptor):
                     node_str += f"@{node.language}"
 
                 return node_str
+            elif isinstance(node, BNode):
+                return f"_:{node.value}"
 
             return f"<{node}>"
 
@@ -492,7 +495,7 @@ class KE_Adaptor(Adaptor):
                     continue
 
                 if statement.object == SHACL + "Severity":
-                    severities[sbj] = {"severity": sbj}
+                    severities[sbj] = dict()
 
                     continue
 
@@ -542,7 +545,7 @@ class KE_Adaptor(Adaptor):
                         results[sbj]["resultStatusMsgLong"] = statement.object
 
                         continue
-                    if statement.predicate == SHACL + "severity":
+                    if statement.predicate == SHACL + "resultSeverity":
                         results[sbj]["resultSeverity"] = statement.object
 
                         continue

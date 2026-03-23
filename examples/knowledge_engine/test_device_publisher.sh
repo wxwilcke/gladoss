@@ -96,7 +96,7 @@ do
     if [ $(($i % 120)) -eq 0 ]
     then
         VALUE=999
-        echo " Publishing sensor reading: $VALUE °C (simulating faulty sensor)"
+        echo " $i - Publishing sensor reading: $VALUE °C (simulating faulty sensor)"
     else
         VALUE=$((15 + $RANDOM % 10)).$(($RANDOM % 10))
         echo " $i - Publishing sensor reading: $VALUE °C"

@@ -517,9 +517,9 @@ def validate_graph_data_numerical(assertion: Statement,
                 "Observed value not within "\
                 f"{int((prob_suspicious) * 100)}% prediction interval. "\
                 "{BECAUSE} "\
-                f"EXPECTED: ({pi_lower}, {pi_upper}]"\
+                f"EXPECTED: ({pi_lower}, {pi_upper}] "\
                 f"OBSERVED: {assertion} {QED}"
-            status_code = ValidationReport.StatusCode.CRITICAL
+            status_code = ValidationReport.StatusCode.SUSPICIOUS
 
             status_msg_lst.append((status_msg, status_msg_long, status_code))
             logger.info(status_msg_long)

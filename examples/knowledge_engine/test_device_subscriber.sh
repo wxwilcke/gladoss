@@ -27,25 +27,25 @@ register_ki() {
 {
     "knowledgeInteractionType": "ReactKnowledgeInteraction",
     "knowledgeInteractionName": "AnomalyReceiver",
-    "argumentGraphPattern": ?report rdf:type sh:ValidationReport .
-                            ?report dct:date ?reportDate .
-                            ?report dct:identifier ?reportIdentifier .
-                            ?report dct:conformsTo ?reportLanguage .
-                            ?report sh:conforms ?validationPassed .
-                            ?report dct:hasPart ?result .
+    "argumentGraphPattern": "?report rdf:type sh:ValidationReport .
+                             ?report dct:date ?reportDate .
+                             ?report dct:identifier ?reportIdentifier .
+                             ?report dct:conformsTo ?reportLanguage .
+                             ?report sh:conforms ?validationPassed .
+                             ?report dct:hasPart ?result .
 
-                            ?result rdf:type sh:ValidationResult .
-                            ?result rdfs:label ?resultStatusMsg .
-                            ?result sh:focusNode ?resultFocusNode .
-                            ?result sh:resultPath ?resultPath .
-                            ?result sh:value ?resultValue .
-                            ?result sh:sourceShape ?resultSourceShape .
-                            ?result sh:resultMessage ?resultStatusMsgLong .
-                            ?result sh:resultSeverity ?resultSeverity .
+                             ?result rdf:type sh:ValidationResult .
+                             ?result rdfs:label ?resultStatusMsg .
+                             ?result sh:focusNode ?resultFocusNode .
+                             ?result sh:resultPath ?resultPath .
+                             ?result sh:value ?resultValue .
+                             ?result sh:sourceShape ?resultSourceShape .
+                             ?result sh:resultMessage ?resultStatusMsgLong .
+                             ?result sh:resultSeverity ?resultSeverity .
 
-                            ?resultSeverity rdf:type sh:Severity .
-                            ?resultSeverity rdfs:label ?severityLabel .
-                            ?resultSeverity rdfs:comment ?severityDescription .",
+                             ?resultSeverity rdf:type sh:Severity .
+                             ?resultSeverity rdfs:label ?severityLabel .
+                             ?resultSeverity rdfs:comment ?severityDescription .",
     "prefixes":
     {
         "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
@@ -80,10 +80,10 @@ EOF
 }
 
 poll_endpoint() {
-    OUT=$(curl -s http://127.0.0.1:8280/rest/sc/handle \
+    OUT=$(curl -s -w "%{http_code}" http://127.0.0.1:8280/rest/sc/handle \
          -X GET \
          -H "Knowledge-Base-Id: http://example.org/receiver" \
-         ) 2>/dev/null
+         )
 
     echo "$OUT"
 }
@@ -114,15 +114,22 @@ i=1
 while true
 do 
     RES=$(poll_endpoint)
-    if [ -z "$RES" ]
+    RES_CODE=$(echo "$RES" | tr -d '\n' | xargs -0 | rev | cut -c -3 | rev)
+    if [ "$RES_CODE" -gt 200 ]
     then
-        echo "\nProblem with receiving messages"
+        if [ "$RES_CODE" -ge 300 ]
+        then
+            echo "Problem with receiving messages"
 
-        exit 6
+            exit 6
+        fi
+
+        continue
     fi
+    RES_DATA=$(echo "$RES" | tr -d '\n' | xargs -0 | rev | cut -c 4- | rev)
 
     valid_response=false
-    case "$RES" in
+    case "$RES_DATA" in
         *handleRequestId* )
             valid_response=true
             ;;
@@ -130,21 +137,20 @@ do
 
     if [ "$valid_response" = false ]
     then
-        echo "Connection reset. Retrying"
         continue
     fi
 
-    REQ_ID=$(echo "$RES" | jq -r '.handleRequestId')
+    REQ_ID=$(echo "$RES_DATA" | jq -r '.handleRequestId')
     RET=$(post_receipt "$REQ_ID")
     if [ $RET -gt 0 ]
     then
-        echo "\nUnable to post receipt"
+        echo "Unable to post receipt"
 
         exit 5
     fi
 
-    BS=$(echo "$RES" | jq -r '.bindingSet')
-    echo "$i - Received message\n$BS"
+    BS=$(echo "$RES_DATA" | jq -r '.bindingSet')
+    echo -e "$i - Received message\n$BS"
 
     ((i=i+1))
 done

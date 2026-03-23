@@ -8,7 +8,7 @@ from typing import Callable
 from gladoss.core.multimodal.datatypes import XSD_NUMERIC, cast_literal_rev
 from gladoss.core.stats import Distribution
 from rdf.graph import Statement
-from rdf.namespaces import OWL, RDF, RDFS, XSD
+from rdf.namespaces import SHACL, OWL, RDF, RDFS, XSD
 from rdf.terms import BNode, IRIRef, Literal, Resource
 
 from gladoss.core.pattern import GraphPattern
@@ -17,7 +17,6 @@ from gladoss.core.pattern import GraphPattern
 logger = logging.getLogger(__name__)
 
 DCT = IRIRef("http://purl.org/dc/terms/")
-SH = IRIRef("https://www.w3.org/ns/shacl#")  # SHACL namespace
 
 
 def report_to_graph(report: 'ValidationReport', mkid: Callable)\
@@ -41,7 +40,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
     # define graph and metadata
     root = BNode('B' + mkid())
     graph = [
-        Statement(root, RDF + 'type', SH + 'ValidationReport'),
+        Statement(root, RDF + 'type', SHACL + 'ValidationReport'),
         Statement(root, DCT + 'date', Literal(report.timestamp.isoformat(),
                                               datatype=XSD + 'dateTime')),
         Statement(root, DCT + 'identifier', Literal(report.pattern._id,
@@ -57,17 +56,17 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
         res = BNode('B' + mkid())
         graph.extend([
             Statement(root, DCT + 'hasPart', res),
-            Statement(res, RDF + 'type', SH + 'ValidationResult'),
+            Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
             Statement(res, RDFS + 'label',
                       Literal(status_msg, language="en")),
-            Statement(res, SH + 'resultMessage',
+            Statement(res, SHACL + 'resultMessage',
                       Literal(status_msg_long, language="en"))
             ])
 
         sev = BNode('B' + mkid())
         graph.extend([
-            Statement(res, SH + 'resultSeverity', sev),
-            Statement(sev, RDF + 'type', SH + 'Severity'),
+            Statement(res, SHACL + 'resultSeverity', sev),
+            Statement(sev, RDF + 'type', SHACL + 'Severity'),
             Statement(sev, RDFS + 'label',
                       Literal(status_code.name, datatype=XSD + 'string')),
             Statement(sev, RDFS + 'comment',
@@ -88,22 +87,22 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
             res = BNode('B' + mkid())
             graph.extend([
                 Statement(root, DCT + 'hasPart', res),
-                Statement(res, RDF + 'type', SH + 'ValidationResult'),
-                Statement(res, SH + 'focusNode', assertion.subject),
-                Statement(res, SH + 'resultPath', assertion.predicate),
-                Statement(res, SH + 'value', assertion.object),
-                Statement(res, SH + 'sourceShape',
+                Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
+                Statement(res, SHACL + 'focusNode', assertion.subject),
+                Statement(res, SHACL + 'resultPath', assertion.predicate),
+                Statement(res, SHACL + 'value', assertion.object),
+                Statement(res, SHACL + 'sourceShape',
                           Literal(ap_id, datatype=XSD + 'string')),
                 Statement(res, RDFS + 'label',
                           Literal(status_msg, language="en")),
-                Statement(res, SH + 'resultMessage',
+                Statement(res, SHACL + 'resultMessage',
                           Literal(status_msg_long, language="en"))
                 ])
 
             sev = BNode('B' + mkid())
             graph.extend([
-                Statement(res, SH + 'resultSeverity', sev),
-                Statement(sev, RDF + 'type', SH + 'Severity'),
+                Statement(res, SHACL + 'resultSeverity', sev),
+                Statement(sev, RDF + 'type', SHACL + 'Severity'),
                 Statement(sev, RDFS + 'label',
                           Literal(status_code.name, datatype=XSD + 'string')),
                 Statement(sev, RDFS + 'comment',
@@ -114,7 +113,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
 
     # summary of report - defaults to true if no anomalies have been found
     conforms = str(conforms).lower()
-    graph.append(Statement(root, SH + 'conforms',
+    graph.append(Statement(root, SHACL + 'conforms',
                            Literal(conforms, datatype=XSD + 'boolean')))
 
     return graph
@@ -159,40 +158,43 @@ def pattern_to_graph(mkid: Callable,
 
         graph.extend([
             Statement(root, DCT + 'hasPart', shape),
-            Statement(shape, RDF + 'type', SH + 'NodeShape'),
+            Statement(shape, RDF + 'type', SHACL + 'NodeShape'),
             Statement(shape, DCT + 'identifier',
                       Literal(ap_id, datatype=XSD + 'string')),
-            Statement(shape, SH + 'targetClass', ap.anchor),
-            Statement(shape, SH + 'targetSubjectsOf', ap.relation)
+            Statement(shape, SHACL + 'targetClass', ap.anchor),
+            Statement(shape, SHACL + 'targetSubjectsOf', ap.relation)
             ])
 
         pshape = BNode('B' + mkid())
         graph.extend([
-            Statement(shape, SH + 'property', pshape),
-            Statement(pshape, SH + 'path', ap.relation)
+            Statement(shape, SHACL + 'property', pshape),
+            Statement(pshape, SHACL + 'path', ap.relation)
             ])
 
         # create constraints for RDF resources
         if isinstance(ap.value, Resource):
-            graph.append(Statement(pshape, SH + 'hasValue', ap.value))
+            graph.append(Statement(pshape, SHACL + 'hasValue', ap.value))
             if isinstance(ap.value, Literal):
-                graph.append(Statement(pshape, SH + 'nodeKind', SH + 'Literal'))
+                graph.append(Statement(pshape, SHACL + 'nodeKind',
+                                       SHACL + 'Literal'))
                 if ap.value.language is not None:
                     lst = BNode(mkid())
                     graph.extend([
-                        Statement(pshape, SH + 'languageIn', lst),
+                        Statement(pshape, SHACL + 'languageIn', lst),
                         Statement(lst, RDF + 'type', RDF + 'List'),
                         Statement(lst, RDF + 'first', ap.value.language),
                         Statement(lst, RDF + 'rest', RDF + 'nil')
                         ])
                 elif ap.value.datatype is not None:
                     graph.append(
-                        Statement(pshape, SH + 'datatype', ap.value.datatype))
+                        Statement(pshape, SHACL + 'datatype',
+                                  ap.value.datatype))
             elif isinstance(ap.value, IRIRef):
-                graph.append(Statement(pshape, SH + 'nodeKind', SH + 'IRI'))
+                graph.append(Statement(pshape, SHACL + 'nodeKind',
+                                       SHACL + 'IRI'))
             else:
                 graph.append(Statement(
-                    pshape, SH + 'nodeKind', SH + 'BlankNode'))
+                    pshape, SHACL + 'nodeKind', SHACL + 'BlankNode'))
 
         # create constraints for distributions
         # These are approximations of the actual distribution due to
@@ -207,14 +209,14 @@ def pattern_to_graph(mkid: Callable,
                 v_max = cast_literal_rev(v_max, ap.value.dtype, ap.value.lang)
 
                 graph.extend([
-                    Statement(pshape, SH + 'minInclusive', v_min),
-                    Statement(pshape, SH + 'maxInclusive', v_max)
+                    Statement(pshape, SHACL + 'minInclusive', v_min),
+                    Statement(pshape, SHACL + 'maxInclusive', v_max)
                     ])
             else:
                 # create an RDF list with all unique values in the distribution
                 lst = BNode(mkid())
                 graph.extend([
-                    Statement(pshape, SH + 'in', lst),
+                    Statement(pshape, SHACL + 'in', lst),
                     Statement(lst, RDF + 'type', RDF + 'List')
                     ])
 
