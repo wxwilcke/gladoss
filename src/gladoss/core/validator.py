@@ -179,7 +179,8 @@ def validate_graph_data(rng: np.random.Generator,
                 "for this triple from the observed state graph "\
                 "to establish nominal behaviour or deviations "\
                 f"thereof. {BECAUSE} "\
-                f"OBSERVED: {str(assertion)} {QED}"
+                f"OBSERVED: N = {ap.value.num_samples} {EMDASH} "\
+                f"EXPECTED: N >= 100 {QED}"
             status_code = ValidationReport.StatusCode.NODATA
 
             logger.info(status_msg_long)
@@ -219,21 +220,22 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
         status_msg_long = \
             "Observed resource type does not fit to expected distribution "\
             f"resource type. {BECAUSE} "\
-            f"EXPECTED: {'Unknown' if ap.value.dtype is None
-                         else ap.value.dtype} in {ap} {EMDASH} "\
-            f"OBSERVED: {type(assertion.object)} in {assertion} {QED}"
+            f"EXPECTED: '{'Literal' if ap.value.dtype is None
+                          else ap.value.dtype}' {EMDASH} "\
+            f"OBSERVED: '{type(assertion.object)}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
                                ValidationReport.StatusCode.CRITICAL))
         logger.info(status_msg_long)
     elif isinstance(assertion.object, Literal):
         if dtype_observed not in XSD_DISCRETE:
+            members_str = "{'" + "'; '".join(XSD_DISCRETE) + "'}"
             status_msg = "Value Type Violation"
             status_msg_long = \
                 "Observed value type does not fit to expected distribution "\
                 f"type. {BECAUSE} "\
-                f"EXPECTED: one of [{'; '.join(XSD_DISCRETE)}] {EMDASH} "\
-                f"OBSERVED: {type(assertion.object)} {QED}"
+                f"EXPECTED: one of {members_str} {EMDASH} "\
+                f"OBSERVED: '{type(assertion.object)}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -245,10 +247,10 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
             status_msg_long = \
                 "Observed value data type does not fit to expected "\
                 f"distribution data type. {BECAUSE} "\
-                f"EXPECTED: {'Unknown' if ap.value.dtype is None
-                             else ap.value.dtype} in {ap} {EMDASH} "\
-                f"OBSERVED: {'Unknown' if dtype_observed is None
-                             else dtype_observed} in {assertion} {QED}"
+                f"EXPECTED: '{'Unknown' if ap.value.dtype is None
+                              else ap.value.dtype}' {EMDASH} "\
+                f"OBSERVED: '{'Unknown' if dtype_observed is None
+                              else dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -278,20 +280,21 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
         status_msg_long = \
             "Observed resource type does not fit to expected distribution "\
             f"resource type. {BECAUSE} "\
-            f"EXPECTED: {type(ap.value)} in {ap} {EMDASH} "\
-            f"OBSERVED: {type(assertion.object)} in {assertion} {QED}"
+            f"EXPECTED: 'Literal' {EMDASH} "\
+            f"OBSERVED: '{type(assertion.object)}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
                                ValidationReport.StatusCode.CRITICAL))
         logger.info(status_msg_long)
     else:
         if dtype_observed not in XSD_CONTINUOUS:
+            members_str = "{'" + "'; '".join(XSD_CONTINUOUS) + "'}"
             status_msg = "Value Type Violation"
             status_msg_long = \
                 "Observed value type does not fit to expected distribution "\
                 f"type. {BECAUSE} "\
-                f"EXPECTED: one of [{'; '.join(XSD_CONTINUOUS)}] {EMDASH} "\
-                f"OBSERVED: {type(assertion.object)} in {assertion} {QED}"
+                f"EXPECTED: one of {members_str} {EMDASH} "\
+                f"OBSERVED: '{type(assertion.object)}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -302,10 +305,10 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
             status_msg_long = \
                 "Observed value data type does not fit to expected "\
                 f"distribution data type. {BECAUSE} "\
-                f"EXPECTED: {'Unknown' if ap.value.dtype is None
-                             else ap.value.dtype} in {ap} {EMDASH} "\
-                f"OBSERVED: {'Unknown' if dtype_observed is None
-                             else dtype_observed} in {assertion} {QED}"
+                f"EXPECTED: '{'Unknown' if ap.value.dtype is None
+                              else ap.value.dtype}' {EMDASH} "\
+                f"OBSERVED: '{'Unknown' if dtype_observed is None
+                              else dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -436,14 +439,14 @@ def validate_graph_data_categorical(assertion: Statement,
 
     status_msg_lst = list()
     if value_new not in members:
-        members_str = "; ".join(members)
+        members_str = "{'" + "'; '".join(members) + "'}"
 
         status_msg = "Critical Value Violation"
         status_msg_long = \
             "Observed value is not a member of the set of expected values "\
             f"{BECAUSE} "\
-            f"EXPECTED: {{{members_str}}} "\
-            f"OBSERVED: {assertion} {QED}"
+            f"EXPECTED: one of {members_str} "\
+            f"OBSERVED: '{assertion.object}' {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
         status_msg_lst.append((status_msg, status_msg_long, status_code))
@@ -502,8 +505,8 @@ def validate_graph_data_numerical(assertion: Statement,
             status_msg_long = \
                 f"Observed value not within {int((prob_critical) * 100)}"\
                 f"% prediction interval. {BECAUSE} "\
-                f"EXPECTED: ({pi_lower}, {pi_upper}] "\
-                f"OBSERVED: {assertion} {QED}"
+                f"EXPECTED: value in ({pi_lower}, {pi_upper}] "\
+                f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
 
             status_msg_lst.append((status_msg, status_msg_long, status_code))
@@ -517,8 +520,8 @@ def validate_graph_data_numerical(assertion: Statement,
                 "Observed value not within "\
                 f"{int((prob_suspicious) * 100)}% prediction interval. "\
                 "{BECAUSE} "\
-                f"EXPECTED: ({pi_lower}, {pi_upper}] "\
-                f"OBSERVED: {assertion} {QED}"
+                f"EXPECTED: value in ({pi_lower}, {pi_upper}] "\
+                f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.SUSPICIOUS
 
             status_msg_lst.append((status_msg, status_msg_long, status_code))
@@ -573,7 +576,7 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
     # test whether the sample might have been drawn from the same
     # distribution as the one underlying the population.
     num_samples = int(len(sample) * 0.67)  # arbitrary chosen amount
-    test_critical, test_suspicious\
+    (test_critical, test_suspicious), p_value\
         = two_sample_hypothesis_test(rng, sample_a=population,
                                      sample_b=sample,
                                      test_statistic_func=test_statistic,
@@ -593,7 +596,9 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
             "from the expected pattern associated with this triple at "\
             f"the critical level ({alpha_critical}). "\
             f"{BECAUSE} "\
-            f"OBSERVED: {assertion} {QED}"
+            f"EXPECTED: P(X = '{assertion.object}') < {alpha_critical} "\
+            f"{EMDASH} "\
+            f"OBSERVED: P(X = '{assertion.object}') = {p_value:0.2f} {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
         status_msg_lst.append((status_msg, status_msg_long, status_code))
@@ -608,7 +613,9 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
             "from the expected pattern associated with this triple at "\
             f"the suspicious level ({alpha_suspicious}). "\
             f"{BECAUSE} "\
-            f"OBSERVED: {assertion} {QED}"
+            f"EXPECTED: P(X = '{assertion.object}') < {alpha_suspicious} "\
+            f"{EMDASH} "\
+            f"OBSERVED: P(X = '{assertion.object}') = {p_value:0.2f} {QED}"
 
         status_code = ValidationReport.StatusCode.SUSPICIOUS
 
@@ -635,8 +642,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
         status_msg_long = \
             "Observed resource type differs from expected resource type. "\
             f"{BECAUSE} "\
-            f"EXPECTED: {type(ap.value)} in {ap} {EMDASH} "\
-            f"OBSERVED: {type(assertion.object)} in {ap} {QED}"
+            f"EXPECTED: '{type(ap.value)}' {EMDASH} "\
+            f"OBSERVED: '{type(assertion.object)}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
                                ValidationReport.StatusCode.INCONSISTENCY))
@@ -645,8 +652,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
         status_msg = "Value Equality Violation"
         status_msg_long = \
             "Observed IRI value differs from expected IRI value. {BECAUSE} "\
-            f"EXPECTED: {ap} {EMDASH} "\
-            f"OBSERVED: {assertion} {QED}"
+            f"EXPECTED: '{ap.value}' {EMDASH} "\
+            f"OBSERVED: '{assertion.object}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
                                ValidationReport.StatusCode.CRITICAL))
@@ -658,10 +665,10 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
             status_msg_long = \
                 "Observed Literal value data type differs from expected "\
                 "literal value data type. {BECAUSE} "\
-                f"EXPECTED: {'Unknown' if ap.value.dtype is None
-                             else ap.value.dtype} {EMDASH} "\
-                f"OBSERVED: {'Unknown' if dtype_observed is None
-                             else dtype_observed} {QED}"
+                f"EXPECTED: '{'Unknown' if ap.value.dtype is None
+                              else ap.value.dtype}' {EMDASH} "\
+                f"OBSERVED: '{'Unknown' if dtype_observed is None
+                              else dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -671,8 +678,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
             status_msg_long = \
                 "Observed Literal value differs from expected literal value. "\
                 f"{BECAUSE} "\
-                f"EXPECTED: {ap} {EMDASH} "\
-                f"OBSERVED: {assertion} {QED}"
+                f"EXPECTED: '{ap.value}' {EMDASH} "\
+                f"OBSERVED: '{assertion.object}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.CRITICAL))
@@ -684,8 +691,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
             status_msg_long = \
                 "Observed literal value language differs from expected "\
                 f"literal value language. {BECAUSE} "\
-                f"EXPECTED: {ap.value.language} {EMDASH} "\
-                f"OBSERVED: {assertion.object.language} {QED}"
+                f"EXPECTED: '{ap.value.language}' {EMDASH} "\
+                f"OBSERVED: '{assertion.object.language}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -713,14 +720,19 @@ def validate_graph_structure(pattern: GraphPattern,
     status_msg_lst = list()
     if len(assertion_ap_pairs) < len(pattern):
         # there is an incomplete mapping between the graph and its pattern
+        matched_str = "{'" + \
+                      "'; '".join([a for a, _ in assertion_ap_pairs]) + \
+                      "'}"
         if len(unmatched) > 0:
+            unmatched_str = "{'" + "'; '".join(unmatched) + "'}"
             # not all assertions can be mapped to assertion patterns
             # this can occur if the structure or tail type is changed
             status_msg_long = \
                 "Observed state graph contains triples that cannot be mapped "\
                 "to any known subpattern of the associated graph pattern. "\
                 f"{BECAUSE} "\
-                f"OBSERVED: [{'; '.join(unmatched)}] {QED}"
+                f"OBSERVED: {matched_str} PLUS {unmatched_str} {EMDASH} "\
+                f"EXPECTED: all of {pattern} {QED}"
             logger.info(status_msg_long)
         else:  # state graph is smaller than expected
             # this can occur when all assertions are mapped, but some assertion
@@ -728,8 +740,8 @@ def validate_graph_structure(pattern: GraphPattern,
             status_msg_long = \
                 "Observed state graph contains less triples than required by "\
                 f"the associated graph pattern. {BECAUSE} "\
-                f"OBSERVED: {len(assertion_ap_pairs)} {EMDASH} "\
-                f"EXPECTED: {len(pattern)} {QED}"
+                f"OBSERVED: {matched_str} {EMDASH} "\
+                f"EXPECTED: all of {pattern} {QED}"
             logger.info(status_msg_long)
 
             if match_exact:
@@ -745,13 +757,14 @@ def validate_graph_structure(pattern: GraphPattern,
                                    ValidationReport.StatusCode.INCONSISTENCY))
     elif len(assertion_ap_pairs) == len(pattern):  # complete map
         if len(unmatched) > 0:
+            unmatched_str = "{'" + "'; '".join(unmatched) + "'}"
             # all known assertions are matched, yet more are observed
             # these can be added as candidate assertion patterns if passed here
             status_msg_long = \
                 "Observed state graph contains more triples than required by "\
                 f"the associated graph pattern. {BECAUSE} "\
-                f"OBSERVED: {len(assertion_ap_pairs)} {EMDASH} "\
-                f"EXPECTED: {len(pattern)} {QED}"
+                f"OBSERVED: surplus {unmatched_str} {EMDASH} "\
+                f"EXPECTED: all of {pattern} {QED}"
             logger.info(status_msg_long)
 
             if match_exact:

@@ -358,7 +358,7 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
                                num_resamples: int = 1000,
                                alpha_critical: float = 0.05,
                                alpha_suspicious: float = 0.10)\
-        -> list[HypothesisTest]:
+        -> tuple[list[HypothesisTest], float]:
     """ Compute the p-values for a two-sample hypothesis test via
         the bootstrap method, and return a majority vote over the
         test statistics that either support rejecting or not
@@ -374,7 +374,7 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
     :param alpha_critical: Critical significance level
     :param alpha_suspicious: Suspicious significance level
     :return: List with outcome of hypothesis tests for critical and suspicious
-             significance levels (in that order)
+             significance levels (in that order), plus the averaged p-value
     """
     # compute p-values via bootstrap method
     p_values = two_sample_bootstrap_hypothesis_test(rng, sample_a, sample_b,
@@ -393,7 +393,7 @@ def two_sample_hypothesis_test(rng: np.random.Generator,
             # majority vote
             outcomes[i] = HypothesisTest.REJECT_H0
 
-    return outcomes
+    return outcomes, p_values.mean().item()
 
 
 def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
