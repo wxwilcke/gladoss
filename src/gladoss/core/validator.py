@@ -593,12 +593,11 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
         status_msg = "Critical Pattern Violation"
         status_msg_long = \
             f"Last {samplesize} observed values differ significantly "\
-            "from the expected pattern associated with this triple at "\
-            f"the critical level ({alpha_critical}). "\
+            "from the expected pattern at the critical level. "\
             f"{BECAUSE} "\
-            f"EXPECTED: P(X = '{assertion.object}') < {alpha_critical} "\
+            f"EXPECTED: Prob < {alpha_critical} "\
             f"{EMDASH} "\
-            f"OBSERVED: P(X = '{assertion.object}') = {p_value:0.2f} {QED}"
+            f"OBSERVED: Prob = {p_value:0.2f} {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
         status_msg_lst.append((status_msg, status_msg_long, status_code))
@@ -610,12 +609,11 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
         status_msg = "Suspicious Pattern Violation"
         status_msg_long = \
             f"Last {samplesize} observed values differ significantly "\
-            "from the expected pattern associated with this triple at "\
-            f"the suspicious level ({alpha_suspicious}). "\
+            "from the expected pattern at the suspicious level. "\
             f"{BECAUSE} "\
-            f"EXPECTED: P(X = '{assertion.object}') < {alpha_suspicious} "\
+            f"EXPECTED: Prob < {alpha_suspicious} "\
             f"{EMDASH} "\
-            f"OBSERVED: P(X = '{assertion.object}') = {p_value:0.2f} {QED}"
+            f"OBSERVED: Prob = {p_value:0.2f} {QED}"
 
         status_code = ValidationReport.StatusCode.SUSPICIOUS
 
