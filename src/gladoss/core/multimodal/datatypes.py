@@ -118,7 +118,7 @@ def cast_literal(dtype: IRIRef | None, v: Literal) -> str | int | float:
     :param value: [TODO:description]
     :return: [TODO:description]
     """
-    value = str(v.value)
+    value = str(v.value).strip()
     if dtype is not None:
         try:
             if dtype in XSD_DATETIME:

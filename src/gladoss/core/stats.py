@@ -272,7 +272,7 @@ class DiscreteDistribution(Distribution):
         :param sample: a string value
         """
         if isinstance(sample, str):
-            sample = sample.strip().lower()  # standardize sample
+            sample = sample.strip()
 
         return super().addSample(sample)
 
