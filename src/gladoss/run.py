@@ -467,7 +467,7 @@ def __main__():
     parser_eval.add_argument("--pi-tolerance", help="Relative tolerance in "
                              "[0, 1] applied to the prediction interval. A "
                              "higher value results in a more constrained "
-                             "interval.", default=0.1)
+                             "interval.", default=0.1, dest='pi_tolerance')
     parser_eval.add_argument("--report-level", help="Reports of equal level "
                              "and higher will be published to the endpoint: "
                              "NOMINAL behaviour (0), generic ERRORS (1), "
@@ -496,6 +496,7 @@ def __main__():
                                             'samplegap',
                                             'match_cwa',
                                             'match_exact',
+                                            'pi_tolerance',
                                             'report_level'])
 
     # set log level
