@@ -464,6 +464,10 @@ def __main__():
                              "or extra triples in the observed state graph "
                              "will trigger a warning.",
                              action='store_true', default=False)
+    parser_eval.add_argument("--pi-tolerance", help="Relative tolerance in "
+                             "[0, 1] applied to the prediction interval. A "
+                             "higher value results in a more constrained "
+                             "interval.", default=0.1)
     parser_eval.add_argument("--report-level", help="Reports of equal level "
                              "and higher will be published to the endpoint: "
                              "NOMINAL behaviour (0), generic ERRORS (1), "

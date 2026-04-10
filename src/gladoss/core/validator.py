@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 BECAUSE = '\N{BECAUSE}'
 EMDASH = '\N{EM DASH}'
 QED = '\N{END OF PROOF}'
+PM = '\N{PLUS-MINUS SIGN}'
+ELEMOF = '\N{ELEMENT OF}'
 
 
 def validate_state_graph(rng: np.random.Generator,
@@ -140,7 +142,8 @@ def validate_state_graph_components(rng: np.random.Generator,
                                                  config.alpha_suspicious,
                                                  config.evaluate_timestamps,
                                                  config.samplesize,
-                                                 config.samplegap)
+                                                 config.samplegap,
+                                                 config.pi_tolerance)
 
             status_msg_lst_data[ap._id] = status_msg_lst
 
@@ -151,7 +154,7 @@ def validate_graph_data(rng: np.random.Generator,
                         assertion: Statement, ap: AssertionPattern,
                         alpha_critical: float, alpha_suspicious: float,
                         timestamp_eval: bool, samplesize: int,
-                        interruption: int)\
+                        interruption: int, tolerance: float)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate the data of a single assertion by checking resource and data
         types, comparing provided and expected values, and performing
@@ -194,7 +197,8 @@ def validate_graph_data(rng: np.random.Generator,
                                                           alpha_suspicious,
                                                           timestamp_eval,
                                                           samplesize,
-                                                          interruption)
+                                                          interruption,
+                                                          tolerance)
 
     return status_msg_lst
 
@@ -324,7 +328,8 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                                      alpha_suspicious: float,
                                      timestamp_eval: bool,
                                      samplesize: int,
-                                     interruption: int)\
+                                     interruption: int,
+                                     tolerance: float)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Validate various aspects of a newly observed value against the
         distribution that belongs to the associated pattern.
@@ -393,7 +398,8 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                     validate_graph_data_numerical(assertion, ap,
                                                   value_new,
                                                   alpha_critical,
-                                                  alpha_suspicious))
+                                                  alpha_suspicious,
+                                                  tolerance))
         else:
             raise NotImplementedError()
 
@@ -446,6 +452,7 @@ def validate_graph_data_categorical(assertion: Statement,
             "Observed value is not a member of the set of expected values "\
             f"{BECAUSE} "\
             f"EXPECTED: one of {members_str} "\
+            f"{EMDASH} "\
             f"OBSERVED: '{assertion.object}' {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
@@ -459,7 +466,8 @@ def validate_graph_data_numerical(assertion: Statement,
                                   ap: AssertionPattern,
                                   value_new: int | float,
                                   alpha_critical: float,
-                                  alpha_suspicious: float)\
+                                  alpha_suspicious: float,
+                                  tolerance: float)\
         -> list[tuple[str, str, ValidationReport.StatusCode]]:
     """ Test whether a newly observed value falls outside the computed
         symmetric non-parametric prediction interval (l, u] at the provided
@@ -469,6 +477,10 @@ def validate_graph_data_numerical(assertion: Statement,
         This test is designed for numerical data and can be used for point
         anomalies. Do not use this test when new observations are expected
         to fall outside of the data (eg instance IRIs and blank nodes).
+
+        A tolerance value in [0, 1] can be provided which will expand the
+        accepted range by a multiplication with the difference between the
+        minimum and maximum values.
 
     :param assertion: [TODO:description]
     :param ap: [TODO:description]
@@ -489,6 +501,11 @@ def validate_graph_data_numerical(assertion: Statement,
         pi_lower, pi_upper = nonparametric_prediction_interval(population,
                                                                prob)
 
+        # add tolerance
+        pi_tol = abs(pi_upper - pi_lower) * tolerance
+        pi_upper += pi_tol
+        pi_lower -= pi_tol
+
         if value_new <= pi_lower or value_new > pi_upper:
             # outside of prediction interval
             pi_violation = True
@@ -505,7 +522,9 @@ def validate_graph_data_numerical(assertion: Statement,
             status_msg_long = \
                 f"Observed value not within {int((prob_critical) * 100)}"\
                 f"% prediction interval. {BECAUSE} "\
-                f"EXPECTED: value in ({pi_lower}, {pi_upper}] "\
+                f"EXPECTED: value {ELEMOF} ({pi_lower:0.3g}, {pi_upper:0.3g}]"\
+                f" {PM} {pi_tol:0.3g} "\
+                f"{EMDASH} "\
                 f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
 
@@ -520,7 +539,9 @@ def validate_graph_data_numerical(assertion: Statement,
                 "Observed value not within "\
                 f"{int((prob_suspicious) * 100)}% prediction interval. "\
                 "{BECAUSE} "\
-                f"EXPECTED: value in ({pi_lower}, {pi_upper}] "\
+                f"EXPECTED: value {ELEMOF} ({pi_lower:0.3g}, {pi_upper:0.3g}]"\
+                f" {PM} {pi_tol:0.3g} "\
+                f"{EMDASH} "\
                 f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.SUSPICIOUS
 
@@ -729,7 +750,7 @@ def validate_graph_structure(pattern: GraphPattern,
                 "Observed state graph contains triples that cannot be mapped "\
                 "to any known subpattern of the associated graph pattern. "\
                 f"{BECAUSE} "\
-                f"OBSERVED: {matched_str} PLUS {unmatched_str} {EMDASH} "\
+                f"OBSERVED: {matched_str} \N{UNION} {unmatched_str} {EMDASH} "\
                 f"EXPECTED: all of {pattern} {QED}"
             logger.info(status_msg_long)
         else:  # state graph is smaller than expected
