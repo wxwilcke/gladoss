@@ -361,7 +361,7 @@ class GraphPattern():
         self._t = 1
 
         # track frequency of assertion patterns by their identifiers
-        self._freq_tracker = Counter(self.structure.keys())
+        self._freq_tracker = Counter(set(self.structure))
 
         # track newly observed assertion patterns
         # these are added to the structure upon reaching threshold
@@ -371,7 +371,7 @@ class GraphPattern():
         self._decay_tracker = dict()
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
-            self._decay_tracker[t_decay] = self.structure.keys()
+            self._decay_tracker[t_decay] = set(self.structure)
 
     def update_from(self, updates: Collection[AssertionPattern])\
             -> GraphPattern:
