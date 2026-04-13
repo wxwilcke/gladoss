@@ -420,7 +420,7 @@ class GraphPattern():
         """ Update the distribution by a single time step.
         """
         self._t += 1
-        if self._t == sys.maxsize:
+        if self._t >= sys.maxsize:
             self._t = 0
 
         if self.threshold > 0:
@@ -465,8 +465,8 @@ class GraphPattern():
                         # remove sample from index
                         del self._freq_tracker[ap_id]
 
-                # clean up decay tracker
-                del self._decay_tracker[self._t]
+            # clean up decay tracker
+            del self._decay_tracker[self._t]
 
     def __deepcopy__(self, memo) -> GraphPattern:
         structure = {k: v for k, v in self.structure.items()}

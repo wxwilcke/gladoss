@@ -169,8 +169,8 @@ class Distribution():
                         # remove sample from index
                         del self.samples[sample]
 
-                # clean up decay tracker
-                del self._decay_tracker[self._t]
+            # clean up decay tracker
+            del self._decay_tracker[self._t]
 
     def fluidity(self) -> float:
         """ Measure of change in [0, 1] of the values that make up the
