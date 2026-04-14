@@ -175,30 +175,31 @@ def validate_graph_data(rng: np.random.Generator,
     if isinstance(ap.value, Resource):
         status_msg_lst = validate_graph_data_resource(assertion, ap)
     elif isinstance(ap.value, Distribution):
-        if ap.value.num_samples < 100:
+        min_no_samples = (samplesize * 2) + interruption
+        if ap.value.num_samples < min_no_samples:
             status_msg = "Insufficient Data"
             status_msg_long = \
                 "Insufficient samples have yet been observed "\
-                "for this triple from the observed state graph "\
-                "to establish nominal behaviour or deviations "\
-                f"thereof. {BECAUSE} "\
+                "to accurately establish nominal behaviour or "\
+                "deviations thereof. {BECAUSE} "\
                 f"OBSERVED: N = {ap.value.num_samples} {EMDASH} "\
-                f"EXPECTED: N >= 100 {QED}"
+                f"EXPECTED: N >= {min_no_samples} {QED}"
             status_code = ValidationReport.StatusCode.NODATA
 
             logger.info(status_msg_long)
 
             # skip further evaluation
-            return [(status_msg, status_msg_long, status_code)]
+            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
 
-        status_msg_lst = validate_graph_data_distribution(rng,
-                                                          assertion, ap,
-                                                          alpha_critical,
-                                                          alpha_suspicious,
-                                                          timestamp_eval,
-                                                          samplesize,
-                                                          interruption,
-                                                          tolerance)
+        status_msg_lst.extend(
+                validate_graph_data_distribution(rng,
+                                                 assertion, ap,
+                                                 alpha_critical,
+                                                 alpha_suspicious,
+                                                 timestamp_eval,
+                                                 samplesize,
+                                                 interruption,
+                                                 tolerance))
 
     return status_msg_lst
 
