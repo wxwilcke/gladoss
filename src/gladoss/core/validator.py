@@ -115,8 +115,8 @@ def validate_state_graph_components(rng: np.random.Generator,
     if config.evaluate_structure:
         # validate the structure of the state graph
         if pattern._t < config.grace_period:
-            logger.debug("In grace period: skipping graph structure "
-                         f"validation ({pattern._id})")
+            logger.debug(f"In grace period (t = {pattern._t}): skipping graph "
+                         f"structure validation ({pattern._id})")
         else:
             # no longer in learning phase
             logger.info(f"Validating graph structure ({pattern._id})")
@@ -131,7 +131,8 @@ def validate_state_graph_components(rng: np.random.Generator,
         for i, (assertion, ap) in enumerate(assertion_ap_pairs, 1):
             if ap._t < config.grace_period:
                 # still in learning phase
-                logger.debug("In grace period: skipping graph data validation "
+                logger.debug(f"In grace period (t = {ap._t}): skipping graph "
+                             f"data validation of component "
                              f"{i}/{len(assertion_ap_pairs)} ({pattern._id})")
                 continue
 

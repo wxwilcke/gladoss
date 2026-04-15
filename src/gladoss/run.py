@@ -467,7 +467,8 @@ def __main__():
     parser_eval.add_argument("--pi-tolerance", help="Relative tolerance in "
                              "[0, 1] applied to the prediction interval. A "
                              "higher value results in a more constrained "
-                             "interval.", default=0.1, dest='pi_tolerance')
+                             "interval.", default=0.1, type=float,
+                             dest='pi_tolerance')
     parser_eval.add_argument("--report-level", help="Reports of equal level "
                              "and higher will be published to the endpoint: "
                              "NOMINAL behaviour (0), generic ERRORS (1), "
@@ -477,6 +478,23 @@ def __main__():
                              type=int, default=3)
 
     flags = parser.parse_args()
+
+    # parameter sanity check
+    assert 0 <= flags.retries
+    assert 0 <= flags.retry_delay
+    assert 0. <= flags.request_delay
+
+    assert -1 <= flags.pattern_decay
+    assert -1 <= flags.pattern_threshold
+    assert -1 <= flags.pattern_resolution
+
+    assert 0. <= flags.alpha_critical <= 1.
+    assert 0. <= flags.alpha_suspicious <= 1.
+    assert 0 < flags.grace_period
+    assert 0 < flags.samplesize
+    assert 0 <= flags.samplegap
+    assert 0. <= flags.pi_tolerance <= 1.
+    assert 0 <= flags.report_level <= 5
 
     # create subsets per function
     cconf = create_namespace_subset(flags, ['adaptor', 'endpoint',
