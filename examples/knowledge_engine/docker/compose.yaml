@@ -1,12 +1,9 @@
 services:
   gladoss:
-    build:
-      context: .
-      dockerfile: ./Dockerfile 
     container_name: gladoss-ke
     image: gladoss-ke:latest
     volumes:
-      - source: ./backup/
+      - source: ../backup/
         target: /mnt/backup
         type: bind
         bind:
