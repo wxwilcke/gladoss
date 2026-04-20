@@ -42,7 +42,6 @@ REPORT_GRAPH_PATTERN = """
 ?result sh:focusNode ?resultFocusNode .
 ?result sh:resultPath ?resultPath .
 ?result sh:value ?resultValue .
-?result sh:sourceShape ?resultSourceShape .
 ?result sh:resultMessage ?resultStatusMsgLong .
 ?result sh:resultSeverity ?resultSeverity .
 
@@ -542,10 +541,6 @@ class KE_Adaptor(Adaptor):
                         continue
                     if statement.predicate == SHACL + "value":
                         results[sbj]["resultValue"] = statement.object
-
-                        continue
-                    if statement.predicate == SHACL + "sourceShape":
-                        results[sbj]["resultSourceShape"] = statement.object
 
                         continue
                     if statement.predicate == SHACL + "resultMessage":

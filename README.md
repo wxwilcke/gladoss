@@ -52,7 +52,6 @@ _:BUifsw7dl0q491dz9z21i6 rdf:type sh:ValidationResult .
 _:BUifsw7dl0q491dz9z21i6 sh:focusNode ex:Uwm2wgp669iloqrcjz8j7 .
 _:BUifsw7dl0q491dz9z21i6 sh:resultPath saref:hasValue .
 _:BUifsw7dl0q491dz9z21i6 sh:value "47.09"^^xsd:float
-_:BUifsw7dl0q491dz9z21i6 sh:sourceShape _:Ugknckoyxclhxua61qy7m .
 _:BUifsw7dl0q491dz9z21i6 rdfs:label "Critical Value Violation"@en .
 _:BUifsw7dl0q491dz9z21i6 sh:resultMessage "Evidence from the statistical evaluation suggests that this triple of the observed state graph differs significantly from the associated graph pattern at the critical level (alpha = 0.05)."@en
 _:BUifsw7dl0q491dz9z21i6 sh:resultSeverity _:BU12ymsmziok9c29pjtt9i .

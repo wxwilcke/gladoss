@@ -91,8 +91,6 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
                 Statement(res, SHACL + 'focusNode', assertion.subject),
                 Statement(res, SHACL + 'resultPath', assertion.predicate),
                 Statement(res, SHACL + 'value', assertion.object),
-                Statement(res, SHACL + 'sourceShape',
-                          Literal(ap_id, datatype=XSD + 'string')),
                 Statement(res, RDFS + 'label',
                           Literal(status_msg, language="en")),
                 Statement(res, SHACL + 'resultMessage',

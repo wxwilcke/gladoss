@@ -39,7 +39,6 @@ register_ki() {
                              ?result sh:focusNode ?resultFocusNode .
                              ?result sh:resultPath ?resultPath .
                              ?result sh:value ?resultValue .
-                             ?result sh:sourceShape ?resultSourceShape .
                              ?result sh:resultMessage ?resultStatusMsgLong .
                              ?result sh:resultSeverity ?resultSeverity .
 
