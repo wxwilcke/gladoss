@@ -253,8 +253,21 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     mkid = functools.partial(gen_id, rng)
 
     # setup adaptor to manage communication and to translate incoming messages
-    adaptor = adaptor_cls(controller=controller,  # type: ignore
-                          config=cconf)
+    for i in range(cconf.retries + 1):
+        try:
+            adaptor = adaptor_cls(controller=controller,  # type: ignore
+                                  config=cconf)
+        except Exception as e:
+            logger.error(e)
+            if i < cconf.retries or cconf.continuous:
+                logger.info("Adaptor initialization failed. Retrying...")
+                controller.wait(cconf.retry_delay)
+
+                continue
+
+            raise
+
+        break
 
     # use a lock for operations on the pattern vault
     lock = RLock()

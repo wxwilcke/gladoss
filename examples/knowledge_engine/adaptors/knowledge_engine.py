@@ -214,6 +214,8 @@ class KE_Adaptor(Adaptor):
             except Exception:
                 logger.error(f"Unable to register at endpoint '{ki_endpoint}'")
 
+                raise
+
         self.context['knowledgeBaseId'] = kb_id
 
         # necessary for knowledge engine
@@ -224,6 +226,8 @@ class KE_Adaptor(Adaptor):
             self.register_report_publications()
         except Exception:
             logger.error("Unable to register POST knowledge interaction")
+
+            raise
 
     def register_report_publications(self: Self) -> None:
         """ Register a single post knowledge interaction per known
