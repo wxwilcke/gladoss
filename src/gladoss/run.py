@@ -150,7 +150,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
 
         return  # no need to evaluate a graph on first sight
 
-    logger.debug(f"Associated pattern found ({graph_id})")
+    logger.debug(f"Associated pattern found ({graph_id}) [t = {pattern._t}]")
 
     pattern_map = create_pattern_map(graph, pattern)
     report = create_validation_report(rng, pattern, graph, pattern_map, econf)
