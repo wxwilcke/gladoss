@@ -16,10 +16,6 @@ Jump to section:
 
 ## Model details
 
-_Basic information about the model._
-
-Review section 4.1 of the [model cards paper](https://arxiv.org/abs/1810.03993).
-
 - Person or organization developing model
 
     W.X. Wilcke (Vrije Universiteit Amsterdam) - w.x.wilcke[at]vu.nl
@@ -55,10 +51,6 @@ Review section 4.1 of the [model cards paper](https://arxiv.org/abs/1810.03993).
 
 ## Intended use
 
-_Use cases that were envisioned during development._
-
-Review section 4.2 of the [model cards paper](https://arxiv.org/abs/1810.03993).
-
 ### Primary intended uses
 
 GLADoSS is designed for the real-time detection of (possible future) anomalies
@@ -85,23 +77,11 @@ can be simulated, the use case can be generalised to graph anomaly detection.
 
 ## Factors
 
-_Factors could include demographic or phenotypic groups, environmental conditions, technical
-attributes, or others listed in Section 4.3._
-
-Review section 4.3 of the [model cards paper](https://arxiv.org/abs/1810.03993).
-
 ### Relevant factors
 
 Anomaly type, frequency, duration, and severity.
 
 ## Metrics
-
-_The appropriate metrics to feature in a model card depend on the type of model that is being tested.
-For example, classification systems in which the primary output is a class label differ significantly
-from systems whose primary output is a score. In all cases, the reported metrics should be determined
-based on the model’s structure and intended use._
-
-Review section 4.4 of the [model cards paper](https://arxiv.org/abs/1810.03993).
 
 ### Model performance measures
 
@@ -112,13 +92,6 @@ Precision and recall, AUC-ROC, and user satisfaction.
 Thresholds are provided as hyperparameters; can be set by users.
 
 ## Evaluation data
-
-_All referenced datasets would ideally point to any set of documents that provide visibility into the
-source and composition of the dataset. Evaluation datasets should include datasets that are publicly
-available for third-party use. These could be existing datasets or new ones provided alongside the model
-card analyses to enable further benchmarking._
-
-Review section 4.5 of the [model cards paper](https://arxiv.org/abs/1810.03993).
 
 ### Datasets
 
@@ -139,15 +112,11 @@ Data should be provided as streams of RDF-encoded, timestamped graphs.
 
 ## Training data
 
-Review section 4.6 of the [model cards paper](https://arxiv.org/abs/1810.03993).
+GLADoSS applies online, continuous learning to construct patterns of nominal
+device behaviour. All device data presented during the grace period can be
+considered as training data.
 
 ## Quantitative analyses
-
-_Quantitative analyses should be disaggregated, that is, broken down by the chosen factors. Quantitative
-analyses should provide the results of evaluating the model according to the chosen metrics, providing
-confidence interval values when possible._
-
-Review section 4.7 of the [model cards paper](https://arxiv.org/abs/1810.03993).
 
 ### Unitary results
 
@@ -159,13 +128,6 @@ To be determined.
 
 ## Ethical considerations
 
-_This section is intended to demonstrate the ethical considerations that went into model development,
-surfacing ethical challenges and solutions to stakeholders. Ethical analysis does not always lead to
-precise solutions, but the process of ethical contemplation is worthwhile to inform on responsible
-practices and next steps in future work._
-
-Review section 4.8 of the [model cards paper](https://arxiv.org/abs/1810.03993).
-
 ### Data
 
 GLADoSS makes no assumptions about the content of the data it is presented
@@ -176,11 +138,9 @@ devices) might provide sensitive data.
 
 GLADoSS aims to highlight anomalies in the data. Decision made or actions taken
 based on an imprecise interpretation of the reported anomalies may occur.
+Learned patterns are subject to aggregation operations and not pertain to
+individual data points (e.g., a person).
 
 ## Caveats and recommendations
-
-_This section should list additional concerns that were not covered in the previous sections._
-
-Review section 4.9 of the [model cards paper](https://arxiv.org/abs/1810.03993).
 
 None identified.
