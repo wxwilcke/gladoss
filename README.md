@@ -3,6 +3,8 @@
 - [Official Repository (GitLab)](https://gitlab.com/wxwilcke/gladoss)
 - [Mirror Repository (GitHub)](https://github.com/wxwilcke/gladoss)
 
+- [Model Card](model-card.md)
+
 **THIS IS A WORK IN PROGRESS**
 
 GLADoSS is a Python program designed for the real-time detection of (possible future) anomalies in a series of state graphs in distributed environments. Each state graph represents the self-reported state of a software agent (e.g., a smart device) at a certain point in time, which has been published to a network by that agent itself or an information broker (e.g., a [Knowledge Engine](https://github.com/TNO/knowledge-engine)). For each agent, GLADoSS will attempt to learn patterns of nominal behaviour by analysing the structure and data of the received graphs, as well as their semantics. Symbolic and subsymbolic methods are employed to discover deviations from the learned nominal behaviour which, when deemed significant, are highlighted and reported upon, and accompanied by possible explanations. The reports can be published to the same network (as [SHACL](https://www.w3.org/TR/shacl/) validation report) enabling dashboards and other interfaces to receive and display the information. By applying continuous online learning, GLADoSS is able to maintain an up-to-date pattern of nominal behaviour for each monitored agent, as well as adapt to natural shifts in behaviour.
