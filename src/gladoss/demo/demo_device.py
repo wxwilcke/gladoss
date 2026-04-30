@@ -192,7 +192,7 @@ def __main__(argv: list[str]):
     parser.add_argument("--autocycle", help="If enabled, cycle through the "
                         "data automatically, waiting for the interval to "
                         "expire before continuing. If disabled, continue "
-                        "only via a keypress.", default=True, type=bool,
+                        "only via a keypress.", default=True,
                         action=argparse.BooleanOptionalAction)
     parser.add_argument("--host", help="Make endpoint evailable at this "
                         + "address (default '127.0.0.1')", default="127.0.0.1",

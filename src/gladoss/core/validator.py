@@ -253,10 +253,8 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
             status_msg_long = \
                 "Observed value data type does not fit to expected "\
                 f"distribution data type {BECAUSE} "\
-                f"EXPECTED: '{'Unknown' if ap.value.dtype is None
-                              else ap.value.dtype}' {EMDASH} "\
-                f"OBSERVED: '{'Unknown' if dtype_observed is None
-                              else dtype_observed}' {QED}"
+                f"EXPECTED: '{ap.value.dtype}' {EMDASH} "\
+                f"OBSERVED: '{dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -311,10 +309,8 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
             status_msg_long = \
                 "Observed value data type does not fit to expected "\
                 f"distribution data type {BECAUSE} "\
-                f"EXPECTED: '{'Unknown' if ap.value.dtype is None
-                              else ap.value.dtype}' {EMDASH} "\
-                f"OBSERVED: '{'Unknown' if dtype_observed is None
-                              else dtype_observed}' {QED}"
+                f"EXPECTED: '{ap.value.dtype}' {EMDASH} "\
+                f"OBSERVED: '{dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))
@@ -491,6 +487,26 @@ def validate_graph_data_numerical(assertion: Statement,
     :param alpha_suspicious: [TODO:description]
     :return: [TODO:description]
     """
+    status_msg_lst = list()
+
+    min_no_samples = 100  # hard lower limit for pi calculation
+    if ap.value.num_samples < min_no_samples:
+        status_msg = "Insufficient Data"
+        status_msg_long = \
+            "Insufficient samples have yet been observed "\
+            "to accurately establish nominal behaviour or "\
+            f"deviations thereof {BECAUSE} "\
+            f"OBSERVED: N = {ap.value.num_samples} {EMDASH} "\
+            f"EXPECTED: N >= {min_no_samples} {QED}"
+        status_code = ValidationReport.StatusCode.NODATA
+
+        logger.info(status_msg_long)
+
+        # skip further evaluation
+        status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+
+        return status_msg_lst
+
     population = np.array(ap.value.data)
 
     prob_critical = 1. - alpha_critical
@@ -515,7 +531,6 @@ def validate_graph_data_numerical(assertion: Statement,
             break  # forgo future tests if a violation is detected
 
     # infer validity from test results
-    status_msg_lst = list()
     if pi_violation:
         if prob == prob_critical:
             # observed value falls outside of prediction interval at the
@@ -530,7 +545,7 @@ def validate_graph_data_numerical(assertion: Statement,
                 f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
 
-            status_msg_lst.append((status_msg, status_msg_long, status_code))
+            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
             logger.info(status_msg_long)
         elif prob == 1 - alpha_suspicious:
             # observed value falls outside of prediction interval at
@@ -547,7 +562,7 @@ def validate_graph_data_numerical(assertion: Statement,
                 f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.SUSPICIOUS
 
-            status_msg_lst.append((status_msg, status_msg_long, status_code))
+            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
             logger.info(status_msg_long)
 
     return status_msg_lst
@@ -680,16 +695,15 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
                                ValidationReport.StatusCode.CRITICAL))
         logger.info(status_msg_long)
     elif isinstance(ap.value, Literal):
+        dtype_expected = infer_datatype(ap.value)
         dtype_observed = infer_datatype(assertion.object)
-        if dtype_observed != ap.value.datatype:
+        if dtype_observed != dtype_expected:
             status_msg = "Data Type Violation"
             status_msg_long = \
                 "Observed Literal value data type differs from expected "\
                 f"literal value data type {BECAUSE} "\
-                f"EXPECTED: '{'Unknown' if ap.value.dtype is None
-                              else ap.value.dtype}' {EMDASH} "\
-                f"OBSERVED: '{'Unknown' if dtype_observed is None
-                              else dtype_observed}' {QED}"
+                f"EXPECTED: '{dtype_expected}' {EMDASH} "\
+                f"OBSERVED: '{dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
                                    ValidationReport.StatusCode.INCONSISTENCY))

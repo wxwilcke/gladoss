@@ -119,11 +119,11 @@ class DemoAdaptor(Adaptor):
         :return: [TODO:description]
         """
         stdout.write("--- BEGIN Validation Report %s (label '%s') ---\n"
-                     % identifier, str(label))
+                     % (identifier, str(label)))
         for assertion in data:
             stdout.write(" %s\n" % str(assertion))
         stdout.write("--- END Validation Report %s (label '%s') ---\n"
-                     % identifier, str(label))
+                     % (identifier, str(label)))
 
         return True
 

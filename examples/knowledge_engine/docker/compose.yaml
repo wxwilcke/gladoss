@@ -30,7 +30,7 @@ services:
       interval: 1s
 
 networks:
-  semantic_network:
+  semnet:
     name: semnet
     driver: bridge
     external: true

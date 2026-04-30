@@ -488,7 +488,8 @@ def nonparametric_prediction_interval_range(n: int,
     :param p: [TODO:description]
     :return: [TODO:description]
     """
-    assert n >= 100
+    assert n >= 100, ("Number of observations is too low to accurately "
+                      "compute the prediction interval")
 
     # number of observations within the interval
     coverage = (n + 1) * p

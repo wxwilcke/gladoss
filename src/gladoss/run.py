@@ -226,7 +226,7 @@ def listener(connector: Connector, q: Queue, r: Queue) -> None:
         q.put((graph_id, graph, graph_label))
 
     # let the main thread know the worker is terminating
-    r.put((thread_id, None))
+    r.put((thread_id, (None, None)))
 
 
 def main(rng: np.random.Generator, adaptor_cls: Adaptor,
@@ -441,17 +441,17 @@ def __main__():
                              dest='alpha_suspicious')
     parser_eval.add_argument("--evaluate-structure", help="Evaluate the "
                              "structure of the observed state graph against "
-                             "the associated graph pattern.", type=bool,
+                             "the associated graph pattern.",
                              action=argparse.BooleanOptionalAction,
                              default=True)
     parser_eval.add_argument("--evaluate-data", help="Evaluate the "
                              "data of the observed state graph against "
-                             "the associated graph pattern.", type=bool,
+                             "the associated graph pattern.",
                              action=argparse.BooleanOptionalAction,
                              default=True)
     parser_eval.add_argument("--evaluate-timestamps", help="Evaluate any "
                              "timestamps of the observed state graph against "
-                             "the associated graph pattern.", type=bool,
+                             "the associated graph pattern.",
                              action=argparse.BooleanOptionalAction,
                              default=False)
     parser_eval.add_argument("--grace-period", help="Number of updates to "
