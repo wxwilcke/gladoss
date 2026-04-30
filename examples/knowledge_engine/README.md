@@ -74,7 +74,7 @@ setup.
 1) Run the Knowledge Engine container with an appropriate name and network:
 
 ```bash
-docker run --network semantic_network \
+docker run --network semnet \
            --name knowledge_engine \
            --publish 8280:8280 \
            ghcr.io/tno/knowledge-engine/smart-connector:1.4.0
@@ -105,7 +105,7 @@ the adaptor directory mounted at the appropriate mount point in the container
 (`/etc/gladoss/adaptors/`):
 
 ```bash
-docker run --network semantic_network \
+docker run --network semnet \
            --name gladoss-ke \
            --mount src=./backup/,target=/mnt/backup,type=bind \
            --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \

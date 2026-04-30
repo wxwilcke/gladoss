@@ -108,7 +108,8 @@ class DemoAdaptor(Adaptor):
             ))
 
     def publish_report(self: Self, identifier: str,
-                       data: Collection[Statement]) -> bool:
+                       data: Collection[Statement],
+                       label: int | list[int]) -> bool:
         """ Write the validation report (as N-Triples) for
             the state graph with the provided identifier to
             the standard output
@@ -117,15 +118,17 @@ class DemoAdaptor(Adaptor):
         :param data: [TODO:description]
         :return: [TODO:description]
         """
-        stdout.write("--- BEGIN Validation Report %s ---\n" % identifier)
+        stdout.write("--- BEGIN Validation Report %s (label '%s') ---\n"
+                     % identifier, str(label))
         for assertion in data:
             stdout.write(" %s\n" % str(assertion))
-        stdout.write("--- END Validation Report %s ---\n" % identifier)
+        stdout.write("--- END Validation Report %s (label '%s') ---\n"
+                     % identifier, str(label))
 
         return True
 
     def translate(self: Self, data: dict[str, Any])\
-            -> list[tuple[str, list[Statement]]]:
+            -> list[tuple[str, list[Statement], int | list[int]]]:
         """ Translate dummy data to RDF.
 
         :param data: data received from API
@@ -137,12 +140,13 @@ class DemoAdaptor(Adaptor):
             logging.debug("Missing content in data package")
             return data_translated
 
-        if "label" not in data.keys():
+        if "id" not in data.keys():
             logging.debug("Missing graph identifier in data package")
             return data_translated
 
-        graph_id = data['label']  # type: str
+        graph_id = data['id']  # type: str
         graph_str = data['data'].strip()  # tyoe: str
+        graph_label = data.get('labels', [])  # type: in | list[int]
         try:
             graph = list()
             for match in re.finditer(STATEMENT, graph_str):
@@ -150,7 +154,7 @@ class DemoAdaptor(Adaptor):
                 fact = self.process_fact(match)
                 graph.append(fact)
 
-            data_translated.append((graph_id, graph))
+            data_translated.append((graph_id, graph, graph_label))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {graph_str}")
 

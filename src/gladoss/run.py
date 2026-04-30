@@ -11,7 +11,7 @@ import signal
 from threading import Event, RLock
 import threading
 from types import SimpleNamespace
-from typing import Callable, Collection
+from typing import Callable, Collection, Optional
 
 import numpy as np
 from gladoss.core.connector import Connector
@@ -48,6 +48,7 @@ def signal_handler(signum, frame):
 
 
 def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
+                              label: Optional[int | list[int]],
                               mkid: Callable) -> bool:
     """ Convert the validation report to RDF graph format and publish
         the result via the adaptor.
@@ -65,7 +66,7 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
 
     # publish report to endpoint
     logger.info(f"Publishing validation report ({report.pattern._id})")
-    success = adaptor.publish_report(report.pattern._id, report_graph)
+    success = adaptor.publish_report(report.pattern._id, report_graph, label)
 
     return success
 
@@ -120,8 +121,9 @@ def create_validation_report(rng: np.random.Generator,
 
 def process_graph(rng: np.random.Generator, mkid: Callable,
                   pv: PatternVault, graph: Collection[Statement],
-                  graph_id: str, pconf: SimpleNamespace,
-                  econf: SimpleNamespace, r: Queue):
+                  graph_id: str, graph_label: Optional[int | list[int]],
+                  pconf: SimpleNamespace, econf: SimpleNamespace,
+                  r: Queue):
     """ Process an incoming message by finding the associated graph
         pattern, then evaluating the message with respect to this
         pattern, and, if OK, use the message to update the pattern.
@@ -167,7 +169,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     else:
         logger.info(f"Graph failed validation ({graph_id})")
 
-    r.put((thread_id, report))
+    r.put((thread_id, (report, graph_label)))
 
 
 def process_observation(rng: np.random.Generator, mkid: Callable,
@@ -198,13 +200,13 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
 
             break
 
-        graph_id, graph = job
+        graph_id, graph, graph_label = job
 
         # listen for new observations in parallel
         thread_id = f"worker-{len(jobs_active)+1}"
         thread = threading.Thread(target=process_graph, name=thread_id,
                                   args=(rng, mkid, pv, graph, graph_id,
-                                        pconf, econf, r))
+                                        graph_label, pconf, econf, r))
         thread.start()
         jobs_active.append(thread)
 
@@ -220,8 +222,8 @@ def listener(connector: Connector, q: Queue, r: Queue) -> None:
     :param q: [TODO:description]
     """
     thread_id = threading.current_thread().name
-    for graph_id, graph in connector.listen():
-        q.put((graph_id, graph))
+    for graph_id, graph, graph_label in connector.listen():
+        q.put((graph_id, graph, graph_label))
 
     # let the main thread know the worker is terminating
     r.put((thread_id, None))
@@ -307,7 +309,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     while len(listening_jobs) > 0:
         try:
             # wait until a new report comes in
-            thread_id, report = r.get()
+            thread_id, (report, label) = r.get()
             if report is None:
                 logger.info(f"Listner {thread_id} has terminated")
 
@@ -331,7 +333,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                          f"{report.status_code.name} "
                          f"({report.pattern._id})")
             if report.status_code >= econf.report_level:
-                if not publish_validation_report(adaptor, report, mkid):
+                if not publish_validation_report(adaptor, report, label, mkid):
                     logger.info("Unable to publish validation report "
                                 f"({report.pattern._id})")
         except Exception as e:

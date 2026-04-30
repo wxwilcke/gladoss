@@ -15,7 +15,7 @@ services:
         bind:
           create_host_path: true
     networks:
-      - semantic_network
+      - semnet
     expose:
       - 8000
   gladoss-demo:
@@ -23,7 +23,7 @@ services:
     container_name: gladoss-demo
     image: gladoss:latest
     networks:
-      - semantic_network
+      - semnet
     expose:
       - 8000
     entrypoint: ''
@@ -31,6 +31,6 @@ services:
 
 networks:
   semantic_network:
-    name: semantic_network
+    name: semnet
     driver: bridge
     external: true

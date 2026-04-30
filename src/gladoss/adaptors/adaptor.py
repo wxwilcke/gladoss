@@ -5,7 +5,7 @@ import argparse
 import logging
 from threading import Event
 from types import SimpleNamespace
-from typing import Any, Collection, Self
+from typing import Any, Collection, Optional, Self
 
 from rdf.graph import Statement
 
@@ -94,24 +94,27 @@ class Adaptor(ABC):
 
     @abstractmethod
     def publish_report(self: Self, identifier: str,
-                       data: Collection[Statement]) -> bool:
+                       data: Collection[Statement],
+                       label: Optional[int | list[int]]) -> bool:
         """ Publish the validation report (as N-Triples) for
             the state graph with the provided identifier.
 
         :param self: [TODO:description]
         :param identifier: [TODO:description]
         :param data: [TODO:description]
+        :param label: [TODO:description]
         :return: [TODO:description]
         """
         return False
 
     @abstractmethod
     def translate(self: Self, data: dict[str, Any])\
-            -> list[tuple[str, list[Statement]]]:
+            -> list[tuple[str, list[Statement], Optional[int | list[int]]]]:
         """ Translate the received data to RDF.
 
         :param data: data received from API
         :param kwargs: optional keyword arguments
-        :return: a list with statements and their identifier
+        :return: a list with statements, their identifier, and
+                 an optional label list
         """
         return list()

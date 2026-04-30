@@ -2,25 +2,65 @@
 
 import argparse
 from datetime import datetime
+import getpass
 import logging
 import json
 import os
+import sys
 from typing import Any
 import tomllib
+from typing import Optional
 
 import numpy as np
-
-from gladoss.core.utils import init_rng, gen_id
 
 
 logger = logging.getLogger(__name__)
 
 
 FILE_DIR = os.path.dirname(__file__)
-FILENAME_CONF = "dummy-data.toml"
-FILENAME_DATA = "dummy-data.json"
+FILENAME_CONF = "dataset_cfg.toml"
+FILENAME_DATA = "dataset.json"
 
 XSD_NS = "http://www.w3.org/2001/XMLSchema#"
+LABEL_MAP = {
+        0: "Nominal",
+        1: "Semantic Inconsistency",  # TODO
+        2: "Structural Anomaly",  # TODO
+        3: "Entity Anomaly",
+        4: "Literal Anomaly"
+        }
+
+
+def init_rng(seed: Optional[int] = None) -> np.random.Generator:
+    """ Initiate random state by specified seed. Use in
+        scipy instances S with S.random_state = rng.
+
+    :param seed: a positive value
+    :return: a RNG instance
+    """
+    if seed is None:
+        seed = np.random.randint(sys.maxsize)
+
+    return np.random.Generator(np.random.PCG64(np.array([seed])))
+
+
+def gen_id(rng: np.random.Generator) -> str:
+    """ Generate a random alphanumeric identifier.
+
+    :param rng: [TODO:description]
+    :return: [TODO:description]
+    """
+    a, z = 97, 122
+    i_l, i_h = 48, 57
+
+    # generate vocabulary
+    ascii_lst = [chr(i) for i in range(a, z+1)]\
+        + [chr(i) for i in range(i_l, i_h+1)]
+
+    # sample vocabulary
+    id_lst = rng.choice(ascii_lst, size=20)
+
+    return 'U' + ''.join(id_lst)
 
 
 def gen_entities(rng: np.random.Generator, conf: dict[str, Any],
@@ -45,18 +85,18 @@ def gen_entities(rng: np.random.Generator, conf: dict[str, Any],
     anomaly_duration = conf.get('anomaly_duration', 1)
 
     # track anomalies
-    anomaly_mask = list()
+    anomalies = list()
 
     changes_every = conf.get('changes_every', 1)
     for i in range(1, samplesize+1):
         value_new = None
-        anomaly = False
+        anomaly = 0  # nominal
         if anomaly_every is not None\
                 and i >= anomaly_every\
                 and i % anomaly_every <= (anomaly_duration-1):
             value_new = '<' + namespace + gen_id(rng) + '>'
 
-            anomaly = True
+            anomaly = 3  # entity anomaly
         elif changes_every is not None and i % changes_every == 0:
             id_str = gen_id(rng)
             value_new = '<' + namespace + f"{id_str}" + '>'
@@ -66,14 +106,14 @@ def gen_entities(rng: np.random.Generator, conf: dict[str, Any],
         else:
             out.append(value_new)
 
-        anomaly_mask.append(anomaly)
+        anomalies.append(anomaly)
 
     if conf.get('sort', False):
         # sort in natural order
-        out, anomaly_mask\
-                = (list(t) for t in zip(*sorted(zip(out, anomaly_mask))))
+        out, anomalyies\
+                = (list(t) for t in zip(*sorted(zip(out, anomalies))))
 
-    return (out, anomaly_mask)
+    return (out, anomalies)
 
 
 def gen_random_sentence(rng: np.random.Generator) -> str:
@@ -210,19 +250,19 @@ def gen_literals(rng: np.random.Generator, conf: dict[str, Any],
     anomaly_mp = conf.get('anomaly_multiplier')
 
     # track anomalies
-    anomaly_mask = list()
+    anomalies = list()
 
     changes_every = conf.get('changes_every')
     for i in range(1, samplesize+1):
         value_new = None
-        anomaly = False
+        anomaly = 0  # nominal
         if anomaly_every is not None\
                 and i >= anomaly_every\
                 and i % anomaly_every <= (anomaly_duration-1):
             value_new = str(gen_anomaly(rng, dtype, v_from, v_to, anomaly_mp))
             value_new = f"\"{value_new}\"^^<{XSD_NS}{dtype}>"
 
-            anomaly = True
+            anomaly = 4  # literal anomaly
         elif changes_every is not None and i % changes_every == 0:
             value_new = str(gen_value(rng, dtype, v_from, v_to))
             value_new = f"\"{value_new}\"^^<{XSD_NS}{dtype}>"
@@ -232,14 +272,14 @@ def gen_literals(rng: np.random.Generator, conf: dict[str, Any],
         else:
             out.append(value_new)
 
-        anomaly_mask.append(anomaly)
+        anomalies.append(anomaly)
 
     if conf.get('sort', False):
         # sort in natural order
-        out, anomaly_mask\
-                = (list(t) for t in zip(*sorted(zip(out, anomaly_mask))))
+        out, anomalies\
+                = (list(t) for t in zip(*sorted(zip(out, anomalies))))
 
-    return (out, anomaly_mask)
+    return (out, anomalies)
 
 
 def mknodes(rng: np.random.Generator, conf: list[dict[str, Any]],
@@ -302,7 +342,7 @@ def expandPrefixes(pattern: str, prefixes: dict[str, str]) -> str:
     return pattern_exp
 
 
-def mkdata(label: str, pattern: str, prefixes: dict[str, str],
+def mkdata(ident: str, pattern: str, prefixes: dict[str, str],
            values: dict[str, tuple[list[str], list[bool]]], samplesize: int)\
         -> list[dict[str, str]]:
     """ Combine generated data with provided pattern by replacing
@@ -321,14 +361,11 @@ def mkdata(label: str, pattern: str, prefixes: dict[str, str],
     for i in range(samplesize):
         g = pattern
 
-        anomaly = False
-        for var, (binding_lst, anomaly_msk) in values.items():
+        label = 0  # no anomaly
+        for var, (binding_lst, label) in values.items():
             g = g.replace('?'+var, binding_lst[i])
 
-            if anomaly_msk[i]:
-                anomaly = True
-
-        out.append({'label': label, 'anomaly': anomaly, 'data': g})
+        out.append({'id': ident, 'label': label, 'data': g})
 
     return out
 
@@ -343,14 +380,23 @@ def main(conf: dict[str, Any], flags: argparse.Namespace)\
     """
     rng = init_rng(flags.seed)
 
-    data = list()
+    # metadata
+    data = {
+            'author': getpass.getuser().title(),
+            'date': datetime.now().isoformat(),
+            'description': ("Synthetic dataset for graph anomaly detection "
+                            "in semantic IoT streams in the smart building "
+                            "domain.")
+            }
+
+    datasets = list()
     samplesize = flags.samplesize
     for entry in conf['data']:
         namespace = entry['namespace']
         nodes = entry['node']
 
-        # generate graph label
-        label = gen_id(rng)
+        # generate graph identifier
+        ident = gen_id(rng)
 
         # generate values
         values = mknodes(rng, nodes, namespace, samplesize)
@@ -358,9 +404,14 @@ def main(conf: dict[str, Any], flags: argparse.Namespace)\
         # generate data
         pattern = entry['pattern']
         prefixes = entry['prefixes']
-        samples = mkdata(label, pattern, prefixes, values, samplesize)
+        samples = mkdata(ident, pattern, prefixes, values, samplesize)
 
-        data.append(samples)
+        datasets.append({
+                         'labels': LABEL_MAP,
+                         'samples': samples
+                         })
+
+    data['datasets'] = datasets
 
     return data
 

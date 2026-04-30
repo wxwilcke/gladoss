@@ -180,7 +180,7 @@ def main(flags: argparse.Namespace):
 def __main__(argv: list[str]):
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", "-i", help="File (JSON) to read stream "
-                        + "data from.", default="./dummy-data.json", type=str,
+                        + "data from.", default="./demo-data.json", type=str,
                         required=True)
     parser.add_argument("--cachesize", help="Cache size in number of "
                         + "publications (default 1)", default=1, type=int)

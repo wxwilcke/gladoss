@@ -14,7 +14,7 @@ services:
         bind:
           create_host_path: true
     networks:
-      - semantic_network
+      - semnet
     depends_on:
       knowledge_engine:
         condition: service_healthy
@@ -24,13 +24,13 @@ services:
     ports:
       - 8280:8280
     networks:
-      - semantic_network
+      - semnet
     healthcheck:
       test: wget http://localhost:8280/rest/sc -O /dev/null
       interval: 1s
 
 networks:
   semantic_network:
-    name: semantic_network
+    name: semnet
     driver: bridge
     external: true

@@ -24,10 +24,10 @@ This build uses the default `Dockerfile` which assumes that the source code is
 locally available (e.g. following `git clone`). To use upstream instead,
 replace `Dockerfile` in the build command by `git.Dockerfile`.
 
-3) Run the GLADoSS container on the `semantic_network` and with local directories for backups and (custom) adaptors accessible from the container.
+3) Run the GLADoSS container on the `semnet` and with local directories for backups and (custom) adaptors accessible from the container.
 
 ```bash
-docker run --network semantic_network \
+docker run --network semnet \
            --name gladoss \
            --mount src=./backup/,target=/mnt/backup,type=bind \
            --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
@@ -60,7 +60,7 @@ or when Docker compose is used:
 docker-compose down gladoss
 ```
 
-When using the above commands or the provided compose file the running containers are connected via a dedicated Docker network named `semantic_network`. Only messages sent via this network are visible to the containers. To allow for communication between arbitrary devices, add the devices to this network (if dockerized) or edit the network settings in the compose file to use a different network (e.g. that of the host). 
+When using the above commands or the provided compose file the running containers are connected via a dedicated Docker network named `semnet`. Only messages sent via this network are visible to the containers. To allow for communication between arbitrary devices, add the devices to this network (if dockerized) or edit the network settings in the compose file to use a different network (e.g. that of the host). 
 
 Note that the image will have to be rebuild each time a custom adaptor is added.
 

@@ -270,7 +270,8 @@ class KE_Adaptor(Adaptor):
                 logger.error("Unable to deregister knowledge base")
 
     def publish_report(self: Self, identifier: str,
-                       data: Collection[Statement]) -> bool:
+                       data: Collection[Statement],
+                       label: None) -> bool:
         """ Publish the validation report (as N-Triples) for
             the state graph with the provided identifier, by
             performing a post knowledge interaction to the
@@ -412,7 +413,7 @@ class KE_Adaptor(Adaptor):
         return payload
 
     def translate(self: Self, data: dict[str, Any])\
-            -> list[tuple[str, list[Statement]]]:
+            -> list[tuple[str, list[Statement]], None]:
         """ Translate binding sets to RDF.
 
         :param data: data received from API
@@ -452,7 +453,7 @@ class KE_Adaptor(Adaptor):
 
                         graph.append(fact)
 
-                data_translated.append((graph_id, graph))
+                data_translated.append((graph_id, graph, None))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {bindings}")
 
@@ -685,7 +686,7 @@ class KE_Adaptor(Adaptor):
 
                 if char == '?':
                     # possible variable
-                    if i > 0:
+                    if j > 0:
                         # add chars since last variable
                         s_lst.append(s[i:j])
 
@@ -703,6 +704,8 @@ class KE_Adaptor(Adaptor):
 
                         binding = bindings[var]
                         s_lst.append(binding)
+                    else:  # retain variable
+                        s_lst.append(s[i:j])
 
                     i = j
                     flag = False
