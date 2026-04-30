@@ -13,6 +13,26 @@ from rdf.terms import BNode, IRIRef, Literal, Resource
 
 from gladoss.core.pattern import GraphPattern
 
+"""
+?report rdf:type sh:ValidationReport .
+?report dct:date ?reportDate .
+?report dct:identifier ?reportIdentifier .
+?report dct:conformsTo ?reportLanguage .
+?report sh:conforms ?validationPassed .
+?report dct:hasPart ?result .
+
+?result rdf:type sh:ValidationResult .
+?result rdfs:label ?resultStatusMsg .
+?result sh:focusNode ?resultFocusNode .
+?result sh:resultPath ?resultPath .
+?result sh:value ?resultValue .
+?result sh:resultMessage ?resultStatusMsgLong .
+?result sh:resultSeverity ?resultSeverity .
+
+?resultSeverity rdf:type sh:Severity .
+?resultSeverity rdfs:label ?severityLabel .
+?resultSeverity rdfs:comment ?severityDescription .
+"""
 
 logger = logging.getLogger(__name__)
 
