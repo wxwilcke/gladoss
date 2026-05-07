@@ -58,7 +58,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
     conforms = True
 
     # define graph and metadata
-    root = BNode('B' + mkid())
+    root = BNode(mkid())
     graph = [
         Statement(root, RDF + 'type', SHACL + 'ValidationReport'),
         Statement(root, DCT + 'date', Literal(report.timestamp.isoformat(),
@@ -73,7 +73,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
     for status_msg_lst in report.status_msg_lst:
         status_msg, status_msg_long, status_code = status_msg_lst
 
-        res = BNode('B' + mkid())
+        res = BNode(mkid())
         graph.extend([
             Statement(root, DCT + 'hasPart', res),
             Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
@@ -83,7 +83,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
                       Literal(status_msg_long, language="en"))
             ])
 
-        sev = BNode('B' + mkid())
+        sev = BNode(mkid())
         graph.extend([
             Statement(res, SHACL + 'resultSeverity', sev),
             Statement(sev, RDF + 'type', SHACL + 'Severity'),
@@ -104,7 +104,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
         # one result per anomaly
         assertion = report.apa_map[ap_id]  # type: Statement
         for status_msg, status_msg_long, status_code in status_msg_lst:
-            res = BNode('B' + mkid())
+            res = BNode(mkid())
             graph.extend([
                 Statement(root, DCT + 'hasPart', res),
                 Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
@@ -117,7 +117,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
                           Literal(status_msg_long, language="en"))
                 ])
 
-            sev = BNode('B' + mkid())
+            sev = BNode(mkid())
             graph.extend([
                 Statement(res, SHACL + 'resultSeverity', sev),
                 Statement(sev, RDF + 'type', SHACL + 'Severity'),
@@ -157,7 +157,7 @@ def pattern_to_graph(mkid: Callable,
                 f"{pattern._id}")
 
     # define graph and metadata
-    root = BNode('B' + mkid())
+    root = BNode(mkid())
     graph = [
         Statement(root, RDF + 'type', OWL + 'Ontology'),
         Statement(root, DCT + 'date', Literal(timestamp.isoformat(),
@@ -172,7 +172,7 @@ def pattern_to_graph(mkid: Callable,
         ap = pattern.structure[ap_id]
 
         # shape for this assertion pattern
-        shape = BNode('B' + ap_id)
+        shape = BNode(ap_id)
 
         graph.extend([
             Statement(root, DCT + 'hasPart', shape),
@@ -183,7 +183,7 @@ def pattern_to_graph(mkid: Callable,
             Statement(shape, SHACL + 'targetSubjectsOf', ap.relation)
             ])
 
-        pshape = BNode('B' + mkid())
+        pshape = BNode(mkid())
         graph.extend([
             Statement(shape, SHACL + 'property', pshape),
             Statement(pshape, SHACL + 'path', ap.relation)

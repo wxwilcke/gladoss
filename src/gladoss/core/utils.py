@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 import sys
 from typing import Collection, Optional
+import uuid
 
 import numpy as np
 from gladoss.adaptors.adaptor import Adaptor
@@ -154,23 +155,32 @@ def import_class(module_map: dict[str, list[str, str]], name: str) -> Adaptor:
     return cls
 
 
+def getRandIntOfBits(rng: np.random.Generator, k: int) -> int:
+    """ Generate random integer with k bits.
+
+    :param rng: [TODO:description]
+    :param k: [TODO:description]
+    :return: [TODO:description]
+    :raises ValueError: [TODO:description]
+    """
+    if k < 0:
+        raise ValueError('Number of bits must be non-negative')
+
+    numbytes = (k + 7) // 8  # bits / 8 and rounded up
+    x = int.from_bytes(rng.bytes(numbytes), 'big')
+
+    return x >> (numbytes * 8 - k)  # trim excess bits
+
+
 def gen_id(rng: np.random.Generator) -> str:
-    """ Generate a random alphanumeric identifier.
+    """ Generate a random UUID.
 
     :param rng: [TODO:description]
     :return: [TODO:description]
     """
-    a, z = 97, 122
-    i_l, i_h = 48, 57
+    seed = getRandIntOfBits(rng, 128)
 
-    # generate vocabulary
-    ascii_lst = [chr(i) for i in range(a, z+1)]\
-        + [chr(i) for i in range(i_l, i_h+1)]
-
-    # sample vocabulary
-    id_lst = rng.choice(ascii_lst, size=20)
-
-    return 'U' + ''.join(id_lst)
+    return str(uuid.UUID(int=seed, version=4))
 
 
 def infer_class(resource: IRIRef, graph: Collection[Statement]) -> IRIRef:
