@@ -436,8 +436,8 @@ class KE_Adaptor(Adaptor):
                           + f"with knowledge interaction {ki_id}")
             return data_translated
 
-        # shorten graph identifier
-        graph_id = ki_id.split('/')[-1]  # last part of IRI
+        # graph identifier
+        graph_id = ki_id
 
         ki_pattern, ki_prefixes = self.context['argumentGraphPatterns'][ki_id]
         bindings = data["bindingSet"]  # type: list[dict[str,str]]
