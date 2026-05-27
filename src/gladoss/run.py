@@ -49,6 +49,7 @@ def signal_handler(signum, frame):
 
 def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
                               label: Optional[int | list[int]],
+                              namespace: Optional[str],
                               mkid: Callable) -> bool:
     """ Convert the validation report to RDF graph format and publish
         the result via the adaptor.
@@ -61,7 +62,7 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     # represent validation report as graph
     logger.debug(f"Preparing publication of validation report "
                  f"({report.pattern._id})")
-    report_graph = report.to_graph(mkid)
+    report_graph = report.to_graph(namespace, mkid)
     logger.debug(f" {{\n{'\n  '.join([str(s) for s in report_graph])}\n  }}")
 
     # publish report to endpoint
@@ -174,7 +175,8 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
 
 def process_observation(rng: np.random.Generator, mkid: Callable,
                         pv: PatternVault, pconf: SimpleNamespace,
-                        econf: SimpleNamespace, q: Queue, r: Queue) -> None:
+                        econf: SimpleNamespace,
+                        q: Queue, r: Queue) -> None:
     """ Process incoming messages by spawning a new thread on demand. This
         procedure should only be called by the manager, which itself should
         run on a thread different from the main thread to avoid blocking
@@ -333,7 +335,8 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                          f"{report.status_code.name} "
                          f"({report.pattern._id})")
             if report.status_code >= econf.report_level:
-                if not publish_validation_report(adaptor, report, label, mkid):
+                if not publish_validation_report(adaptor, report, label,
+                                                 flags.namespace, mkid):
                     logger.info("Unable to publish validation report "
                                 f"({report.pattern._id})")
         except Exception as e:
@@ -383,6 +386,9 @@ def __main__():
     parser.add_argument("--backup-restore", help="Backup file from which to "
                         "import patterns on start.", type=str,
                         default=None)
+    parser.add_argument("--namespace", help="Namespace to use when generating "
+                        "new identifiers. Omit for blank nodes (default).",
+                        type=str, default=None)
     parser.add_argument("--seed", help="Seed for random number generator "
                         + "(optional)", type=int, default=None)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "

@@ -906,8 +906,9 @@ class ValidationReport():
         self.status_msg_lst_map = status_msg_lst_map
         self.status_msg_lst = status_msg_lst
 
-    def to_graph(self, mkid: Callable) -> list[Statement]:
-        return report_to_graph(self, mkid)
+    def to_graph(self, namespace: Optional[str], mkid: Callable)\
+            -> list[Statement]:
+        return report_to_graph(self, namespace, mkid)
 
     def __hash__(self):
         return hash(str(self.pattern)

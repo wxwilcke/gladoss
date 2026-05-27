@@ -3,7 +3,7 @@
 from __future__ import annotations
 from datetime import datetime
 import logging
-from typing import Callable
+from typing import Callable, Optional
 
 from gladoss.core.multimodal.datatypes import XSD_NUMERIC, cast_literal_rev
 from gladoss.core.stats import Distribution
@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 DCT = IRIRef("http://purl.org/dc/terms/")
 
 
-def report_to_graph(report: 'ValidationReport', mkid: Callable)\
-        -> list[Statement]:
+def report_to_graph(report: 'ValidationReport', namespace: Optional[str],
+                    mkid: Callable) -> list[Statement]:
     """ Convert a validation report object to RDF graph in N-Triples format
         that conforms to the SHACL specification. Each detected anomaly
         (or error) is converted to a SHACL validation result with information
@@ -54,11 +54,18 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
     logger.debug("Exporting validation report to SHACL "
                  f"({report.pattern._id})")
 
+    # use provided namespace for new nodes
+    if isinstance(namespace, str) and len(namespace) > 0:
+        if not (namespace.endswith('/') or namespace.endswith('#')):
+            namespace += '#'
+
+        namespace = IRIRef(namespace)
+
     # default value
     conforms = True
 
     # define graph and metadata
-    root = BNode(mkid())
+    root = mknode(namespace, mkid)
     graph = [
         Statement(root, RDF + 'type', SHACL + 'ValidationReport'),
         Statement(root, DCT + 'date', Literal(report.timestamp.isoformat(),
@@ -73,7 +80,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
     for status_msg_lst in report.status_msg_lst:
         status_msg, status_msg_long, status_code = status_msg_lst
 
-        res = BNode(mkid())
+        res = mknode(namespace, mkid)
         graph.extend([
             Statement(root, DCT + 'hasPart', res),
             Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
@@ -83,7 +90,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
                       Literal(status_msg_long, language="en"))
             ])
 
-        sev = BNode(mkid())
+        sev = mknode(namespace, mkid)
         graph.extend([
             Statement(res, SHACL + 'resultSeverity', sev),
             Statement(sev, RDF + 'type', SHACL + 'Severity'),
@@ -104,7 +111,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
         # one result per anomaly
         assertion = report.apa_map[ap_id]  # type: Statement
         for status_msg, status_msg_long, status_code in status_msg_lst:
-            res = BNode(mkid())
+            res = mknode(namespace, mkid)
             graph.extend([
                 Statement(root, DCT + 'hasPart', res),
                 Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
@@ -117,7 +124,7 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
                           Literal(status_msg_long, language="en"))
                 ])
 
-            sev = BNode(mkid())
+            sev = mknode(namespace, mkid)
             graph.extend([
                 Statement(res, SHACL + 'resultSeverity', sev),
                 Statement(sev, RDF + 'type', SHACL + 'Severity'),
@@ -139,7 +146,8 @@ def report_to_graph(report: 'ValidationReport', mkid: Callable)\
 
 def pattern_to_graph(mkid: Callable,
                      pattern: GraphPattern,
-                     timestamp: datetime) -> list[Statement]:
+                     timestamp: datetime,
+                     namespace: Optional[str]) -> list[Statement]:
     """ Convert graph pattern object to RDF graph in N-Triple format that
         conforms to the SHACL specification for shape graphs. Each assertion
         pattern is converted into a shape structure, with full preservation
@@ -156,8 +164,15 @@ def pattern_to_graph(mkid: Callable,
     logger.info("Generating SHACL shape graph for graph pattern "
                 f"{pattern._id}")
 
+# use provided namespace for new nodes
+    if isinstance(namespace, str) and len(namespace) > 0:
+        if not (namespace.endswith('/') or namespace.endswith('#')):
+            namespace += '#'
+
+        namespace = IRIRef(namespace)
+
     # define graph and metadata
-    root = BNode(mkid())
+    root = mknode(namespace, mkid)
     graph = [
         Statement(root, RDF + 'type', OWL + 'Ontology'),
         Statement(root, DCT + 'date', Literal(timestamp.isoformat(),
@@ -172,7 +187,7 @@ def pattern_to_graph(mkid: Callable,
         ap = pattern.structure[ap_id]
 
         # shape for this assertion pattern
-        shape = BNode(ap_id)
+        shape = BNode(ap_id) if namespace is None else namespace + ap_id
 
         graph.extend([
             Statement(root, DCT + 'hasPart', shape),
@@ -183,7 +198,7 @@ def pattern_to_graph(mkid: Callable,
             Statement(shape, SHACL + 'targetSubjectsOf', ap.relation)
             ])
 
-        pshape = BNode(mkid())
+        pshape = mknode(namespace, mkid)
         graph.extend([
             Statement(shape, SHACL + 'property', pshape),
             Statement(pshape, SHACL + 'path', ap.relation)
@@ -196,7 +211,7 @@ def pattern_to_graph(mkid: Callable,
                 graph.append(Statement(pshape, SHACL + 'nodeKind',
                                        SHACL + 'Literal'))
                 if ap.value.language is not None:
-                    lst = BNode(mkid())
+                    lst = mknode(namespace, mkid)
                     graph.extend([
                         Statement(pshape, SHACL + 'languageIn', lst),
                         Statement(lst, RDF + 'type', RDF + 'List'),
@@ -232,7 +247,7 @@ def pattern_to_graph(mkid: Callable,
                     ])
             else:
                 # create an RDF list with all unique values in the distribution
-                lst = BNode(mkid())
+                lst = mknode(namespace, mkid)
                 graph.extend([
                     Statement(pshape, SHACL + 'in', lst),
                     Statement(lst, RDF + 'type', RDF + 'List')
@@ -245,7 +260,7 @@ def pattern_to_graph(mkid: Callable,
 
                     lst_rest = RDF + 'nil'
                     if i < len(data_uniq):
-                        lst_rest = BNode(mkid())
+                        lst_rest = mknode(namespace, mkid)
                     graph.extend(
                             [Statement(lst, RDF + 'first', v),
                              Statement(lst, RDF + 'rest', lst_rest)
@@ -256,3 +271,15 @@ def pattern_to_graph(mkid: Callable,
             NotImplementedError()
 
     return graph
+
+
+def mknode(namespace: Optional[IRIRef], mkid: Callable) -> BNode | IRIRef:
+    """ Create a new blank node or an IRI if a namespace is provided.
+
+    :param namespace: [TODO:description]
+    :param mkid: [TODO:description]
+    :return: [TODO:description]
+    """
+    rand_id = mkid()
+
+    return BNode(rand_id) if namespace is None else namespace + rand_id
