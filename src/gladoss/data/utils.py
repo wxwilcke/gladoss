@@ -8,6 +8,7 @@ import sys
 import termios
 import tty
 from types import SimpleNamespace
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -100,3 +101,53 @@ def create_namespace_subset(namespace: Namespace,
     """
     return SimpleNamespace(**{arg: getattr(namespace, arg, None)
                               for arg in members})
+
+
+def jsonpath_deref(root: dict | list, jsonpath: list[Any]) -> Any:
+    """ Dereference a (nested) dictionary and/or list structure via
+        a JSONpath. Only a subset of the JSONpath specification
+        consisting of integer or string selectors in dot-notation is
+        supported.
+
+        Examples:
+        - '$.my.data.[0].values.[5]'
+        - '$.[0].[5].values'
+
+    :param root: [TODO:description]
+    :param jsonpath: [TODO:description]
+    :return: [TODO:description]
+    """
+    pattern = r"([a-z0-9_-]+|(?<=\[)[0-9]+(?=\]))"
+
+    def traverse(struc: Any, path: list[str | int]) -> Any:
+        """ Traverse a (nested) dictionary or list recursively
+            using the keys and/or indices in the path.
+
+        :param struc: [TODO:description]
+        :param path: [TODO:description]
+        :return: [TODO:description]
+        """
+        if not (isinstance(struc, dict) or isinstance(struc, list)) \
+           or len(path) <= 0:
+            return struc
+
+        key = path[0]
+        if isinstance(struc, dict):
+            val = struc.get(key, None)
+        if isinstance(struc, list):
+            try:
+                val = struc[key]
+            except IndexError, TypeError:
+                val = None
+
+        return traverse(val, path[1:])
+
+    path_lst = re.findall(pattern, jsonpath)
+    for i in range(len(path_lst)):
+        # cast strings of indices to integers
+        try:
+            path_lst[i] = int(path_lst[i])
+        except ValueError:
+            continue
+
+    return traverse(root, path_lst)

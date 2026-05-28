@@ -10,7 +10,7 @@ import logging
 import signal
 from threading import Event
 
-from gladoss.adaptors.demo import DemoAdaptor
+from gladoss.adaptors.default.restful import RESTfulAdaptor
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,12 @@ def main(flags: argparse.Namespace):
     :param flags: User-provided parameters
     """
     logging.info("Listening for messages")
-    adaptor = DemoAdaptor(controller=controller,  # type: ignore
-                          config=flags)
+    adaptor = RESTfulAdaptor(controller=controller,  # type: ignore
+                             config=flags)
 
     conn = adaptor.connectors.pop()  # the demo only defines one connector
-    for graph_id, graph in conn.listen():
-        print(f" {LAND} ".join([str(fact) for fact in graph]))
+    for graph_id, graph_lst, graph_label in conn.listen():
+        print(f" {LAND} ".join([str(fact) for fact in graph_lst]))
         logger.debug(f"Graph Identity: {graph_id}")
 
 

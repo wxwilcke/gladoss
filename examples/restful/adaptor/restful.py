@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 import logging
+import os
 import re
 from sys import stdout
+import tomllib
 from typing import Any, Collection, Self
 
-from gladoss.core.connector import Connector
 from rdf import IRIRef, Literal, Statement
 
+from gladoss.core.connector import Connector
 from gladoss.adaptors.adaptor import Adaptor
+from gladoss.data.utils import jsonpath_deref
 
 logger = logging.getLogger(__name__)
 
@@ -21,31 +24,43 @@ STATEMENT = re.compile(rf"(?P<head>{URI})"
 LITERAL = re.compile(r"\"(?P<value>.*)\"(?:"
                      r"(?:@(?P<lang>[a-z]{{2}}))|"
                      rf"(?:\^\^(?P<dtype>{URI})))?")
+FILE_DIR = os.path.dirname(__file__)
+FILENAME_CONF = "restful.toml"
+CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 
 
-class DemoAdaptor(Adaptor):
-    """ Adaptor to dummy device for debugging and demo purposes.
+class RESTfulAdaptor(Adaptor):
+    """ Adaptor that listens for graphs on the endpoint of a
+        REST endpoint and which published validation reports
+        to standard output.
 
-        Expects data in the form {"label": <STRING>,
+        Expects data in the form {"id": <STRING>,
                                   "data": "s p o . [...]"},
         with
+        - id the graph identifier
         - s, p, o as '<http://www.example.org/u>'
-        - or o as '"v"', '"v"@lang', or '"v"^^dt'
-        - and dt as '<http://www.example.org/u>'
+        - or o as '"v"', '"v"@lang', or '"v"^^dtype'
+        - and dtype as '<http://www.example.org/u>'
         - and lang as [a-z]{2}
 
         Publishes data to standard output in the form "s p o . [...]",
         with
         - s, p, o as '<http://www.example.org/u>'
-        - or o as '"v"', '"v"@lang', or '"v"^^dt'
-        - and dt as or '<http://www.example.org/u>'
+        - or o as '"v"', '"v"@lang', or '"v"^^dtype'
+        - and dtype as '<http://www.example.org/u>'
         - and lang as [a-z]{2}
     """
 
     def init_hook(self: Self) -> None:
         """ Execute additional commands on initialisation.
         """
-        return super().init_hook()
+        conf = dict()
+        with open(CONF_PATH, 'rb') as f:
+            conf = tomllib.load(f)
+
+            # JSONpaths to relevant parts of message payload
+            self.context["path_to_id"] = conf.get("graph_id")
+            self.context["path_to_data"] = conf.get("graph_data")
 
     def cleanup_hook(self: Self) -> None:
         """ Execute additional commands on exit.
@@ -59,7 +74,7 @@ class DemoAdaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        return {"adaptor": "demo"}
+        return {"adaptor": "RESTful"}
 
     def set_payload(self: Self) -> list[Any] | dict[str, Any]:
         """ Returns payload for polling the endpoint. Defaults
@@ -109,7 +124,7 @@ class DemoAdaptor(Adaptor):
 
     def publish_report(self: Self, identifier: str,
                        data: Collection[Statement],
-                       label: int | list[int]) -> bool:
+                       label: None) -> bool:
         """ Write the validation report (as N-Triples) for
             the state graph with the provided identifier to
             the standard output
@@ -118,35 +133,38 @@ class DemoAdaptor(Adaptor):
         :param data: [TODO:description]
         :return: [TODO:description]
         """
-        stdout.write("--- BEGIN Validation Report %s (label '%s') ---\n"
-                     % (identifier, str(label)))
+        report_str_lst = [("--- BEGIN Validation Report %s ---"
+                           % identifier)]
         for assertion in data:
-            stdout.write(" %s\n" % str(assertion))
-        stdout.write("--- END Validation Report %s (label '%s') ---\n"
-                     % (identifier, str(label)))
+            report_str_lst.append(" %s" % str(assertion))
+        report_str_lst.append("--- END Validation Report %s ---"
+                              % identifier)
+
+        stdout.write('\n'.join(report_str_lst))
 
         return True
 
     def translate(self: Self, data: dict[str, Any])\
-            -> list[tuple[str, list[Statement], int | list[int]]]:
+            -> list[tuple[str, list[Statement], None]]:
         """ Translate dummy data to RDF.
 
         :param data: data received from API
         :return: A list of RDF statements and their identifier
         :raises SyntaxWarning: warn if translation fails
         """
+        graph_id = jsonpath_deref(data, self.context['path_to_id'])
+        graph_data = jsonpath_deref(data, self.context['path_to_data'])
+
         data_translated = list()
-        if "data" not in data.keys() or len(data["data"]) <= 0:
+        if not isinstance(graph_data, str) or len(graph_data) <= 0:
             logging.debug("Missing content in data package")
             return data_translated
 
-        if "id" not in data.keys():
+        if not isinstance(graph_id, str) or len(graph_id) <= 0:
             logging.debug("Missing graph identifier in data package")
             return data_translated
 
-        graph_id = data['id']  # type: str
-        graph_str = data['data'].strip()  # tyoe: str
-        graph_label = data.get('labels', [])  # type: in | list[int]
+        graph_str = graph_data.strip()
         try:
             graph = list()
             for match in re.finditer(STATEMENT, graph_str):
@@ -154,7 +172,7 @@ class DemoAdaptor(Adaptor):
                 fact = self.process_fact(match)
                 graph.append(fact)
 
-            data_translated.append((graph_id, graph, graph_label))
+            data_translated.append((graph_id, graph, None))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {graph_str}")
 

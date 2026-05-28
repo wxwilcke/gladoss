@@ -360,7 +360,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
 def __main__():
     adaptor_dir = os.environ.get(ADAPTER_ENV_NAME)
-    adaptor_lst = [ROOT_PATH / "adaptors"]
+    adaptor_lst = [ROOT_PATH / "adaptors" / "default"]
     if adaptor_dir is not None:
         adaptor_dir = Path(adaptor_dir)
         if not adaptor_dir.exists():
@@ -370,7 +370,6 @@ def __main__():
 
     # find available adaptors
     adaptors = list_classes(adaptor_lst)
-    del adaptors['adaptor']  # exclude the abstract base class
 
     parser = argparse.ArgumentParser(
         prog="GLADoSS",
@@ -399,7 +398,7 @@ def __main__():
                              + f"endpoint. Set '{ADAPTER_ENV_NAME}' to "
                              + "support dynamic loading of bespoke adaptors.",
                              choices=list(adaptors.keys()),
-                             type=str, nargs='?')
+                             type=str, nargs='?', default='restful')
     parser_comm.add_argument("--endpoint", help="HTTP address to listen to. "
                              "This is only needed if the application listens "
                              "to exactly one endpoint and none is provided "

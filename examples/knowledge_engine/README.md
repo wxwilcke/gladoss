@@ -108,7 +108,7 @@ the adaptor directory mounted at the appropriate mount point in the container
 docker run --network semnet \
            --name gladoss-ke \
            --mount src=./backup/,target=/mnt/backup,type=bind \
-           --mount src=./adaptors/,target=/etc/gladoss/adaptors,type=bind \
+           --mount src=./adaptor/,target=/etc/gladoss/adaptors,type=bind \
            gladoss-ke
 ```
 

@@ -175,11 +175,11 @@ The GLADoSS repository contains a simple stand-alone demo which simulates an IoT
 
 2) Start the simulated smart device(s) in one terminal (A).
 
-        $ python -m gladoss demo -v --no-autocycle -i gladoss/demo/dummy-data.json
+        $ python -m gladoss demo -v --no-autocycle -i gladoss/demo/dataset.json
 
 3) Start GLADoSS in another terminal (B)
 
-        $ python -m gladoss -v --grace-period=10 --report-level=0 demo
+        $ python -m gladoss -v --grace-period=10 --report-level=0 restful
 
 4) Run the demo
 
@@ -212,7 +212,7 @@ In addition, a procedure has to be written that creates one on more connections,
 4) Set the environment variable `GLADOSS_ADAPTOR_DIRECTORY` to point to the directory that contains your adaptors, and tell GLADoSS to use your custom adaptor:
 
 ```bash
-env GLADOSS_ADAPTOR_DIRECTORY=${PWD}/adaptors/ python -m gladoss -v custom_adaptor
+env GLADOSS_ADAPTOR_DIRECTORY=${PWD}/adaptor/ python -m gladoss -v custom_adaptor
 ```
 ---
 
