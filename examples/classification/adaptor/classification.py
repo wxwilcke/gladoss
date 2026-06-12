@@ -35,13 +35,14 @@ class ClassificationAdaptor(Adaptor):
         to standard output. Tailored for evaluation of the
         anomaly detection by computing classification performance.
 
-        Expects data in the form {"node": <STRING>,
-                                  "id": <STRING>,
-                                  "label": <INT>|<LIST[INT]>
-                                  "data": "s p o . [...]"},
+        Expects data in the form {"node-id": <STRING>,
+                                  "graph-id": <STRING>,
+                                  "graph-label": <INT>|<LIST[INT]>
+                                  "graph-data": "s p o . [...]"},
         with
-        - node the node (device) identifier
-        - id the graph identifier
+        - node-id the node (device) identifier
+        - graph-id the graph identifier
+        - graph-label the (multiclass) classification label
         - s, p, o as '<http://www.example.org/u>'
         - or o as '"v"', '"v"@lang', or '"v"^^dtype'
         - and dtype as '<http://www.example.org/u>'

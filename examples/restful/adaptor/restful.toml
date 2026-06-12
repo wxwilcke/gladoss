@@ -1,6 +1,6 @@
 # RESTful adaptor configuration
 
 # JSONpath to relevant values 
-node_id = "$.node"
-graph_id = "$.id"
-graph_data = "$.data"
+node_id = "$.node-id"
+graph_id = "$.graph-id"
+graph_data = "$.graph-data"

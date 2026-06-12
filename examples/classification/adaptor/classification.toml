@@ -1,6 +1,7 @@
 # Classification adaptor configuration
 
 # JSONpath to relevant values 
-graph_id = "$.id"
-graph_data = "$.data"
-graph_label = "$.label"
+node_id = "$.node-id"
+graph_id = "$.graph-id"
+graph_data = "$.graph-data"
+graph_label = "$.graph-label"

@@ -34,12 +34,12 @@ class RESTfulAdaptor(Adaptor):
         REST endpoint and which published validation reports
         to standard output.
 
-        Expects data in the form {"node": <STRING>,
-                                  "id": <STRING>,
-                                  "data": "s p o . [...]"},
+        Expects data in the form {"node-id": <STRING>,
+                                  "graph-id": <STRING>,
+                                  "graph-data": "s p o . [...]"},
         with
-        - node the node (device) identifier
-        - id the graph identifier
+        - node-id the node (device) identifier
+        - graph-id the graph identifier
         - s, p, o as '<http://www.example.org/u>'
         - or o as '"v"', '"v"@lang', or '"v"^^dtype'
         - and dtype as '<http://www.example.org/u>'
