@@ -9,7 +9,7 @@ import sched
 from threading import RLock, Thread
 from typing import Optional
 
-from gladoss.core.pattern import PatternVault
+from gladoss.modules.graph.pattern import PatternVault
 
 
 TIME_FORMAT = "%Y%m%dT%H%M%S"

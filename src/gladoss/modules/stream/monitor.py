@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 from datetime import datetime
-from enum import Enum, auto
 import logging
 from queue import Queue
 import threading
@@ -9,15 +8,11 @@ from types import SimpleNamespace
 
 from gladoss.core.report import StreamValidationReport, ValidationReport
 from gladoss.core.stores import MemoryStore
+from gladoss.modules.stream.info_elem import StreamInfoElement
 from gladoss.modules.stream.validator import validate_stream
 
 
 logger = logging.getLogger(__name__)
-
-
-class StreamInfoElement(Enum):
-    RINTERVAL = auto()  # reception interval
-    RTIME = auto()  # reception time
 
 
 def update_stream_characteristics(store: MemoryStore, node_id: str,

@@ -9,7 +9,7 @@ import numpy as np
 from gladoss.core.stats import nonparametric_prediction_interval
 from gladoss.core.stores import MemoryStore
 from gladoss.core.report import ValidationReport, StreamValidationReport
-from gladoss.modules.stream.monitor import StreamInfoElement
+from gladoss.modules.stream.info_elem import StreamInfoElement
 
 
 logger = logging.getLogger(__name__)
