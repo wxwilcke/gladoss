@@ -8,7 +8,9 @@ import sys
 import termios
 import tty
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Callable, Optional
+
+from rdf.terms import BNode, IRIRef
 
 
 logger = logging.getLogger(__name__)
@@ -151,3 +153,15 @@ def jsonpath_deref(root: dict | list, jsonpath: list[Any]) -> Any:
             continue
 
     return traverse(root, path_lst)
+
+
+def mknode(namespace: Optional[IRIRef], mkid: Callable) -> BNode | IRIRef:
+    """ Create a new blank node or an IRI if a namespace is provided.
+
+    :param namespace: [TODO:description]
+    :param mkid: [TODO:description]
+    :return: [TODO:description]
+    """
+    rand_id = mkid()
+
+    return BNode(rand_id) if namespace is None else namespace + rand_id

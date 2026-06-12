@@ -2,28 +2,26 @@
 
 from __future__ import annotations
 from datetime import datetime
-from enum import IntEnum
-from functools import total_ordering
 from itertools import chain
 import logging
 from types import SimpleNamespace
 from typing import Callable, Collection, Optional
 
 import numpy as np
-from gladoss.data.converter import report_to_graph
 from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal, Resource
 from rdf.namespaces import XSD
 
-from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
-                                               cast_literal, infer_datatype)
-from gladoss.core.pattern import AssertionPattern, GraphPattern
+from gladoss.core.report import GraphValidationReport, ValidationReport
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 Distribution, HypothesisTest,
                                 test_statistic_discrete,
                                 test_statistic_continuous,
                                 two_sample_hypothesis_test,
                                 nonparametric_prediction_interval)
+from gladoss.modules.graph.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
+                                             cast_literal, infer_datatype)
+from gladoss.modules.graph.pattern import AssertionPattern, GraphPattern
 
 
 logger = logging.getLogger(__name__)
@@ -43,8 +41,9 @@ def validate_state_graph(rng: np.random.Generator,
                                             list[tuple[Statement,
                                                        AssertionPattern]],
                                             set[Statement]],
+                         rtime: datetime,
                          config: SimpleNamespace)\
-        -> ValidationReport:
+        -> GraphValidationReport:
     """ Map all components of the observed state graph to the appropriate
         substructures in the associated pattern, and evaluate these components
         against the expected values or distributions.
@@ -77,13 +76,14 @@ def validate_state_graph(rng: np.random.Generator,
     assertion_ap_pairs, _, _ = pattern_map
     apa_map = {ap._id: a for a, ap in assertion_ap_pairs}
 
-    return ValidationReport(pattern=pattern,
-                            graph=graph,
-                            apa_map=apa_map,
-                            timestamp=datetime.now(),
-                            status_code=status_code_max,
-                            status_msg_lst_map=status_msg_lst_map,
-                            status_msg_lst=status_msg_lst)
+    return GraphValidationReport(subject_id=pattern._id,
+                                 pattern=pattern,
+                                 graph=graph,
+                                 apa_map=apa_map,
+                                 timestamp=rtime,
+                                 status_code=status_code_max,
+                                 status_msg_lst=status_msg_lst,
+                                 status_msg_lst_map=status_msg_lst_map)
 
 
 def validate_state_graph_components(rng: np.random.Generator,
@@ -810,107 +810,3 @@ def validate_graph_structure(pattern: GraphPattern,
                          ValidationReport.StatusCode.INCONSISTENCY))
 
     return status_msg_lst
-
-
-class ValidationReport():
-    @total_ordering
-    class StatusCode(IntEnum):
-        NOMINAL = 0, "Nominal Behaviour"
-        ERROR = 1, "Generic Error"
-        NODATA = 2, "Insufficient Data"
-        INCONSISTENCY = 3, "Semantic Inconsistency"
-        SUSPICIOUS = 4, "Non-Critical Anomaly"
-        CRITICAL = 5, "Critical Anomaly"
-
-        def __new__(cls, *args, **kwds):
-            obj = int.__new__(cls)
-            obj._value_ = args[0]
-            return obj
-
-        # ignore the first param since it's already set by __new__
-        def __init__(self, _: int, description: str):
-            self._description_ = description
-
-        def __eq__(self, other):
-            if isinstance(other, ValidationReport.StatusCode):
-                return self.value == other.value
-            elif isinstance(other, int):
-                return self.value == other
-            else:
-                raise TypeError()
-
-        def __lt__(self, other):
-            if isinstance(other, ValidationReport.StatusCode):
-                return self.value < other.value
-            elif isinstance(other, int):
-                return self.value < other
-            else:
-                raise TypeError()
-
-        def __gt__(self, other):
-            if isinstance(other, ValidationReport.StatusCode):
-                return self.value > other.value
-            elif isinstance(other, int):
-                return self.value > other
-            else:
-                raise TypeError()
-
-        def __le__(self, other):
-            if isinstance(other, ValidationReport.StatusCode):
-                return self.value <= other.value
-            elif isinstance(other, int):
-                return self.value <= other
-            else:
-                raise TypeError()
-
-        def __ge__(self, other):
-            if isinstance(other, ValidationReport.StatusCode):
-                return self.value >= other.value
-            elif isinstance(other, int):
-                return self.value >= other
-            else:
-                raise TypeError()
-
-        # this makes sure that the description is read-only
-        @property
-        def description(self):
-            return self._description_
-
-    def __init__(
-            self, pattern: GraphPattern,
-            graph: Collection[Statement],
-            apa_map: dict[str, Statement],
-            timestamp: datetime,
-            status_code: ValidationReport.StatusCode,
-            status_msg_lst_map:
-            dict[str, list[tuple[str, str, ValidationReport.StatusCode]]]
-            = dict(),
-            status_msg_lst:
-            list[tuple[str, str, ValidationReport.StatusCode]]
-            = list()):
-        """ A validation report for an obversed state graph with its associated
-            pattern, status code, and description of the evaluation results.
-
-        :param pattern: [TODO:description]
-        :param graph: [TODO:descriptions
-        :param timestamp: [TODO:description]
-        :param status_code: [TODO:description]
-        :param status_msg: [TODO:description]
-        :param status_msg_long: [TODO:description]
-        """
-        self.pattern = pattern
-        self.graph = graph
-        self.apa_map = apa_map
-        self.timestamp = timestamp
-        self.status_code = status_code
-        self.status_msg_lst_map = status_msg_lst_map
-        self.status_msg_lst = status_msg_lst
-
-    def to_graph(self, namespace: Optional[str], mkid: Callable)\
-            -> list[Statement]:
-        return report_to_graph(self, namespace, mkid)
-
-    def __hash__(self):
-        return hash(str(self.pattern)
-                    + str(self.graph)
-                    + str(self.timestamp))

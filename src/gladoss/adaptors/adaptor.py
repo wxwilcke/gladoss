@@ -109,7 +109,10 @@ class Adaptor(ABC):
 
     @abstractmethod
     def translate(self: Self, data: dict[str, Any])\
-            -> list[tuple[str, list[Statement], Optional[int | list[int]]]]:
+            -> list[tuple[str,
+                          str,
+                          list[Statement],
+                          Optional[int | list[int]]]]:
         """ Translate the received data to RDF.
 
         :param data: data received from API

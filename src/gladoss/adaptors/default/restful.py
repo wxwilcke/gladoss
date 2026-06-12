@@ -34,9 +34,11 @@ class RESTfulAdaptor(Adaptor):
         REST endpoint and which published validation reports
         to standard output.
 
-        Expects data in the form {"id": <STRING>,
+        Expects data in the form {"node": <STRING>,
+                                  "id": <STRING>,
                                   "data": "s p o . [...]"},
         with
+        - node the node (device) identifier
         - id the graph identifier
         - s, p, o as '<http://www.example.org/u>'
         - or o as '"v"', '"v"@lang', or '"v"^^dtype'
@@ -59,8 +61,9 @@ class RESTfulAdaptor(Adaptor):
             conf = tomllib.load(f)
 
             # JSONpaths to relevant parts of message payload
-            self.context["path_to_id"] = conf.get("graph_id")
-            self.context["path_to_data"] = conf.get("graph_data")
+            self.context["path_to_node_id"] = conf.get("node_id")
+            self.context["path_to_graph_id"] = conf.get("graph_id")
+            self.context["path_to_graph_data"] = conf.get("graph_data")
 
     def cleanup_hook(self: Self) -> None:
         """ Execute additional commands on exit.
@@ -145,15 +148,16 @@ class RESTfulAdaptor(Adaptor):
         return True
 
     def translate(self: Self, data: dict[str, Any])\
-            -> list[tuple[str, list[Statement], None]]:
+            -> list[tuple[str, str, list[Statement], None]]:
         """ Translate dummy data to RDF.
 
         :param data: data received from API
         :return: A list of RDF statements and their identifier
         :raises SyntaxWarning: warn if translation fails
         """
-        graph_id = jsonpath_deref(data, self.context['path_to_id'])
-        graph_data = jsonpath_deref(data, self.context['path_to_data'])
+        node_id = jsonpath_deref(data, self.context['path_to_node_id'])
+        graph_id = jsonpath_deref(data, self.context['path_to_graph_id'])
+        graph_data = jsonpath_deref(data, self.context['path_to_graph_data'])
 
         data_translated = list()
         if not isinstance(graph_data, str) or len(graph_data) <= 0:
@@ -164,6 +168,10 @@ class RESTfulAdaptor(Adaptor):
             logging.debug("Missing graph identifier in data package")
             return data_translated
 
+        if not isinstance(node_id, str) or len(node_id) <= 0:
+            logging.debug("Missing node identifier in data package")
+            return data_translated
+
         graph_str = graph_data.strip()
         try:
             graph = list()
@@ -172,7 +180,7 @@ class RESTfulAdaptor(Adaptor):
                 fact = self.process_fact(match)
                 graph.append(fact)
 
-            data_translated.append((graph_id, graph, None))
+            data_translated.append((node_id, graph_id, graph, None))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {graph_str}")
 

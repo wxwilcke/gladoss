@@ -13,16 +13,20 @@ from types import SimpleNamespace
 from typing import Any, Callable, Optional, Collection
 
 from rdf.graph import Statement
-from rdf.namespaces import XSD
-from rdf.terms import IRIRef, Literal, Resource
+from rdf.namespaces import SHACL, OWL, RDF, XSD
+from rdf.terms import BNode, IRIRef, Literal, Resource
 
-from gladoss.core.multimodal.datatypes import cast_literal, infer_datatype
+from gladoss.data.utils import mknode
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 Distribution)
 from gladoss.core.utils import infer_class
+from gladoss.modules.graph.datatypes import (cast_literal, infer_datatype,
+                                             XSD_NUMERIC, cast_literal_rev)
 
 
 logger = logging.getLogger(__name__)
+
+DCT = IRIRef("http://purl.org/dc/terms/")
 
 
 def create_assertion_pattern(mkid: Callable,
@@ -467,6 +471,135 @@ class GraphPattern():
 
             # clean up decay tracker
             del self._decay_tracker[self._t]
+
+    def to_graph(self, mkid: Callable,
+                 timestamp: datetime,
+                 namespace: Optional[str]) -> list[Statement]:
+        """ Convert graph pattern object to RDF graph in N-Triple format that
+            conforms to the SHACL specification for shape graphs. Each
+            assertion pattern is converted into a shape structure, with full
+            preservation of semantics for fixed value constraints. Since SHACL
+            does not support distributions, these are appropriated via min/max
+            values for numerical data and an enumeration for all other forms
+            of data. Metadata is added to the head of the graph.
+
+        :param mkid: [TODO:description]
+        :param pattern: [TODO:description]
+        :param timestamp: [TODO:description]
+        :return: [TODO:description]
+        """
+        logger.info("Generating SHACL shape graph for graph pattern "
+                    f"{self._id}")
+
+        # use provided namespace for new nodes
+        if isinstance(namespace, str) and len(namespace) > 0:
+            if not (namespace.endswith('/') or namespace.endswith('#')):
+                namespace += '#'
+
+            namespace = IRIRef(namespace)
+
+        # define graph and metadata
+        root = mknode(namespace, mkid)
+        graph = [
+            Statement(root, RDF + 'type', OWL + 'Ontology'),
+            Statement(root, DCT + 'date', Literal(timestamp.isoformat(),
+                                                  datatype=XSD + 'dateTime')),
+            Statement(root, DCT + 'identifier',
+                      Literal(self._id, datatype=XSD + 'string')),
+            Statement(root, DCT + 'conformsTo', Literal(
+                "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
+                ]
+
+        for ap_id in sorted(self.structure.keys()):
+            ap = self.structure[ap_id]
+
+            # shape for this assertion pattern
+            shape = BNode(ap_id) if namespace is None else namespace + ap_id
+
+            graph.extend([
+                Statement(root, DCT + 'hasPart', shape),
+                Statement(shape, RDF + 'type', SHACL + 'NodeShape'),
+                Statement(shape, DCT + 'identifier',
+                          Literal(ap_id, datatype=XSD + 'string')),
+                Statement(shape, SHACL + 'targetClass', ap.anchor),
+                Statement(shape, SHACL + 'targetSubjectsOf', ap.relation)
+                ])
+
+            pshape = mknode(namespace, mkid)
+            graph.extend([
+                Statement(shape, SHACL + 'property', pshape),
+                Statement(pshape, SHACL + 'path', ap.relation)
+                ])
+
+            # create constraints for RDF resources
+            if isinstance(ap.value, Resource):
+                graph.append(Statement(pshape, SHACL + 'hasValue', ap.value))
+                if isinstance(ap.value, Literal):
+                    graph.append(Statement(pshape, SHACL + 'nodeKind',
+                                           SHACL + 'Literal'))
+                    if ap.value.language is not None:
+                        lst = mknode(namespace, mkid)
+                        graph.extend([
+                            Statement(pshape, SHACL + 'languageIn', lst),
+                            Statement(lst, RDF + 'type', RDF + 'List'),
+                            Statement(lst, RDF + 'first', ap.value.language),
+                            Statement(lst, RDF + 'rest', RDF + 'nil')
+                            ])
+                    elif ap.value.datatype is not None:
+                        graph.append(
+                            Statement(pshape, SHACL + 'datatype',
+                                      ap.value.datatype))
+                elif isinstance(ap.value, IRIRef):
+                    graph.append(Statement(pshape, SHACL + 'nodeKind',
+                                           SHACL + 'IRI'))
+                else:
+                    graph.append(Statement(
+                        pshape, SHACL + 'nodeKind', SHACL + 'BlankNode'))
+
+            # create constraints for distributions
+            # These are approximations of the actual distribution due to
+            # limitations of SHACL
+            elif isinstance(ap.value, Distribution):
+                if ap.value.dtype in XSD_NUMERIC:
+                    # approximate the distribution via min and max values
+                    v_min, v_max = min(ap.value.data), max(ap.value.data)
+
+                    # cast back to literal with appropriate format
+                    v_min = cast_literal_rev(v_min, ap.value.dtype,
+                                             ap.value.lang)
+                    v_max = cast_literal_rev(v_max, ap.value.dtype,
+                                             ap.value.lang)
+
+                    graph.extend([
+                        Statement(pshape, SHACL + 'minInclusive', v_min),
+                        Statement(pshape, SHACL + 'maxInclusive', v_max)
+                        ])
+                else:
+                    # create an RDF list with all unique values
+                    lst = mknode(namespace, mkid)
+                    graph.extend([
+                        Statement(pshape, SHACL + 'in', lst),
+                        Statement(lst, RDF + 'type', RDF + 'List')
+                        ])
+
+                    data_uniq = sorted(set(ap.value.data))
+                    for i, v in enumerate(data_uniq, 1):  # unique values
+                        # cast back to literal with appropriate format
+                        v = cast_literal_rev(v, ap.value.dtype, ap.value.lang)
+
+                        lst_rest = RDF + 'nil'
+                        if i < len(data_uniq):
+                            lst_rest = mknode(namespace, mkid)
+                        graph.extend(
+                                [Statement(lst, RDF + 'first', v),
+                                 Statement(lst, RDF + 'rest', lst_rest)
+                                 ])
+
+                        lst = lst_rest
+            else:
+                NotImplementedError()
+
+        return graph
 
     def __deepcopy__(self, memo) -> GraphPattern:
         structure = {k: v for k, v in self.structure.items()}

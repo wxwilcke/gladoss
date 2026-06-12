@@ -35,9 +35,12 @@ class ClassificationAdaptor(Adaptor):
         to standard output. Tailored for evaluation of the
         anomaly detection by computing classification performance.
 
-        Expects data in the form {"id": <STRING>,
+        Expects data in the form {"node": <STRING>,
+                                  "id": <STRING>,
+                                  "label": <INT>|<LIST[INT]>
                                   "data": "s p o . [...]"},
         with
+        - node the node (device) identifier
         - id the graph identifier
         - s, p, o as '<http://www.example.org/u>'
         - or o as '"v"', '"v"@lang', or '"v"^^dtype'
@@ -60,9 +63,10 @@ class ClassificationAdaptor(Adaptor):
             conf = tomllib.load(f)
 
             # JSONpaths to relevant parts of message payload
-            self.context["path_to_id"] = conf.get("graph_id")
-            self.context["path_to_data"] = conf.get("graph_data")
-            self.context["path_to_label"] = conf.get("graph_label")
+            self.context["path_to_node_id"] = conf.get("node_id")
+            self.context["path_to_graph_id"] = conf.get("graph_id")
+            self.context["path_to_graph_data"] = conf.get("graph_data")
+            self.context["path_to_graph_label"] = conf.get("graph_label")
 
     def cleanup_hook(self: Self) -> None:
         """ Execute additional commands on exit.
@@ -154,9 +158,10 @@ class ClassificationAdaptor(Adaptor):
         :return: A list of RDF statements and their identifier
         :raises SyntaxWarning: warn if translation fails
         """
-        graph_id = jsonpath_deref(data, self.context['path_to_id'])
-        graph_data = jsonpath_deref(data, self.context['path_to_data'])
-        graph_label = jsonpath_deref(data, self.context['path_to_label'])
+        node_id = jsonpath_deref(data, self.context['path_to_node_id'])
+        graph_id = jsonpath_deref(data, self.context['path_to_graph_id'])
+        graph_data = jsonpath_deref(data, self.context['path_to_graph_data'])
+        graph_label = jsonpath_deref(data, self.context['path_to_graph_label'])
 
         data_translated = list()
         if not isinstance(graph_data, str) or len(graph_data) <= 0:
@@ -172,6 +177,10 @@ class ClassificationAdaptor(Adaptor):
             logging.debug("Missing graph identifier in data package")
             return data_translated
 
+        if not isinstance(node_id, str) or len(node_id) <= 0:
+            logging.debug("Missing node identifier in data package")
+            return data_translated
+
         graph_str = graph_data.strip()
         try:
             graph = list()
@@ -180,7 +189,7 @@ class ClassificationAdaptor(Adaptor):
                 fact = self.process_fact(match)
                 graph.append(fact)
 
-            data_translated.append((graph_id, graph, graph_label))
+            data_translated.append((node_id, graph_id, graph, graph_label))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {graph_str}")
 

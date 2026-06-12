@@ -11,8 +11,8 @@ import numpy as np
 from rdf.terms import IRIRef, Literal, Resource
 from rdf.namespaces import XSD
 
-from gladoss.core.multimodal.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
-                                               cast_literal, infer_datatype)
+from gladoss.modules.graph.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
+                                             cast_literal, infer_datatype)
 
 
 logger = logging.getLogger(__name__)

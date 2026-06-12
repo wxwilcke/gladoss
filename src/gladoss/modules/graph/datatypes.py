@@ -4,9 +4,11 @@ from ast import literal_eval
 from datetime import datetime
 import logging
 
-from gladoss.core.multimodal.timeutils import cast_datefrag, cast_datefrag_rev, cast_datetime, cast_datetime_rev
 from rdf.namespaces import XSD
 from rdf.terms import Literal, IRIRef
+
+from gladoss.modules.graph.timeutils import (cast_datefrag, cast_datefrag_rev,
+                                             cast_datetime, cast_datetime_rev)
 
 
 XSD_DATEFRAG = {XSD + 'gDay',

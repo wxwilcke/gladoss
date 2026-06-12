@@ -413,7 +413,7 @@ class KE_Adaptor(Adaptor):
         return payload
 
     def translate(self: Self, data: dict[str, Any])\
-            -> list[tuple[str, list[Statement]], None]:
+            -> list[tuple[str, str, list[Statement]], None]:
         """ Translate binding sets to RDF.
 
         :param data: data received from API
@@ -439,6 +439,9 @@ class KE_Adaptor(Adaptor):
         # graph identifier
         graph_id = ki_id
 
+        # node identifier
+        node_id = ki_id  # same as graph ID
+
         ki_pattern, ki_prefixes = self.context['argumentGraphPatterns'][ki_id]
         bindings = data["bindingSet"]  # type: list[dict[str,str]]
         try:
@@ -453,7 +456,7 @@ class KE_Adaptor(Adaptor):
 
                         graph.append(fact)
 
-                data_translated.append((graph_id, graph, None))
+                data_translated.append((node_id, graph_id, graph, None))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {bindings}")
 

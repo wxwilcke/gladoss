@@ -11,20 +11,20 @@ import signal
 from threading import Event, RLock
 import threading
 from types import SimpleNamespace
-from typing import Callable, Collection, Optional
+from typing import Callable, Optional
 
 import numpy as np
-from gladoss.core.connector import Connector
-from rdf.graph import Statement
 
 from gladoss.adaptors.adaptor import Adaptor
+from gladoss.core.stores import MemoryStore
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, timeSpanArg
-from gladoss.core.pattern import (AssertionPattern, GraphPattern, PatternVault,
-                                  create_graph_pattern, update_graph_pattern)
-from gladoss.core.validator import ValidationReport, validate_state_graph
-from gladoss.core.utils import (create_pattern_map, gen_id, import_class,
-                                init_rng, list_classes)
+from gladoss.core.connector import Connector
+from gladoss.core.report import ValidationReport
+from gladoss.core.utils import gen_id, import_class, init_rng, list_classes
+from gladoss.modules.graph.monitor import process_graph
+from gladoss.modules.graph.pattern import PatternVault
+from gladoss.modules.stream.monitor import process_stream
 
 
 logger = logging.getLogger(__name__)
@@ -59,124 +59,23 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     :param mkid: [TODO:description]
     :return: [TODO:description]
     """
-    # represent validation report as graph
+    # represent validation report
     logger.debug(f"Preparing publication of validation report "
                  f"({report.pattern._id})")
     report_graph = report.to_graph(namespace, mkid)
     logger.debug(f" {{\n{'\n  '.join([str(s) for s in report_graph])}\n  }}")
 
     # publish report to endpoint
-    logger.info(f"Publishing validation report ({report.pattern._id})")
-    success = adaptor.publish_report(report.pattern._id, report_graph, label)
+    logger.info(f"Publishing validation report ({report.subject_id})")
+    success = adaptor.publish_report(report.subject_id, report_graph, label)
 
     return success
 
 
-def create_validation_report(rng: np.random.Generator,
-                             pattern: GraphPattern,
-                             graph: Collection[Statement],
-                             pattern_map: tuple[list[tuple[Statement,
-                                                           AssertionPattern]],
-                                                list[tuple[Statement,
-                                                           AssertionPattern]],
-                                                set[Statement]],
-                             econf: SimpleNamespace) -> ValidationReport:
-    """ Generate a validation report for the observed state graph given
-        the associated graph pattern. This will start the validation
-        procedure.
-
-    :param pattern: [TODO:description]
-    :param graph: [TODO:description]
-    :param econf: [TODO:description]
-    :return: [TODO:description]
-    """
-    try:
-        if pattern._t >= econf.grace_period:
-            logger.info(f"Creating validation report ({pattern._id})")
-        else:
-            logger.info("Within grace period: skipping validation "
-                        f"({pattern._id})")
-        report = validate_state_graph(rng, pattern, graph, pattern_map, econf)
-    except Exception as err:
-        logger.error(f"Exception during validation: {err}")
-
-        # convert to simpler form for validation report
-        assertion_ap_pairs, _, _ = pattern_map
-        apa_map = {ap._id: a for a, ap in assertion_ap_pairs}
-
-        # create validation report without technical detaiks (which are logged)
-        status_msg = "Validation Malfunction"
-        status_msg_long = "An exception occurred during the evaluation of "\
-                          f"the observed state graph with ID '{pattern._id}.'"
-        status_code = ValidationReport.StatusCode.ERROR
-        report = ValidationReport(pattern=pattern, graph=graph,
-                                  timestamp=datetime.now(),
-                                  apa_map=apa_map,
-                                  status_code=status_code,
-                                  status_msg_lst=[(status_msg,
-                                                   status_msg_long,
-                                                   status_code)])
-
-    return report
-
-
-def process_graph(rng: np.random.Generator, mkid: Callable,
-                  pv: PatternVault, graph: Collection[Statement],
-                  graph_id: str, graph_label: Optional[int | list[int]],
-                  pconf: SimpleNamespace, econf: SimpleNamespace,
-                  r: Queue):
-    """ Process an incoming message by finding the associated graph
-        pattern, then evaluating the message with respect to this
-        pattern, and, if OK, use the message to update the pattern.
-        A new pattern is created if the message identifier is unknown,
-        and a validation report is created and returned upon completion.
-
-    :param pv: [TODO:description]
-    :param graph: [TODO:description]
-    :param graph_id: [TODO:description]
-    :param config: [TODO:description]
-    """
-    thread_id = threading.current_thread().name
-    logger.info(f"Received new graph message ({graph_id})")
-    logger.debug(f" {{\n{'\n  '.join([str(s) for s in graph])}\n  }}")
-
-    pattern = pv.find_associated_graph_pattern(graph_id)
-    if pattern is None:
-        logger.debug(f"Associated pattern not found ({graph_id})")
-        pattern = create_graph_pattern(mkid=mkid, graph=graph,
-                                       graph_id=graph_id,
-                                       threshold=pconf.pattern_threshold,
-                                       decay=pconf.pattern_decay)
-
-        logger.debug(f"Adding new pattern to pattern vault ({graph_id})")
-        pv.add_graph_pattern(pattern)
-
-        return  # no need to evaluate a graph on first sight
-
-    logger.debug(f"Associated pattern found ({graph_id}) [t = {pattern._t}]")
-
-    pattern_map = create_pattern_map(graph, pattern)
-    report = create_validation_report(rng, pattern, graph, pattern_map, econf)
-    if report.status_code in [ValidationReport.StatusCode.NOMINAL,
-                              ValidationReport.StatusCode.NODATA]:
-        if pattern._t >= econf.grace_period:
-            logger.info(f"Graph passed validation ({graph_id})")
-
-        # either the state graph passed the validation check
-        # or a non-critical deviation has been detected
-        gpattern_upd = update_graph_pattern(mkid, pattern, graph,
-                                            pattern_map, pconf)
-        pv.update_graph_pattern(gpattern_upd)
-    else:
-        logger.info(f"Graph failed validation ({graph_id})")
-
-    r.put((thread_id, (report, graph_label)))
-
-
 def process_observation(rng: np.random.Generator, mkid: Callable,
-                        pv: PatternVault, pconf: SimpleNamespace,
-                        econf: SimpleNamespace,
-                        q: Queue, r: Queue) -> None:
+                        sc_store: MemoryStore, gp_store: PatternVault,
+                        pconf: SimpleNamespace, econf: SimpleNamespace,
+                        q_obs: Queue, q_rpt: Queue) -> None:
     """ Process incoming messages by spawning a new thread on demand. This
         procedure should only be called by the manager, which itself should
         run on a thread different from the main thread to avoid blocking
@@ -194,7 +93,7 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
     logger.info("Manager is awaiting new observations")
     jobs_active = list()
     while True:
-        job = q.get()
+        job = q_obs.get()
         if job is None:
             # wait until all workers have terminated
             for worker in jobs_active:
@@ -202,13 +101,22 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
 
             break
 
-        graph_id, graph, graph_label = job
+        (node_id, graph_id, graph_data, graph_label), endpoint, rtime = job
 
-        # listen for new observations in parallel
+        # process stream info in parallel
+        thread_id = f"worker-{len(jobs_active)+1}"
+        thread = threading.Thread(target=process_stream, name=thread_id,
+                                  args=(sc_store, node_id, endpoint, rtime,
+                                        econf, q_rpt))
+        thread.start()
+        jobs_active.append(thread)
+
+        # process new graphs in parallel
         thread_id = f"worker-{len(jobs_active)+1}"
         thread = threading.Thread(target=process_graph, name=thread_id,
-                                  args=(rng, mkid, pv, graph, graph_id,
-                                        graph_label, pconf, econf, r))
+                                  args=(rng, mkid, gp_store, graph_data,
+                                        graph_id, graph_label, rtime,
+                                        pconf, econf, q_rpt))
         thread.start()
         jobs_active.append(thread)
 
@@ -216,7 +124,8 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
         jobs_active = [job for job in jobs_active if job.is_alive()]
 
 
-def listener(connector: Connector, q: Queue, r: Queue) -> None:
+def listener(connector: Connector, q_obs: Queue, q_rpt: Queue)\
+        -> None:
     """ Listen on an endpoint for new messages. Queue
         these upon arrival. This operation is thread safe.
 
@@ -224,11 +133,14 @@ def listener(connector: Connector, q: Queue, r: Queue) -> None:
     :param q: [TODO:description]
     """
     thread_id = threading.current_thread().name
-    for graph_id, graph, graph_label in connector.listen():
-        q.put((graph_id, graph, graph_label))
+    for package, endpoint in connector.listen():
+        rtime = datetime.now()  # reception time
+
+        # new observation
+        q_obs.put((package, endpoint, rtime))
 
     # let the main thread know the worker is terminating
-    r.put((thread_id, (None, None)))
+    q_rpt.put((thread_id, (None, None)))
 
 
 def main(rng: np.random.Generator, adaptor_cls: Adaptor,
@@ -273,45 +185,47 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
         break
 
-    # use a lock for operations on the pattern vault
-    lock = RLock()
+    # initiate store to track stream characteristics; lock for multithreading
+    sc_store = MemoryStore(RLock())
+    # TODO: backup and restore option
 
     # initiate pattern vault which will manage and track patterns over time
-    pv = PatternVault(lock=lock)
+    gp_store = PatternVault(gp_lock := RLock())
     if flags.backup_restore is not None:
-        pv = BackupManager.restore_backup(Path(flags.backup_restore))
-        pv._lock = lock
+        gp_store = BackupManager.restore_backup(Path(flags.backup_restore))
+        gp_store._lock = gp_lock
 
         logger.info("Backup restored successfully")
 
     # setup backup manager to periodically write the pattern vault to disk
-    bckmgr = BackupManager(pv, Path(flags.backup_path),
-                           lock, flags.backup_interval)
+    bckmgr = BackupManager(gp_store, Path(flags.backup_path),
+                           gp_lock, flags.backup_interval)
     bckmgr.enable_auto_backup()
 
     # use queues to communicate between threads
-    q = Queue()  # queue observation here
-    r = Queue()  # queue reports here
+    q_obs = Queue()  # queue observation here
+    q_rpt = Queue()  # queue reports here
 
     # listen to all endpoints in parallel
     listening_jobs = list()
     for i, connector in enumerate(adaptor.connectors, 1):
         thread_id = f"listner-{i}"
         thread = threading.Thread(target=listener, name=thread_id,
-                                  args=(connector, q, r))
+                                  args=(connector, q_obs, q_rpt))
         thread.start()
         listening_jobs.append(thread)
 
     # start a manager which spawns new threads as new observations arrive
     manager = threading.Thread(target=process_observation, name="manager",
-                               args=(rng, mkid, pv, pconf, econf, q, r))
+                               args=(rng, mkid, sc_store, gp_store,
+                                     pconf, econf, q_obs, q_rpt))
     manager.start()
 
     # loop until all connections have been terminated
     while len(listening_jobs) > 0:
         try:
             # wait until a new report comes in
-            thread_id, (report, label) = r.get()
+            thread_id, (report, label) = q_rpt.get()
             if report is None:
                 logger.info(f"Listner {thread_id} has terminated")
 
@@ -333,18 +247,18 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             assert isinstance(report, ValidationReport)
             logger.debug("Processing validation report with status "
                          f"{report.status_code.name} "
-                         f"({report.pattern._id})")
+                         f"({report.subject_id})")
             if report.status_code >= econf.report_level:
                 if not publish_validation_report(adaptor, report, label,
                                                  flags.namespace, mkid):
                     logger.info("Unable to publish validation report "
-                                f"({report.pattern._id})")
+                                f"({report.subject_id})")
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 
     # tell workers to terminate
     logger.info("Manager telling workers to terminate")
-    q.put(None)
+    q_obs.put(None)
 
     # wait until manager is terminated
     manager.join()
@@ -352,7 +266,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
     # starting emergency backup
     bckmgr.disable_auto_backup()
-    if len(pv) > 0:
+    if len(gp_store) > 0:
         bckmgr.create_backup()  # emergency backup
 
     logger.info("Waiting on connections to close...")
@@ -454,6 +368,11 @@ def __main__():
                              "the associated graph pattern.",
                              action=argparse.BooleanOptionalAction,
                              default=True)
+    parser_eval.add_argument("--evaluate-stream", help="Evaluate stream "
+                             "characteristics associated with the observed "
+                             "state graph against historical data points.",
+                             action=argparse.BooleanOptionalAction,
+                             default=True)
     parser_eval.add_argument("--evaluate-timestamps", help="Evaluate any "
                              "timestamps of the observed state graph against "
                              "the associated graph pattern.",
@@ -483,6 +402,11 @@ def __main__():
     parser_eval.add_argument("--match-exact", help="If enabled, any missing "
                              "or extra triples in the observed state graph "
                              "will trigger a warning.",
+                             action='store_true', default=False)
+    parser_eval.add_argument("--pi-right-sided", help="Only report on "
+                             "violations on the right-hand side of the "
+                             "prediction interval. This corresponds with "
+                             "values that exceed the maximum allowed value.",
                              action='store_true', default=False)
     parser_eval.add_argument("--pi-tolerance", help="Relative tolerance in "
                              "[0, 1] applied to the prediction interval. A "
@@ -528,12 +452,14 @@ def __main__():
                                             'alpha_suspicious',
                                             'evaluate_structure',
                                             'evaluate_data',
+                                            'evaluate_stream',
                                             'evaluate_timestamps',
                                             'grace_period',
                                             'samplesize',
                                             'samplegap',
                                             'match_cwa',
                                             'match_exact',
+                                            'pi_right_sided',
                                             'pi_tolerance',
                                             'report_level'])
 

@@ -89,7 +89,11 @@ class Connector():
 
         return response.status_code
 
-    def listen(self) -> Generator[tuple[str, list[Statement]], None, None]:
+    def listen(self) -> Generator[tuple[tuple[str,
+                                              list[Statement],
+                                              int | list[int]],
+                                        str],
+                                  None, None]:
         """ Listen at the provided endpoint for changes in the message,
             and return the updates once successfully received. Terminates
             or retries when receiving a 204 or 408 HTTP status.
@@ -143,7 +147,7 @@ class Connector():
                     retries = 0
 
                     for message in self.adaptor.translate(data):
-                        yield message
+                        yield (message, self.endpoint)
                 except json.JSONDecodeError:
                     logger.exception("JSONDecodeError on {data_raw}")
 
