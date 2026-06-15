@@ -101,7 +101,8 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
                                        threshold=pconf.pattern_threshold,
                                        decay=pconf.pattern_decay)
 
-        logger.debug(f"Adding new pattern to pattern vault ({graph_id})")
+        logger.debug("Registering new graph pattern at pattern vault "
+                     f"({graph_id})")
         pv.add_graph_pattern(pattern)
 
         return  # no need to evaluate a graph on first sight

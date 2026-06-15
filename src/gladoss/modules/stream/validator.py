@@ -35,9 +35,12 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
     :param rtime: [TODO:description]
     :return: [TODO:description]
     """
+    status_msg_lst = list()
+
     if node_id not in store.nodes:
         # historical data not available for this message stream
-        logger.error("Aborted stream validation -> node unknown: '{node_id}'")
+        logger.error("Aborted transmission validation: node unknown "
+                     f"'{node_id}'")
 
         return StreamValidationReport(
                 subject_id=node_id,
@@ -45,16 +48,21 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
                 timestamp=rtime,
                 status_code=ValidationReport.StatusCode.ERROR)
 
-    status_msg_lst = list()
+    # determine length of historical data points
+    if len(store.get(node_id, StreamInfoElement.RTIME)) < econf.grace_period:
+        logger.info("Within grace period: skipping transmission validation "
+                    f"({node_id})")
+    else:
+        logger.info(f"Creating transmission validation report ({node_id})")
 
-    # validate stream characteristics
-    status_msg_lst.extend(
-            validate_message_reception_interval(store, node_id, rtime,
-                                                econf.alpha_critical,
-                                                econf.alpha_suspicious,
-                                                econf.pi_tolerance,
-                                                econf.pi_right_sided,
-                                                econf.grace_period))
+        # validate stream characteristics
+        status_msg_lst.extend(
+                validate_message_reception_interval(store, node_id, rtime,
+                                                    econf.alpha_critical,
+                                                    econf.alpha_suspicious,
+                                                    econf.pi_tolerance,
+                                                    econf.pi_right_sided,
+                                                    econf.grace_period))
 
     # summarize validation results by highest code
     status_code_max = ValidationReport.StatusCode.NOMINAL
@@ -66,7 +74,8 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
                 # no need to continue
                 break
 
-    logger.info(f"Stream validation status {status_code_max.name} ({node_id})")
+    logger.info(f"Transmission validation status {status_code_max.name} "
+                f"({node_id})")
 
     return StreamValidationReport(subject_id=node_id,
                                   endpoint=endpoint,
@@ -108,22 +117,14 @@ def validate_message_reception_interval(store: MemoryStore,
 
     data_lst = store.get(node_id, StreamInfoElement.RINTERVAL)
     rtime_prev = store.most_recent(node_id, StreamInfoElement.RTIME)
-    if rtime_prev is None or len(data_lst) <= 0:
-        # no previous reception time
-        logger.debug("Historical data points not found: "
-                     "skipping stream reception interval validation "
+    if rtime_prev is None or len(data_lst) < grace_period:
+        logger.debug("Within grace period "
+                     f"[t = {len(data_lst)} < {grace_period}]: "
+                     "skipping transmission reception interval validation "
                      f"({node_id})")
-
-        return status_msg_lst
-
-    data_lst = store.get(node_id, StreamInfoElement.RINTERVAL)
-    if len(data_lst) < grace_period:
-        logger.info("Within grace period: "
-                    "skipping stream reception interval validation "
-                    f"({node_id})")
         return status_msg_lst
     else:
-        logger.info(f"Validating stream reception interval ({node_id})")
+        logger.debug(f"Validating stream reception interval ({node_id})")
 
     min_no_samples = 100  # hard lower limit for pi calculation
     if len(data_lst) < min_no_samples:
@@ -186,7 +187,7 @@ def validate_message_reception_interval(store: MemoryStore,
                 f"EXPECTED: value {ELEMOF} ({pi_lower:0.3g}, {pi_upper:0.3g}]"\
                 f" {PM} {pi_tol:0.3g} seconds "\
                 f"{EMDASH} "\
-                f"OBSERVED: {rinterval_new} seconds {QED}"
+                f"OBSERVED: {rinterval_new:0.3g} seconds {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
 
             status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
@@ -203,7 +204,7 @@ def validate_message_reception_interval(store: MemoryStore,
                 f"EXPECTED: value {ELEMOF} ({pi_lower:0.3g}, {pi_upper:0.3g}]"\
                 f" {PM} {pi_tol:0.3g} seconds "\
                 f"{EMDASH} "\
-                f"OBSERVED: {rinterval_new} seconds {QED}"
+                f"OBSERVED: {rinterval_new:0.3g} seconds {QED}"
             status_code = ValidationReport.StatusCode.SUSPICIOUS
 
             status_msg_lst.extend([(status_msg, status_msg_long, status_code)])

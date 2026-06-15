@@ -26,7 +26,7 @@ def update_stream_characteristics(store: MemoryStore, node_id: str,
     :return: [TODO:description]
     """
     success = True
-    logger.info(f"Updating stream characteristics ({node_id})")
+    logger.info(f"Updating transmission parameters ({node_id})")
 
     # reception interval
     rtime_prev = store.most_recent(node_id, StreamInfoElement.RTIME)
@@ -49,12 +49,12 @@ def create_validation_report(store: MemoryStore, node_id: str, endpoint: str,
     try:
         report = validate_stream(store, node_id, endpoint, rtime, econf)
     except Exception as err:
-        logger.error(f"Exception during stream validation: {err}")
+        logger.error(f"Exception during transmission validation: {err}")
 
         # create validation report without technical detaiks (which are logged)
         status_msg = "Validation Malfunction"
         status_msg_long = "An exception occurred during the evaluation of "\
-                          f"the monitored stream from node '{node_id}.'"
+                          f"the monitored transmission from node '{node_id}.'"
         status_code = ValidationReport.StatusCode.ERROR
         report = StreamValidationReport(endpoint=endpoint,
                                         subject_id=node_id,
@@ -89,14 +89,15 @@ def process_stream(store: MemoryStore, node_id: str, endpoint: str,
 
     # register graph by identifier if needed
     if node_id not in store.nodes:
-        logger.debug("Associated historical data points not found "
+        logger.debug("Associated stream not found "
                      f"({node_id})")
+        logger.info(f"Registering new transmission stream ({node_id})")
         if not store.register_node(node_id):
-            logger.error(f"Unable to register or find node ({node_id})")
+            logger.error(f"Unable to register or access stream ({node_id})")
 
         return  # no need to evaluate the stream on first sight
 
-    logger.debug(f"Associated historical data points found ({node_id})")
+    logger.debug(f"Associated stream found ({node_id})")
 
     # validate stream characteristics
     report = create_validation_report(store, node_id, endpoint, rtime, econf)
@@ -104,13 +105,14 @@ def process_stream(store: MemoryStore, node_id: str, endpoint: str,
                               ValidationReport.StatusCode.NODATA]:
         # stream healthy; update derived characteristics
         if not update_stream_characteristics(store, node_id, rtime):
-            logger.error("Encountered problems during stream characteristics "
-                         f"update ({node_id})")
+            logger.error("Encountered problems during transmission "
+                         f"parameters update ({node_id})")
     else:
-        logger.info(f"Stream failed validation ({node_id})")
+        logger.info(f"Transmission failed validation ({node_id})")
 
     # always update reception time
     if not store.add(node_id, StreamInfoElement.RTIME, rtime):
-        logger.error(f"Unable to update reception time ({node_id})")
+        logger.error("Unable to update transmission reception time "
+                     f"({node_id})")
 
     q_rpt.put((thread_id, (report, None)))

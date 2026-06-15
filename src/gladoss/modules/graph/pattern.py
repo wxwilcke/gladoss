@@ -99,7 +99,7 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     :param gPattern: [TODO:description]
     :param facts: [TODO:description]
     """
-    logger.info(f"Updating graph data ({gPattern._id})")
+    logger.info(f"Updating graph pattern parameters ({gPattern._id})")
     # unpack assertion to assertion pattern map
     assertion_ap_pairs, assertion_uc_pairs, unmatched = pattern_map
 

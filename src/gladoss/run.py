@@ -102,7 +102,7 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
             break
 
         (node_id, graph_id, graph_data, graph_label), endpoint, rtime = job
-        logger.info(f"Received new message from '{endpoint}')")
+        logger.info(f"Received new message from '{endpoint}'")
 
         # process stream info in parallel
         thread_id = f"worker-{len(jobs_active)+1}"
@@ -369,7 +369,7 @@ def __main__():
                              "the associated graph pattern.",
                              action=argparse.BooleanOptionalAction,
                              default=True)
-    parser_eval.add_argument("--evaluate-stream", help="Evaluate stream "
+    parser_eval.add_argument("--evaluate-stream", help="Evaluate transmission "
                              "characteristics associated with the observed "
                              "state graph against historical data points.",
                              action=argparse.BooleanOptionalAction,
