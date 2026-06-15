@@ -42,14 +42,14 @@ def create_validation_report(rng: np.random.Generator,
     """
     try:
         if pattern._t >= econf.grace_period:
-            logger.info(f"Creating validation report ({pattern._id})")
+            logger.info(f"Creating graph validation report ({pattern._id})")
         else:
-            logger.info("Within grace period: skipping validation "
+            logger.info("Within grace period: skipping graph validation "
                         f"({pattern._id})")
         report = validate_state_graph(rng, pattern, graph, pattern_map,
                                       rtime, econf)
     except Exception as err:
-        logger.error(f"Exception during validation: {err}")
+        logger.error(f"Exception during graph validation: {err}")
 
         # convert to simpler form for validation report
         assertion_ap_pairs, _, _ = pattern_map
@@ -90,7 +90,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     :param config: [TODO:description]
     """
     thread_id = threading.current_thread().name
-    logger.info(f"Received new graph message ({graph_id})")
+    logger.info(f"Processing new graph ({graph_id})")
     logger.debug(f" {{\n{'\n  '.join([str(s) for s in graph])}\n  }}")
 
     pattern = pv.find_associated_graph_pattern(graph_id)

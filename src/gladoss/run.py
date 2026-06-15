@@ -61,7 +61,7 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     """
     # represent validation report
     logger.debug(f"Preparing publication of validation report "
-                 f"({report.pattern._id})")
+                 f"({report.subject_id})")
     report_graph = report.to_graph(namespace, mkid)
     logger.debug(f" {{\n{'\n  '.join([str(s) for s in report_graph])}\n  }}")
 
@@ -102,6 +102,7 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
             break
 
         (node_id, graph_id, graph_data, graph_label), endpoint, rtime = job
+        logger.info(f"Received new message from '{endpoint}')")
 
         # process stream info in parallel
         thread_id = f"worker-{len(jobs_active)+1}"
@@ -465,16 +466,19 @@ def __main__():
 
     # set log level
     log_level = logging.NOTSET
+    log_format = "[%(asctime)s] - %(message)s"
     if flags.verbose >= 2:
         log_level = logging.DEBUG
+        log_format = ("[%(asctime)s] [%(levelname)s] [%(threadName)s] "
+                      "%(module)s / %(funcName)s - %(message)s")
     elif flags.verbose == 1:
         log_level = logging.INFO
+        log_format = "[%(asctime)s] [%(levelname)s] %(module)s - %(message)s"
     else:
         log_level = logging.WARNING
 
     logging.basicConfig(level=log_level,
-                        format='[%(asctime)s] [%(levelname)s] [%(threadName)s]'
-                               ' %(filename)s - %(message)s')
+                        format=log_format)
 
     logger.debug("\n".join([f"{k}: {v}" for k, v in cconf.__dict__.items()]))
     logger.debug("\n".join([f"{k}: {v}" for k, v in pconf.__dict__.items()]))

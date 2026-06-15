@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 def update_stream_characteristics(store: MemoryStore, node_id: str,
                                   rtime: datetime) -> bool:
-    """ Add new stream characteristics to the record. Return true
-        if all characteristics have been added successfully.
+    """ Derive and add new stream characteristics to the record.
+        Return true if all characteristics have been added successfully.
 
     :param store: [TODO:description]
     :param node_id: [TODO:description]
@@ -26,16 +26,14 @@ def update_stream_characteristics(store: MemoryStore, node_id: str,
     :return: [TODO:description]
     """
     success = True
-
-    # reception time
-    rtime_prev = store.most_recent(node_id, StreamInfoElement.RTIME)
-    if not store.add(node_id, StreamInfoElement.RTIME, rtime):
-        success = False
+    logger.info(f"Updating stream characteristics ({node_id})")
 
     # reception interval
-    rinterval = (rtime - rtime_prev).total_seconds()  # type: float
-    if not store.add(node_id, StreamInfoElement.RINTERVAL, rinterval):
-        success = False
+    rtime_prev = store.most_recent(node_id, StreamInfoElement.RTIME)
+    if rtime_prev is not None:
+        rinterval = (rtime - rtime_prev).total_seconds()  # type: float
+        if not store.add(node_id, StreamInfoElement.RINTERVAL, rinterval):
+            success = False
 
     return success
 
@@ -87,21 +85,32 @@ def process_stream(store: MemoryStore, node_id: str, endpoint: str,
         return
 
     thread_id = threading.current_thread().name
-    logger.debug(f"Processing stream characteristics ({node_id})")
+    logger.info(f"Processing new transmission ({node_id})")
 
-    # register graph by identifier; continues if already registered
-    if not store.register_node(node_id):
-        return
+    # register graph by identifier if needed
+    if node_id not in store.nodes:
+        logger.debug("Associated historical data points not found "
+                     f"({node_id})")
+        if not store.register_node(node_id):
+            logger.error(f"Unable to register or find node ({node_id})")
+
+        return  # no need to evaluate the stream on first sight
+
+    logger.debug(f"Associated historical data points found ({node_id})")
 
     # validate stream characteristics
     report = create_validation_report(store, node_id, endpoint, rtime, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                               ValidationReport.StatusCode.NODATA]:
-        # stream healthy; update recorded characteristics
+        # stream healthy; update derived characteristics
         if not update_stream_characteristics(store, node_id, rtime):
             logger.error("Encountered problems during stream characteristics "
                          f"update ({node_id})")
     else:
-        logger.info(f"Stream health degradation detected ({node_id})")
+        logger.info(f"Stream failed validation ({node_id})")
+
+    # always update reception time
+    if not store.add(node_id, StreamInfoElement.RTIME, rtime):
+        logger.error(f"Unable to update reception time ({node_id})")
 
     q_rpt.put((thread_id, (report, None)))

@@ -47,25 +47,14 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
 
     status_msg_lst = list()
 
-    # determine length of historical data points
-    node_data = store.get_tree(node_id)
-    try:
-        node_data_len = min([len(branch) for branch in node_data.values()])
-    except ValueError:  # no entries
-        node_data_len = 0
-
-    # validate stream if we're not in the grace period
-    if node_data_len < econf.grace_period:
-        logger.debug(f"In grace period [t = {node_data_len}]: skipping stream "
-                     f"validation ({node_id})")
-    else:
-        logger.info(f"Validating stream characteristics ({node_id})")
-        status_msg_lst.extend(
-                validate_message_reception_interval(store, node_id, rtime,
-                                                    econf.alpha_critical,
-                                                    econf.alpha_suspicious,
-                                                    econf.pi_tolerance,
-                                                    econf.pi_right_sided))
+    # validate stream characteristics
+    status_msg_lst.extend(
+            validate_message_reception_interval(store, node_id, rtime,
+                                                econf.alpha_critical,
+                                                econf.alpha_suspicious,
+                                                econf.pi_tolerance,
+                                                econf.pi_right_sided,
+                                                econf.grace_period))
 
     # summarize validation results by highest code
     status_code_max = ValidationReport.StatusCode.NOMINAL
@@ -77,9 +66,7 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
                 # no need to continue
                 break
 
-    if len(status_msg_lst) > 0:
-        logger.info(f"Stream health status {status_code_max.name} "
-                    f"({node_id})")
+    logger.info(f"Stream validation status {status_code_max.name} ({node_id})")
 
     return StreamValidationReport(subject_id=node_id,
                                   endpoint=endpoint,
@@ -94,7 +81,8 @@ def validate_message_reception_interval(store: MemoryStore,
                                         alpha_critical: float,
                                         alpha_suspicious: float,
                                         tolerance: float,
-                                        right_sided: bool)\
+                                        right_sided: bool,
+                                        grace_period: int)\
         -> tuple[list[tuple[str, str, ValidationReport.StatusCode]]]:
     """ Test whether the reception interval of the latest message falls
         outside the computed symmetric non-parametric prediction interval
@@ -118,14 +106,24 @@ def validate_message_reception_interval(store: MemoryStore,
     """
     status_msg_lst = list()
 
+    data_lst = store.get(node_id, StreamInfoElement.RINTERVAL)
     rtime_prev = store.most_recent(node_id, StreamInfoElement.RTIME)
-    if rtime_prev is None:
+    if rtime_prev is None or len(data_lst) <= 0:
         # no previous reception time
+        logger.debug("Historical data points not found: "
+                     "skipping stream reception interval validation "
+                     f"({node_id})")
+
         return status_msg_lst
 
-    if not (data_lst := store.get(node_id, StreamInfoElement.RINTERVAL)):
-        # no previous data available
+    data_lst = store.get(node_id, StreamInfoElement.RINTERVAL)
+    if len(data_lst) < grace_period:
+        logger.info("Within grace period: "
+                    "skipping stream reception interval validation "
+                    f"({node_id})")
         return status_msg_lst
+    else:
+        logger.info(f"Validating stream reception interval ({node_id})")
 
     min_no_samples = 100  # hard lower limit for pi calculation
     if len(data_lst) < min_no_samples:

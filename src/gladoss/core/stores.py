@@ -65,11 +65,11 @@ class MemoryStore():
 
         data = None
         try:
-            branch = self._polytree[node_id][key]
-            data = branch.head
+            branch = self._polytree[node_id].get(key)
+            if branch is not None:
+                data = branch.head.data
         except Exception as e:
             logger.error(f"Unable to retrieve info for node '{node_id}': {e}")
-            return False
         finally:
             self._lock.release()
 
@@ -80,16 +80,15 @@ class MemoryStore():
 
         data_lst = list()
         try:
-            branch = self._polytree[node_id][key]
+            branch = self._polytree[node_id].get(key)
+            if branch is not None:
+                if last_n <= 0:
+                    # get all
+                    last_n = branch.memory_used
 
-            if last_n <= 0:
-                # get all
-                last_n = branch.memory_used
-
-            data_lst = [item.data for item in branch.lastn(last_n)]
+                data_lst = [item.data for item in branch.lastn(last_n)]
         except Exception as e:
             logger.error(f"Unable to retrieve info for node '{node_id}': {e}")
-            return False
         finally:
             self._lock.release()
 
@@ -108,7 +107,6 @@ class MemoryStore():
                     ]
         except Exception as e:
             logger.error(f"Unable to retrieve info for node '{node_id}': {e}")
-            return False
         finally:
             self._lock.release()
 
@@ -131,10 +129,8 @@ class MemoryLinkedList():
                      next: Optional[MemoryLinkedList.LinkedListNode] = None)\
                              -> None:
             self.data = data
-            if prev is not None:
-                self.prev = prev
-            if next is not None:
-                self.next = next
+            self.prev = prev
+            self.next = next
 
         def __repr__(self) -> str:
             return str(self.data)
@@ -152,10 +148,11 @@ class MemoryLinkedList():
             self.head.next = node
 
         self.head = node
-        if self.memory_used <= 0:
+        self.memory_used += 1
+
+        if self.memory_used == 1:
             self.tail = self.head
 
-        self.memory_used += 1
         self._trim()
 
     def pop(self) -> Optional[MemoryLinkedList.LinkedListNode]:

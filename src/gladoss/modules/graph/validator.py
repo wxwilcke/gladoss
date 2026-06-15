@@ -69,7 +69,7 @@ def validate_state_graph(rng: np.random.Generator,
                 # no need to continue
                 break
 
-    logger.info(f"Validation status {status_code_max.name} "
+    logger.info(f"Graph validation status {status_code_max.name} "
                 f"({pattern._id})")
 
     # convert to simpler form for validation report
@@ -115,8 +115,10 @@ def validate_state_graph_components(rng: np.random.Generator,
     if config.evaluate_structure:
         # validate the structure of the state graph
         if pattern._t < config.grace_period:
-            logger.debug(f"In grace period [t = {pattern._t}]: skipping graph "
-                         f"structure validation ({pattern._id})")
+            logger.debug(f"In grace period "
+                         f"[t = {pattern._t} < {config.grace_period}]: "
+                         "skipping graph structure validation "
+                         f"({pattern._id})")
         else:
             # no longer in learning phase
             logger.info(f"Validating graph structure ({pattern._id})")
@@ -131,8 +133,9 @@ def validate_state_graph_components(rng: np.random.Generator,
         for i, (assertion, ap) in enumerate(assertion_ap_pairs, 1):
             if ap._t < config.grace_period:
                 # still in learning phase
-                logger.debug(f"In grace period [t = {ap._t}]: skipping graph "
-                             "data validation of component "
+                logger.debug("In grace period "
+                             f"[t = {ap._t} < {config.grace_period}]: "
+                             "skipping graph data validation of component "
                              f"{i}/{len(assertion_ap_pairs)} ({pattern._id})")
                 continue
 
@@ -191,6 +194,8 @@ def validate_graph_data(rng: np.random.Generator,
 
             # skip further evaluation
             status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+
+            return status_msg_lst
 
         status_msg_lst.extend(
                 validate_graph_data_distribution(rng,
@@ -687,7 +692,7 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
     if isinstance(ap.value, IRIRef) and ap.value != assertion.object:
         status_msg = "Value Equality Violation"
         status_msg_long = \
-            "Observed IRI value differs from expected IRI value {BECAUSE} "\
+            f"Observed IRI value differs from expected IRI value {BECAUSE} "\
             f"EXPECTED: '{ap.value}' {EMDASH} "\
             f"OBSERVED: '{assertion.object}' {QED}"
 
