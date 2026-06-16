@@ -5,6 +5,8 @@ from datetime import datetime
 from enum import IntEnum
 from functools import total_ordering
 import logging
+from queue import Queue
+import threading
 from typing import Callable, Collection, Optional
 
 from rdf.graph import Statement
@@ -360,3 +362,92 @@ class StreamValidationReport(ValidationReport):
         return hash(str(self.endpoint)
                     + str(self.subject_id)
                     + str(self.timestamp))
+
+
+class ReportScheduler():
+    def __init__(self,
+                 q_sheduler: Queue[Optional[
+                                    tuple[
+                                        str,
+                                        ValidationReport,
+                                        float
+                                        ]
+                                    ]
+                                   ],
+                 q_rapport: Queue[Optional[
+                                   tuple[
+                                       str,
+                                       tuple[
+                                           ValidationReport,
+                                           int | list[int]
+                                           ]
+                                       ]
+                                   ]
+                                  ]):
+        """ Thread safe class to manage scheduling of reports via timers.
+            Adding and removing reports to the schedule is handled by a
+            dedicated queue. Providing the same name to this queue will
+            cancel previously scheduled reports known by that name; if
+            a new report is provided as well then this report will take
+            its place on the schedule.
+
+        :param q_sheduler: [TODO:description]
+        :param q_rapport: [TODO:description]
+        """
+        self.q_sheduler = q_sheduler
+        self.q_rapport = q_rapport
+
+        self.timers_active = dict()  # type: dict[str, threading.Timer]
+
+    def start(self):
+        """ Start the report scheduler by awaiting new scheduling jobs.
+        """
+        while True:
+            job = self.q_sheduler.get()
+            if job is None:
+                # stop thread
+                break
+
+            name, report, time = job
+
+            # clean up completed timers
+            self.timers_active = {name: timer
+                                  for name, timer in self.timers_active
+                                  if timer.is_alive()}
+
+            # stop and rmv active timer if registered
+            if name in self.timers_active.keys():
+                self.timers_active[name].cancel()
+                del self.timers_active[name]
+
+            if time is None or report is None:
+                # this was a cancel request
+                logger.debug("Cancelled scheduled report "
+                             f"({report.subject_id})")
+
+                continue
+
+            assert isinstance(report, ValidationReport)
+            assert type(time) is float
+
+            # create and start new timer
+            timer = threading.Timer(time,
+                                    self.push_report,
+                                    args=(report))
+            timer.start()
+
+            # register timer
+            self.timers_active[name] = timer
+
+            logger.debug(f"Scheduled report for +{time:0.3g}s "
+                         f"({report.subject_id})")
+
+    def push_report(self, report: ValidationReport):
+        """ Push a scheduled report to the report queue for publishing.
+
+        :param report: [TODO:description]
+        """
+        thread_id = threading.current_thread().name
+
+        logger.debug(f"Pushing scheduled report ({report.subject_id})")
+        self.q_rapport.put((thread_id, (report, None)))

@@ -207,6 +207,10 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     q_obs = Queue()  # queue observation here
     q_rpt = Queue()  # queue reports here
 
+    q_rpts = None
+    if econf.stream_health_monitor:
+        q_rpts = Queue()  # queue scheduled reports here
+
     # listen to all endpoints in parallel
     listening_jobs = list()
     for i, connector in enumerate(adaptor.connectors, 1):
