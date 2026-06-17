@@ -9,17 +9,12 @@ import numpy as np
 
 from gladoss.core.stats import nonparametric_prediction_interval
 from gladoss.core.stores import MemoryStore
-from gladoss.core.report import ValidationReport, StreamValidationReport
+from gladoss.core.report import (ValidationReport, StreamValidationReport,
+                                 BECAUSE, EMDASH, QED, PM, ELEMOF)
 from gladoss.modules.stream.info_elem import StreamInfoElement
 
 
 logger = logging.getLogger(__name__)
-
-BECAUSE = '\N{BECAUSE}'
-EMDASH = '\N{EM DASH}'
-QED = '\N{END OF PROOF}'
-PM = '\N{PLUS-MINUS SIGN}'
-ELEMOF = '\N{ELEMENT OF}'
 
 
 def validate_stream(store: MemoryStore, node_id: str, endpoint: str,

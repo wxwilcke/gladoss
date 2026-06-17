@@ -5,7 +5,7 @@ import logging
 from queue import Queue
 import threading
 from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Any
 
 from gladoss.core.report import StreamValidationReport, ValidationReport
 from gladoss.core.stores import MemoryStore
@@ -18,10 +18,13 @@ logger = logging.getLogger(__name__)
 
 def schedule_rinterval_check(
         node_id: str, endpoint: str,
-        rtime: datetime, q_rpts: Optional[Queue],
+        rtime: datetime, q_rpts: Queue,
         cache: dict[ValidationReport.StreamInfoElement, Any]) -> bool:
-    """
-    [TODO:description]
+    """ Schedule a report publication at the moment of exceeding the
+        expected reception interval of the next message from the
+        specified node. This cancels a previously scheduled report
+        about that node---calling this function confirms the reception
+        of a previous message.
 
     :param node_id: [TODO:description]
     :param endpoint: [TODO:description]
@@ -75,7 +78,7 @@ def schedule_rinterval_check(
 
 def update_stream_characteristics(
         store: MemoryStore, node_id: str, endpoint: str,
-        rtime: datetime, q_rpts: Optional[Queue],
+        rtime: datetime, q_rpts: Queue, schedule_report: bool,
         cache: dict[ValidationReport.StreamInfoElement, Any])\
             -> bool:
     """ Derive and add new stream characteristics to the record.
@@ -101,7 +104,7 @@ def update_stream_characteristics(
             success = False
 
         # schedule report for exceeding expected interval on next message
-        if q_rpts is not None:  # requested scheduled report
+        if schedule_report:
             if not schedule_rinterval_check(node_id, endpoint, rtime,
                                             q_rpts, cache):
                 logger.error("Unable to schedule reception interval report.")
@@ -142,7 +145,7 @@ def create_validation_report(store: MemoryStore, node_id: str, endpoint: str,
 
 def process_stream(store: MemoryStore, node_id: str, endpoint: str,
                    rtime: datetime,  econf: SimpleNamespace,
-                   q_rpt: Queue, q_rpts: Optional[Queue])\
+                   q_rpt: Queue, q_rpts: Queue)\
         -> None:
     """ Process various stream characteristics. This procedure will first
         try to validate the most recent characteristics using past data points,
@@ -179,8 +182,9 @@ def process_stream(store: MemoryStore, node_id: str, endpoint: str,
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                               ValidationReport.StatusCode.NODATA]:
         # stream healthy; update derived characteristics
-        if not update_stream_characteristics(store, node_id, endpoint,
-                                             rtime, q_rpts, cache):
+        if not update_stream_characteristics(
+                store, node_id, endpoint, rtime, q_rpts,
+                econf.proactive_stream_evaluation, cache):
             logger.error("Encountered problems during transmission "
                          f"parameters update ({node_id})")
     else:

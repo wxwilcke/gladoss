@@ -11,6 +11,16 @@ logger = logging.getLogger(__name__)
 
 class MemoryStore():
     def __init__(self, lock: RLock) -> None:
+        """ The MemoryStore is a decaying polytree in which each tree is
+            associated with a certain registered node, and in which branches
+            are named linked lists. By registering nodes and adding data
+            pertaining to a finite set of properties, this store maintains
+            a memory of those data up to a certain specified number of entries.
+
+            This class is thread safe.
+
+        :param lock: [TODO:description]
+        """
         self._polytree = dict()
         self._lock = lock
 
@@ -128,6 +138,13 @@ class MemoryLinkedList():
                      prev: Optional[MemoryLinkedList.LinkedListNode] = None,
                      next: Optional[MemoryLinkedList.LinkedListNode] = None)\
                              -> None:
+            """ A node in a linked list with associated data and, optionally,
+                a previous and next neighbour node.
+
+            :param data: [TODO:description]
+            :param prev: [TODO:description]
+            :param next: [TODO:description]
+            """
             self.data = data
             self.prev = prev
             self.next = next
@@ -136,12 +153,24 @@ class MemoryLinkedList():
             return str(self.data)
 
     def __init__(self, memory: int = 100) -> None:
+        """ A list of linked nodes with, optionally, a specific maximum
+            length (its memory). The most recently added node is the head,
+            whereas the tail points to the oldest node. These point to
+            the same node if the length of the list equals one, or to None
+            if the list is empty.
+
+        :param memory: [TODO:description]
+        """
         self.memory_size = memory
         self.memory_used = 0
 
         self.head, self.tail = None, None
 
     def put(self, data: Any) -> None:
+        """ Add a new node to the list. This will become the new head.
+
+        :param data: [TODO:description]
+        """
         node = MemoryLinkedList.LinkedListNode(data, self.head)
 
         if self.head is not None:
@@ -156,6 +185,12 @@ class MemoryLinkedList():
         self._trim()
 
     def pop(self) -> Optional[MemoryLinkedList.LinkedListNode]:
+        """ Remove the most recently added node from the list and
+            return it. This will move the head of the list back one
+            node.
+
+        :return: [TODO:description]
+        """
         node = self.head
         if node is not None:
             self.head = node.prev
@@ -167,6 +202,13 @@ class MemoryLinkedList():
         return node
 
     def lastn(self, n: int) -> list[LinkedListNode]:
+        """ Return the most recent n nodes in the list. Returns
+            the entire list if n is negative or if it exceeds the
+            length of the list.
+
+        :param n: [TODO:description]
+        :return: [TODO:description]
+        """
         out = list()
 
         node = self.head
@@ -180,6 +222,10 @@ class MemoryLinkedList():
         return out
 
     def _trim(self) -> None:
+        """ Trim the list to its specified maximum length by
+            removing nodes from the tail forwards. This will
+            change the tail node.
+        """
         while self.memory_used > self.memory_size:
             if self.tail is None:
                 # this shouldn't happen; empty list?

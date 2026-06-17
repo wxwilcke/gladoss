@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 
 DCT = IRIRef("http://purl.org/dc/terms/")
 
+# symbols used in explanation
+BECAUSE = '\N{BECAUSE}'
+EMDASH = '\N{EM DASH}'
+QED = '\N{END OF PROOF}'
+PM = '\N{PLUS-MINUS SIGN}'
+ELEMOF = '\N{ELEMENT OF}'
+
 
 class ValidationReport():
     @total_ordering
@@ -405,7 +412,11 @@ class ReportScheduler():
         while True:
             job = self.q_sheduler.get()
             if job is None:
-                # stop thread
+                # stop timers and scheduler thread
+                for timer in self.timers_active.values():
+                    timer.cancel()
+                    timer.join()
+
                 break
 
             name, report, time = job

@@ -72,10 +72,10 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     return success
 
 
-def process_observation(rng: np.random.Generator, mkid: Callable,
-                        sc_store: MemoryStore, gp_store: PatternVault,
-                        pconf: SimpleNamespace, econf: SimpleNamespace,
-                        q_obs: Queue, q_rpt: Queue) -> None:
+def process_message(rng: np.random.Generator, mkid: Callable,
+                    sc_store: MemoryStore, gp_store: PatternVault,
+                    pconf: SimpleNamespace, econf: SimpleNamespace,
+                    q_obs: Queue, q_rpt: Queue, q_rpts: Queue) -> None:
     """ Process incoming messages by spawning a new thread on demand. This
         procedure should only be called by the manager, which itself should
         run on a thread different from the main thread to avoid blocking
@@ -90,7 +90,7 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
     :param q: [TODO:description]
     :param r: [TODO:description]
     """
-    logger.info("Manager is awaiting new observations")
+    logger.info("Manager is awaiting new messages")
     jobs_active = list()
     while True:
         job = q_obs.get()
@@ -108,7 +108,7 @@ def process_observation(rng: np.random.Generator, mkid: Callable,
         thread_id = f"worker-{len(jobs_active)+1}"
         thread = threading.Thread(target=process_stream, name=thread_id,
                                   args=(sc_store, node_id, endpoint, rtime,
-                                        econf, q_rpt))
+                                        econf, q_rpt, q_rpts))
         thread.start()
         jobs_active.append(thread)
 
@@ -206,10 +206,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     # use queues to communicate between threads
     q_obs = Queue()  # queue observation here
     q_rpt = Queue()  # queue reports here
-
-    q_rpts = None
-    if econf.stream_health_monitor:
-        q_rpts = Queue()  # queue scheduled reports here
+    q_rpts = Queue()  # queue scheduled reports here
 
     # listen to all endpoints in parallel
     listening_jobs = list()
@@ -221,9 +218,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
         listening_jobs.append(thread)
 
     # start a manager which spawns new threads as new observations arrive
-    manager = threading.Thread(target=process_observation, name="manager",
+    manager = threading.Thread(target=process_message, name="manager",
                                args=(rng, mkid, sc_store, gp_store,
-                                     pconf, econf, q_obs, q_rpt))
+                                     pconf, econf, q_obs, q_rpt, q_rpts))
     manager.start()
 
     # loop until all connections have been terminated
@@ -264,6 +261,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     # tell workers to terminate
     logger.info("Manager telling workers to terminate")
     q_obs.put(None)
+    q_rpts.put(None)
 
     # wait until manager is terminated
     manager.join()
@@ -377,7 +375,12 @@ def __main__():
                              "characteristics associated with the observed "
                              "state graph against historical data points.",
                              action=argparse.BooleanOptionalAction,
-                             default=True)
+                             default=False)
+    parser_eval.add_argument("--proactive-stream-evaluation", help="Report on "
+                             "streams from which awaited messages have not "
+                             "been received within the expected interval.",
+                             action=argparse.BooleanOptionalAction,
+                             default=False)
     parser_eval.add_argument("--evaluate-timestamps", help="Evaluate any "
                              "timestamps of the observed state graph against "
                              "the associated graph pattern.",
@@ -466,6 +469,7 @@ def __main__():
                                             'match_exact',
                                             'pi_right_sided',
                                             'pi_tolerance',
+                                            'proactive_stream_evaluation',
                                             'report_level'])
 
     # set log level

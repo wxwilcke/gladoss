@@ -12,7 +12,8 @@ from rdf.graph import Statement
 from rdf.terms import IRIRef, Literal, Resource
 from rdf.namespaces import XSD
 
-from gladoss.core.report import GraphValidationReport, ValidationReport
+from gladoss.core.report import (GraphValidationReport, ValidationReport,
+                                 BECAUSE, EMDASH, QED, PM, ELEMOF)
 from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
                                 Distribution, HypothesisTest,
                                 test_statistic_discrete,
@@ -25,12 +26,6 @@ from gladoss.modules.graph.pattern import AssertionPattern, GraphPattern
 
 
 logger = logging.getLogger(__name__)
-
-BECAUSE = '\N{BECAUSE}'
-EMDASH = '\N{EM DASH}'
-QED = '\N{END OF PROOF}'
-PM = '\N{PLUS-MINUS SIGN}'
-ELEMOF = '\N{ELEMENT OF}'
 
 
 def validate_state_graph(rng: np.random.Generator,
