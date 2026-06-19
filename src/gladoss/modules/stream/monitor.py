@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def schedule_rinterval_check(
         node_id: str, endpoint: str,
         rtime: datetime, q_rpts: Queue,
-        cache: dict[ValidationReport.StreamInfoElement, Any]) -> bool:
+        cache: dict[StreamInfoElement, Any]) -> bool:
     """ Schedule a report publication at the moment of exceeding the
         expected reception interval of the next message from the
         specified node. This cancels a previously scheduled report
@@ -33,8 +33,10 @@ def schedule_rinterval_check(
     :param cache: [TODO:description]
     :return: [TODO:description]
     """
-    pi_rinterval = cache.get(ValidationReport.StreamInfoElement.RINTERVAL)
-    if pi_rinterval is None:
+    if (pi_rinterval := cache.get(StreamInfoElement.RINTERVAL)) is None:
+        # within grace period or error during pi calculation
+        logger.debug("Reception interval not found (within grace period?). "
+                     "Cancelling scheduled check.")
         return False
 
     # upper critical limit in seconds
@@ -73,13 +75,15 @@ def schedule_rinterval_check(
     # schedule report for publication
     q_rpts.put((node_id, report, rinterval_upper))
 
+    logger.debug("Scheduled reception interval check.")
+
     return True
 
 
 def update_stream_characteristics(
         store: MemoryStore, node_id: str, endpoint: str,
         rtime: datetime, q_rpts: Queue, schedule_report: bool,
-        cache: dict[ValidationReport.StreamInfoElement, Any])\
+        cache: dict[StreamInfoElement, Any])\
             -> bool:
     """ Derive and add new stream characteristics to the record.
         Return true if all characteristics have been added successfully.
@@ -105,18 +109,14 @@ def update_stream_characteristics(
 
         # schedule report for exceeding expected interval on next message
         if schedule_report:
-            if not schedule_rinterval_check(node_id, endpoint, rtime,
-                                            q_rpts, cache):
-                logger.error("Unable to schedule reception interval report.")
+            schedule_rinterval_check(node_id, endpoint, rtime, q_rpts, cache)
 
     return success
 
 
 def create_validation_report(store: MemoryStore, node_id: str, endpoint: str,
                              rtime: datetime, econf: SimpleNamespace)\
-        -> tuple[StreamValidationReport,
-                 tuple[ValidationReport.StreamInfoElement,
-                       tuple[float, float]]]:
+        -> tuple[StreamValidationReport, dict[StreamInfoElement, Any]]:
     """ Generate a validation report for the monitored stream from the
         provided node. This will start the validation procedure.
 
@@ -180,11 +180,12 @@ def process_stream(store: MemoryStore, node_id: str, endpoint: str,
     report, cache = create_validation_report(store, node_id, endpoint,
                                              rtime, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
-                              ValidationReport.StatusCode.NODATA]:
-        # stream healthy; update derived characteristics
+                              ValidationReport.StatusCode.NODATA,
+                              ValidationReport.StatusCode.SUSPICIOUS]:
+        # update parameters if non-critical (to allow natural drift)
         if not update_stream_characteristics(
                 store, node_id, endpoint, rtime, q_rpts,
-                econf.proactive_stream_evaluation, cache):
+                econf.proactive_notification, cache):
             logger.error("Encountered problems during transmission "
                          f"parameters update ({node_id})")
     else:

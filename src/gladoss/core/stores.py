@@ -25,6 +25,12 @@ class MemoryStore():
         self._lock = lock
 
     def register_node(self, node_id: str) -> bool:
+        """ Register a new node, by creating a tree associated with its
+            identifier. Return true if successful.
+
+        :param node_id: [TODO:description]
+        :return: [TODO:description]
+        """
         self._lock.acquire()
         try:
             if node_id not in self._polytree.keys():
@@ -38,6 +44,12 @@ class MemoryStore():
         return True
 
     def deregister_node(self, node_id: str) -> bool:
+        """ Remove a registered node from the polytree, by deleting its
+            tree and all content attached to it. Return true if successful.
+
+        :param node_id: [TODO:description]
+        :return: [TODO:description]
+        """
         self._lock.acquire()
         try:
             del self._polytree[node_id]
@@ -51,10 +63,25 @@ class MemoryStore():
 
     @property
     def nodes(self) -> set[str]:
+        """ Return a set of all registered nodes.
+
+        :param self [TODO:type]: [TODO:description]
+        :return: [TODO:description]
+        """
         with self._lock:
             return set(self._polytree.keys())
 
     def add(self, node_id: str, key: Enum, data: Any) -> bool:
+        """ Add new data associated with a certain property about the given
+            node, by adding the data to the linked list of that propery if
+            it exists or by creating a new linked list otherwise. Returns true
+            if successful.
+
+        :param node_id: [TODO:description]
+        :param key: [TODO:description]
+        :param data: [TODO:description]
+        :return: [TODO:description]
+        """
         self._lock.acquire()
         try:
             tree = self._polytree[node_id]
@@ -71,6 +98,14 @@ class MemoryStore():
         return True
 
     def most_recent(self, node_id: str, key: Enum) -> Any:
+        """ Return the most recently added data element of a certain
+            property from the given node. Return None on failure or if
+            the property is unknown.
+
+        :param node_id: [TODO:description]
+        :param key: [TODO:description]
+        :return: [TODO:description]
+        """
         self._lock.acquire()
 
         data = None
@@ -86,6 +121,16 @@ class MemoryStore():
         return data
 
     def get(self, node_id: str, key: Enum, last_n: int = -1) -> list[Any]:
+        """ Return a list of the most recent n entries of this property from
+            the given node. Returns all known entries if n is negative or if
+            it exceeds the memory capacity of the underlying linked list.
+            Returns an empty list on failure of if the property is unknown.
+
+        :param node_id: [TODO:description]
+        :param key: [TODO:description]
+        :param last_n: [TODO:description]
+        :return: [TODO:description]
+        """
         self._lock.acquire()
 
         data_lst = list()
@@ -105,6 +150,13 @@ class MemoryStore():
         return data_lst
 
     def get_tree(self, node_id: str) -> dict[str, list[Any]]:
+        """ Return the tree associated with the given node as a dictionary
+            with named lists of data elements. Returns an empty dictionary
+            on failure.
+
+        :param node_id: [TODO:description]
+        :return: [TODO:description]
+        """
         self._lock.acquire()
 
         data_dct = dict()
@@ -123,6 +175,10 @@ class MemoryStore():
         return data_dct
 
     def __len__(self) -> int:
+        """ Return the number of registered nodes.
+
+        :return: [TODO:description]
+        """
         return len(self.nodes)
 
     def __getstate__(self):

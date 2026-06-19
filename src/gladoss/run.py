@@ -20,7 +20,7 @@ from gladoss.core.stores import MemoryStore
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, timeSpanArg
 from gladoss.core.connector import Connector
-from gladoss.core.report import ValidationReport
+from gladoss.core.report import ReportScheduler, ValidationReport
 from gladoss.core.utils import gen_id, import_class, init_rng, list_classes
 from gladoss.modules.graph.monitor import process_graph
 from gladoss.modules.graph.pattern import PatternVault
@@ -223,6 +223,12 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                                      pconf, econf, q_obs, q_rpt, q_rpts))
     manager.start()
 
+    # start report scheduling thread if requested
+    report_sheduler = None
+    if econf.proactive_notification:
+        logger.debug("Starting report scheduling daemon")
+        report_sheduler = ReportScheduler(q_rpts, q_rpt).enable()
+
     # loop until all connections have been terminated
     while len(listening_jobs) > 0:
         try:
@@ -261,11 +267,16 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     # tell workers to terminate
     logger.info("Manager telling workers to terminate")
     q_obs.put(None)
-    q_rpts.put(None)
 
     # wait until manager is terminated
     manager.join()
     logger.info("Manager has been terminated")
+
+    if report_sheduler is not None:
+        q_rpts.put(None)  # tell scheduler to terminate
+        report_sheduler.join()
+
+        logger.debug("Report scheduling daemon has been terminated")
 
     # starting emergency backup
     bckmgr.disable_auto_backup()
@@ -376,7 +387,7 @@ def __main__():
                              "state graph against historical data points.",
                              action=argparse.BooleanOptionalAction,
                              default=False)
-    parser_eval.add_argument("--proactive-stream-evaluation", help="Report on "
+    parser_eval.add_argument("--proactive-notification", help="Report on "
                              "streams from which awaited messages have not "
                              "been received within the expected interval.",
                              action=argparse.BooleanOptionalAction,
@@ -469,7 +480,7 @@ def __main__():
                                             'match_exact',
                                             'pi_right_sided',
                                             'pi_tolerance',
-                                            'proactive_stream_evaluation',
+                                            'proactive_notification',
                                             'report_level'])
 
     # set log level

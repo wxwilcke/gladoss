@@ -406,8 +406,9 @@ class ReportScheduler():
 
         self.timers_active = dict()  # type: dict[str, threading.Timer]
 
-    def start(self):
-        """ Start the report scheduler by awaiting new scheduling jobs.
+    def _schedule(self):
+        """ Process new scheduling jobs as they come in, by starting a
+            timer that will push a report when the time triggers.
         """
         while True:
             job = self.q_sheduler.get()
@@ -423,7 +424,7 @@ class ReportScheduler():
 
             # clean up completed timers
             self.timers_active = {name: timer
-                                  for name, timer in self.timers_active
+                                  for name, timer in self.timers_active.items()
                                   if timer.is_alive()}
 
             # stop and rmv active timer if registered
@@ -444,7 +445,7 @@ class ReportScheduler():
             # create and start new timer
             timer = threading.Timer(time,
                                     self.push_report,
-                                    args=(report))
+                                    args=(report,))
             timer.start()
 
             # register timer
@@ -452,6 +453,14 @@ class ReportScheduler():
 
             logger.debug(f"Scheduled report for +{time:0.3g}s "
                          f"({report.subject_id})")
+
+    def enable(self):
+        """ Start the report scheduler in a new thread.
+        """
+        thread = threading.Thread(target=self._schedule)
+        thread.start()
+
+        return thread
 
     def push_report(self, report: ValidationReport):
         """ Push a scheduled report to the report queue for publishing.

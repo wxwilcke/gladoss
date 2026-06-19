@@ -113,7 +113,9 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     report = create_validation_report(rng, pattern, graph, pattern_map,
                                       rtime, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
-                              ValidationReport.StatusCode.NODATA]:
+                              ValidationReport.StatusCode.NODATA,
+                              ValidationReport.StatusCode.SUSPICIOUS]:
+        # update parameters if non-critical (to allow natural drift)
         if pattern._t >= econf.grace_period:
             logger.info(f"Graph passed validation ({graph_id})")
 
