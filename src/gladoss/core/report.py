@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from datetime import datetime
-from enum import IntEnum
+from enum import Enum, IntEnum, auto
 from functools import total_ordering
 import logging
 from queue import Queue
@@ -30,6 +30,10 @@ ELEMOF = '\N{ELEMENT OF}'
 
 
 class ValidationReport():
+    class ReportType(Enum):
+        GRAPH_VALIDATION_REPORT = auto()
+        STREAM_VALIDATION_REPORT = auto()
+
     @total_ordering
     class StatusCode(IntEnum):
         NOMINAL = 0, "Nominal Behaviour"
@@ -95,6 +99,7 @@ class ValidationReport():
 
     def __init__(
             self,
+            type: ValidationReport.ReportType,
             subject_id: str,
             timestamp: datetime,
             status_code: ValidationReport.StatusCode,
@@ -117,6 +122,7 @@ class ValidationReport():
         :param status_msg_lst: [TODO:description]
         :param status_msg_lst_map: [TODO:description]
         """
+        self.type = type
         self.subject_id = subject_id
         self.timestamp = timestamp
         self.status_code = status_code
@@ -153,7 +159,8 @@ class GraphValidationReport(ValidationReport):
         :param status_msg: [TODO:description]
         :param status_msg_long: [TODO:description]
         """
-        super().__init__(subject_id,
+        super().__init__(ValidationReport.ReportType.GRAPH_VALIDATION_REPORT,
+                         subject_id,
                          timestamp,
                          status_code,
                          status_msg_lst,
@@ -165,11 +172,32 @@ class GraphValidationReport(ValidationReport):
 
     def to_graph(self, namespace: Optional[str], mkid: Callable)\
             -> list[Statement]:
-        """ Convert a validation report object to RDF graph in N-Triples format
-            that conforms to the SHACL specification. Each detected anomaly
-            (or error) is converted to a SHACL validation result with
+        """ Convert a graph validation report object to RDF graph in N-Triples
+            format that conforms to the SHACL specification. Each detected
+            anomaly (or error) is converted to a SHACL validation result with
             information about the causing assertion and with a detailed
             explanation. Some metadata is added to the head of the graph.
+
+            The output is of the following form:
+
+            > ?report rdf:type sh:ValidationReport .
+            > ?report dct:date ?reportDate .
+            > ?report dct:identifier ?reportIdentifier .
+            > ?report dct:conformsTo ?reportLanguage .
+            > ?report sh:conforms ?validationPassed .
+            > ?report dct:hasPart ?result .
+
+            > ?result rdf:type sh:ValidationResult .
+            > ?result rdfs:label ?resultStatusMsg .
+            > ?result sh:focusNode ?resultFocusNode .
+            > ?result sh:resultPath ?resultPath .
+            > ?result sh:value ?resultValue .
+            > ?result sh:resultMessage ?resultStatusMsgLong .
+            > ?result sh:resultSeverity ?resultSeverity .
+
+            > ?resultSeverity rdf:type sh:Severity .
+            > ?resultSeverity rdfs:label ?severityLabel .
+            > ?resultSeverity rdfs:comment ?severityDescription .
 
         :param report: [TODO:description]
         :param mkid: [TODO:description]
@@ -295,7 +323,19 @@ class StreamValidationReport(ValidationReport):
                           ]
                      ]
                 ] = dict()):
-        super().__init__(subject_id,
+        """ A validation report for a transmission stream with its associated
+            node, status code, and description of the evaluation results.
+
+        :param pattern: [TODO:description]
+        :param graph: [TODO:descriptions
+        :param timestamp: [TODO:description]
+        :param status_code: [TODO:description]
+        :param status_msg: [TODO:description]
+        :param status_msg_long: [TODO:description]
+        """
+
+        super().__init__(ValidationReport.ReportType.STREAM_VALIDATION_REPORT,
+                         subject_id,
                          timestamp,
                          status_code,
                          status_msg_lst,
@@ -305,7 +345,34 @@ class StreamValidationReport(ValidationReport):
 
     def to_graph(self, namespace: Optional[str], mkid: Callable)\
             -> list[Statement]:
-        # TODO: change to better suited ontology
+        """ Convert a stream validation report object to RDF graph in N-Triples
+            format that conforms to the SHACL specification. Each detected
+            anomaly (or error) is converted to a SHACL validation result with
+            information with a detailed explanation. Some metadata is added
+            to the head of the graph.
+
+            The output is of the following form:
+
+            > ?report rdf:type sh:ValidationReport .
+            > ?report dct:date ?reportDate .
+            > ?report dct:identifier ?reportIdentifier .
+            > ?report dct:conformsTo ?reportLanguage .
+            > ?report sh:conforms ?validationPassed .
+            > ?report dct:hasPart ?result .
+
+            > ?result rdf:type sh:ValidationResult .
+            > ?result rdfs:label ?resultStatusMsg .
+            > ?result sh:resultMessage ?resultStatusMsgLong .
+            > ?result sh:resultSeverity ?resultSeverity .
+
+            > ?resultSeverity rdf:type sh:Severity .
+            > ?resultSeverity rdfs:label ?severityLabel .
+            > ?resultSeverity rdfs:comment ?severityDescription .
+
+        :param report: [TODO:description]
+        :param mkid: [TODO:description]
+        :return: [TODO:description]
+        """
         logger.debug("Exporting stream validation report to SHACL "
                      f"({self.subject_id})")
 

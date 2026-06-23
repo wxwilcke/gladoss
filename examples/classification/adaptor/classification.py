@@ -10,6 +10,7 @@ from typing import Any, Collection, Self
 from rdf import IRIRef, Literal, Statement
 
 from gladoss.core.connector import Connector
+from gladoss.core.report import ValidationReport
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.data.utils import jsonpath_deref
 
@@ -129,7 +130,9 @@ class ClassificationAdaptor(Adaptor):
             return_receipt=self.config.return_receipt
             ))
 
-    def publish_report(self: Self, identifier: str,
+    def publish_report(self: Self,
+                       rtype: ValidationReport.ReportType,
+                       identifier: str,
                        data: Collection[Statement],
                        label: list[int] | int) -> bool:
         """ Write the validation report (as N-Triples) for
@@ -140,12 +143,13 @@ class ClassificationAdaptor(Adaptor):
         :param data: [TODO:description]
         :return: [TODO:description]
         """
-        report_str_lst = [("--- BEGIN Validation Report %s (label %s) ---"
-                           % (identifier, label))]
+        type_str = ' '.join([w.title() for w in rtype.name.split('_')])
+        report_str_lst = [("--- BEGIN %s %s (label %s) ---"
+                           % (type_str, identifier, label))]
         for assertion in data:
             report_str_lst.append(" %s" % str(assertion))
-        report_str_lst.append("--- END Validation Report %s (label %s)---"
-                              % (identifier, label))
+        report_str_lst.append("--- END %s %s (label %s)---"
+                              % (type_str, identifier, label))
 
         stdout.write('\n'.join(report_str_lst))
 

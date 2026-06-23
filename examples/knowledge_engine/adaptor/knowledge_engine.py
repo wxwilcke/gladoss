@@ -12,6 +12,7 @@ from rdf.namespaces import RDF, RDFS, SHACL
 
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.core.connector import Connector
+from gladoss.core.report import ValidationReport
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ LITERAL = re.compile(r"(?P<value>\".*\")(?:"
 FILE_DIR = os.path.dirname(__file__)
 FILENAME_CONF = "knowledge_engine.toml"
 CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
-REPORT_GRAPH_PATTERN = """
+REPORT_GRAPH_PATTERN_GRAPH = """
 ?report rdf:type sh:ValidationReport .
 ?report dct:date ?reportDate .
 ?report dct:identifier ?reportIdentifier .
@@ -49,12 +50,30 @@ REPORT_GRAPH_PATTERN = """
 ?resultSeverity rdfs:label ?severityLabel .
 ?resultSeverity rdfs:comment ?severityDescription .
 """
-REPORT_PREFIXES = {
+REPORT_GRAPH_PATTERN_STREAM = """
+?report rdf:type sh:ValidationReport .
+?report dct:date ?reportDate .
+?report dct:identifier ?reportIdentifier .
+?report dct:conformsTo ?reportLanguage .
+?report sh:conforms ?validationPassed .
+?report dct:hasPart ?result .
+
+?result rdf:type sh:ValidationResult .
+?result rdfs:label ?resultStatusMsg .
+?result sh:resultMessage ?resultStatusMsgLong .
+?result sh:resultSeverity ?resultSeverity .
+
+?resultSeverity rdf:type sh:Severity .
+?resultSeverity rdfs:label ?severityLabel .
+?resultSeverity rdfs:comment ?severityDescription .
+"""
+REPORT_PREFIXES_GRAPH = {
         "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
         "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
         "dct": "http://purl.org/dc/terms/",
         "sh": "http://www.w3.org/ns/shacl#"
         }
+REPORT_PREFIXES_STREAM = REPORT_PREFIXES_GRAPH
 DCT = IRIRef("http://purl.org/dc/terms/")
 
 
@@ -222,25 +241,51 @@ class KE_Adaptor(Adaptor):
 
         # register KIs for report publication
         try:
-            self.register_report_publications()
+            # non-nominal graph reports
+            registered_post_ki\
+                = self.register_report_publications(
+                        "GraphReportPublication",
+                        REPORT_GRAPH_PATTERN_GRAPH,
+                        REPORT_PREFIXES_GRAPH)
+
+            rtype = ValidationReport.ReportType.GRAPH_VALIDATION_REPORT
+            self.context['postKnowledgeInteractions'][rtype]\
+                = registered_post_ki
+
+            # nominal graph reports and stream health reports
+            registered_post_ki\
+                = self.register_report_publications(
+                        "StreamReportPublication",
+                        REPORT_GRAPH_PATTERN_STREAM,
+                        REPORT_PREFIXES_STREAM)
+
+            rtype = ValidationReport.ReportType.STREAM_VALIDATION_REPORT
+            self.context['postKnowledgeInteractions'][rtype]\
+                = registered_post_ki
         except Exception:
             logger.error("Unable to register POST knowledge interaction")
 
             raise
 
-    def register_report_publications(self: Self) -> None:
+    def register_report_publications(self: Self,
+                                     name: str,
+                                     graph_pattern: str,
+                                     prefixes: dict[str, str])\
+            -> dict[str, str]:
         """ Register a single post knowledge interaction per known
             endpoint to send validation reports to. The reports are
-            send to the same endpoint as where the graph, about which
-            the report reports, are received from.
+            send to the same endpoint as where the graph or stream,
+            about which the report reports, are received from.
         """
+        registered_ki = dict()
+
         kb_id = self.context['knowledgeBaseId']
         for ki_endpoint in self.context['reactKnowledgeInteractions'].keys():
             ki_payload = {
                     'knowledgeInteractionType': "PostKnowledgeInteraction",
-                    'knowledgeInteractionName': "AnomalyReportPublication",
-                    'argumentGraphPattern': REPORT_GRAPH_PATTERN,
-                    'prefixes': REPORT_PREFIXES
+                    'knowledgeInteractionName': name,
+                    'argumentGraphPattern': graph_pattern,
+                    'prefixes': prefixes
                     }
 
             ki_id = self.register_ki(ki_endpoint, kb_id, ki_payload)
@@ -250,10 +295,12 @@ class KE_Adaptor(Adaptor):
                 continue
 
             # keep track of registered knowledge interactions
-            self.context['postKnowledgeInteractions'][ki_endpoint] = ki_id
+            registered_ki[ki_endpoint] = ki_id
 
             logger.info("Registered POST knowledge interaction at "
                         f"endpoint {ki_endpoint}")
+
+        return registered_ki
 
     def cleanup_hook(self: Self):
         """ Deregister the knowledge base and all associated knowledge
@@ -269,7 +316,9 @@ class KE_Adaptor(Adaptor):
             if not self.deregister_kb(endpoint, kb_id):
                 logger.error("Unable to deregister knowledge base")
 
-    def publish_report(self: Self, identifier: str,
+    def publish_report(self: Self,
+                       rtype: ValidationReport.ReportType,
+                       identifier: str,
                        data: Collection[Statement],
                        label: None) -> bool:
         """ Publish the validation report (as N-Triples) for
@@ -284,7 +333,7 @@ class KE_Adaptor(Adaptor):
         """
         success = False
         try:
-            package_headers = self.set_report_headers(identifier)
+            package_headers = self.set_report_headers(identifier, rtype)
             package_payload = self.set_report_payload(identifier, data)
 
             ki_endpoint\
@@ -334,7 +383,9 @@ class KE_Adaptor(Adaptor):
         """
         return super().set_payload()
 
-    def set_report_headers(self: Self, identifier: str) -> dict[str, Any]:
+    def set_report_headers(self: Self, identifier: str,
+                           rtype: ValidationReport.ReportType)\
+            -> dict[str, Any]:
         """ Returns headers for publishing the validation report
             to the endpoint.
 
@@ -345,7 +396,8 @@ class KE_Adaptor(Adaptor):
         try:
             ki_endpoint\
                 = self.context['reactKnowledgeInteractionsInv'][identifier]
-            ki_id = self.context['postKnowledgeInteractions'][ki_endpoint]
+            ki_id\
+                = self.context['postKnowledgeInteractions'][rtype][ki_endpoint]
 
             headers = {
                     'Knowledge-Base-Id': self.context['knowledgeBaseId'],
@@ -436,11 +488,11 @@ class KE_Adaptor(Adaptor):
                           + f"with knowledge interaction {ki_id}")
             return data_translated
 
-        # graph identifier
-        graph_id = ki_id
-
         # node identifier
-        node_id = ki_id  # same as graph ID
+        node_id = ki_id  # the KI ID refers to this specific stream
+
+        # graph identifier
+        graph_id = ki_id  # the KI ID is associated with example one graph
 
         ki_pattern, ki_prefixes = self.context['argumentGraphPatterns'][ki_id]
         bindings = data["bindingSet"]  # type: list[dict[str,str]]

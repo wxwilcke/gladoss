@@ -67,7 +67,8 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
 
     # publish report to endpoint
     logger.info(f"Publishing validation report ({report.subject_id})")
-    success = adaptor.publish_report(report.subject_id, report_graph, label)
+    success = adaptor.publish_report(report.type, report.subject_id,
+                                     report_graph, label)
 
     return success
 

@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 import argparse
+from enum import Enum
 import logging
 from threading import Event
 from types import SimpleNamespace
@@ -93,7 +94,9 @@ class Adaptor(ABC):
         return dict()
 
     @abstractmethod
-    def publish_report(self: Self, identifier: str,
+    def publish_report(self: Self,
+                       rtype: Enum,
+                       identifier: str,
                        data: Collection[Statement],
                        label: Optional[int | list[int]]) -> bool:
         """ Publish the validation report (as N-Triples) for
