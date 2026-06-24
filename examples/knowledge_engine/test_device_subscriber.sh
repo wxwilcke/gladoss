@@ -29,7 +29,7 @@ register_ki() {
     "knowledgeInteractionName": "AnomalyReceiver",
     "argumentGraphPattern": "?report rdf:type sh:ValidationReport .
                              ?report dct:date ?reportDate .
-                             ?report dct:identifier ?reportIdentifier .
+                             ?report dct:subject ?reportSubject .
                              ?report dct:conformsTo ?reportLanguage .
                              ?report sh:conforms ?validationPassed .
                              ?report dct:hasPart ?result .

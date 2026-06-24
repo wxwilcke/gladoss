@@ -54,14 +54,16 @@ def schedule_rinterval_check(
         else f"{rinterval_td.days} day(s) ",
         '' if rinterval_td.seconds < 60
         else f"{rinterval_td.seconds//60} minutes(s) ",
-        f"{rinterval_td.seconds % 60} second(s)",
+        '' if rinterval_td.seconds <= 0
+        else f"{rinterval_td.seconds % 60} second(s) ",
+        f"{rinterval_td.microseconds//1000} millisecond(s)"
         ])
 
     # create report
     status_msg = "Critical Reception Interval Deviation"
     status_msg_long = \
         "Message not received within expected interval "\
-        f"of {rinterval_str} from '{endpoint}'"
+        f"of {rinterval_str} from endpoint '{endpoint}'"
     status_code = ValidationReport.StatusCode.CRITICAL
 
     report = StreamValidationReport(subject_id=node_id,

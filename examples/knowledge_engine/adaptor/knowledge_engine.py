@@ -33,7 +33,7 @@ CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 REPORT_GRAPH_PATTERN_GRAPH = """
 ?report rdf:type sh:ValidationReport .
 ?report dct:date ?reportDate .
-?report dct:identifier ?reportIdentifier .
+?report dct:subject ?reportSubject .
 ?report dct:conformsTo ?reportLanguage .
 ?report sh:conforms ?validationPassed .
 ?report dct:hasPart ?result .
@@ -53,7 +53,7 @@ REPORT_GRAPH_PATTERN_GRAPH = """
 REPORT_GRAPH_PATTERN_STREAM = """
 ?report rdf:type sh:ValidationReport .
 ?report dct:date ?reportDate .
-?report dct:identifier ?reportIdentifier .
+?report dct:subject ?reportSubject .
 ?report dct:conformsTo ?reportLanguage .
 ?report sh:conforms ?validationPassed .
 ?report dct:hasPart ?result .
@@ -569,8 +569,8 @@ class KE_Adaptor(Adaptor):
                         report[sbj]["reportDate"] = statement.object
 
                         continue
-                    if statement.predicate == DCT + "identifier":
-                        report[sbj]["reportIdentifier"] = statement.object
+                    if statement.predicate == DCT + "subject":
+                        report[sbj]["reportSubject"] = statement.object
 
                         continue
                     if statement.predicate == DCT + "conformsTo":

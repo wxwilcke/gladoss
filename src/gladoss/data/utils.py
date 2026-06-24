@@ -139,7 +139,7 @@ def jsonpath_deref(root: dict | list, jsonpath: list[Any]) -> Any:
         if isinstance(struc, list):
             try:
                 val = struc[key]
-            except IndexError, TypeError:
+            except (IndexError, TypeError):
                 val = None
 
         return traverse(val, path[1:])

@@ -99,7 +99,14 @@ do
         echo " $i - Publishing sensor reading: $VALUE °C (simulating faulty sensor)"
     else
         VALUE=$((15 + $RANDOM % 10)).$(($RANDOM % 10))
-        echo " $i - Publishing sensor reading: $VALUE °C"
+        if [ $(($i % 130)) -eq 0 ]
+        then
+            echo " $i - Publishing sensor reading: $VALUE °C (simulating delayed message)"
+            
+            sleep 5
+        else
+            echo " $i - Publishing sensor reading: $VALUE °C"
+        fi
     fi
 
     out=$(post_data "$VALUE")

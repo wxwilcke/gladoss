@@ -62,7 +62,7 @@ RUN chmod +x /usr/local/bin/gladoss-run
 RUN echo -e "#"'!'"/bin/sh\n"\
             "TIMESTAMP="'$'"(date +%s)\n"\
             "python $WORKDIR/src/gladoss/demo/demo_device.py" \
-            "--input=$WORKDIR/src/gladoss/demo/demo-data.json" \
+            "--input=$WORKDIR/src/gladoss/demo/dataset.json" \
             '"$@"' > /usr/local/bin/gladoss-demo
 RUN chmod +x /usr/local/bin/gladoss-demo
 

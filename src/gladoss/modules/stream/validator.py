@@ -127,7 +127,8 @@ def validate_message_reception_interval(store: MemoryStore,
                      f"({node_id})")
         return status_msg_lst, cache_dct
     else:
-        logger.debug(f"Validating stream reception interval ({node_id})")
+        logger.debug(f"Validating stream reception interval ({node_id}; "
+                     f"t = {len(data_lst)})")
 
     min_no_samples = 100  # hard lower limit for pi calculation
     if len(data_lst) < min_no_samples:

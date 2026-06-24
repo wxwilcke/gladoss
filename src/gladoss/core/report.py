@@ -182,7 +182,7 @@ class GraphValidationReport(ValidationReport):
 
             > ?report rdf:type sh:ValidationReport .
             > ?report dct:date ?reportDate .
-            > ?report dct:identifier ?reportIdentifier .
+            > ?report dct:subject ?reportSubject .
             > ?report dct:conformsTo ?reportLanguage .
             > ?report sh:conforms ?validationPassed .
             > ?report dct:hasPart ?result .
@@ -223,7 +223,7 @@ class GraphValidationReport(ValidationReport):
             Statement(root, DCT + 'date',
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
-            Statement(root, DCT + 'identifier',
+            Statement(root, DCT + 'subject',
                       Literal(self.subject_id, datatype=XSD + 'string')),
             Statement(root, DCT + 'conformsTo', Literal(
                 "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
@@ -355,7 +355,7 @@ class StreamValidationReport(ValidationReport):
 
             > ?report rdf:type sh:ValidationReport .
             > ?report dct:date ?reportDate .
-            > ?report dct:identifier ?reportIdentifier .
+            > ?report dct:subject ?reportSubject .
             > ?report dct:conformsTo ?reportLanguage .
             > ?report sh:conforms ?validationPassed .
             > ?report dct:hasPart ?result .
@@ -393,8 +393,9 @@ class StreamValidationReport(ValidationReport):
             Statement(root, DCT + 'date',
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
-            Statement(root, DCT + 'identifier',
+            Statement(root, DCT + 'subject',
                       Literal(self.subject_id, datatype=XSD + 'string')),
+
             Statement(root, DCT + 'conformsTo', Literal(
                 "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
             ]
