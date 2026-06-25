@@ -570,7 +570,8 @@ class KE_Adaptor(Adaptor):
 
                         continue
                     if statement.predicate == DCT + "subject":
-                        report[sbj]["reportSubject"] = statement.object
+                        report[sbj]["reportSubject"]\
+                                = IRIRef(statement.object.value)
 
                         continue
                     if statement.predicate == DCT + "conformsTo":

@@ -45,7 +45,7 @@ The following graph is an example of the expected output data, and is encoded us
 
 _:BUtcw1hbu2x53tsalyktei rdf:type sh:ValidationReport .
 _:BUtcw1hbu2x53tsalyktei dct:date "2025-07-07T12:12:45.482481"^^xsd:dateTime .
-_:BUtcw1hbu2x53tsalyktei dct:identifier ex:Uwmi0dxkgf8qjrd9bmsjc .
+_:BUtcw1hbu2x53tsalyktei dct:subject ex:Uwmi0dxkgf8qjrd9bmsjc .
 _:BUtcw1hbu2x53tsalyktei dct:conformsTo "https://www.w3.org/TR/shacl/"^^xsd:anyURI .
 _:BUtcw1hbu2x53tsalyktei dct:hasPart _:BUifsw7dl0q491dz9z21i6 .
 _:BUtcw1hbu2x53tsalyktei sh:conforms "false"^^xsd:boolean .
@@ -91,6 +91,9 @@ The following anomalies can be detected by GLADoSS:
         - Observed Literal value differs significantly at the critical level.
     - Suspicious Value Violation²:
         - Observed Literal value differs significantly at the suspicious level.
+- Stream Violations:
+    - Reception Interval Violation:
+        - Messages in stream arrive later than expected or not at all
 
 1. Structure validation is disabled by default
 2. Only relevant when validating distributions of dynamic assertions

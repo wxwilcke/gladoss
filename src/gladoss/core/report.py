@@ -525,7 +525,8 @@ class ReportScheduler():
     def enable(self):
         """ Start the report scheduler in a new thread.
         """
-        thread = threading.Thread(target=self._schedule)
+        thread = threading.Thread(target=self._schedule,
+                                  name="scheduler")
         thread.start()
 
         return thread
