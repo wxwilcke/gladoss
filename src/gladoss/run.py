@@ -188,7 +188,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
         break
 
     # initiate store to track stream characteristics; lock for multithreading
-    sc_store = MemoryStore(RLock())
+    sc_store = MemoryStore(RLock(), pconf.pattern_decay)
     # TODO: backup and restore option
 
     # initiate pattern vault which will manage and track patterns over time

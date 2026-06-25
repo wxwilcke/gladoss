@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryStore():
-    def __init__(self, lock: RLock) -> None:
+    def __init__(self, lock: RLock, memory: int = -1) -> None:
         """ The MemoryStore is a decaying polytree in which each tree is
             associated with a certain registered node, and in which branches
             are named linked lists. By registering nodes and adding data
@@ -24,6 +24,7 @@ class MemoryStore():
         """
         self._polytree = dict()
         self._lock = lock
+        self.memory = memory
 
     def register_node(self, node_id: str) -> bool:
         """ Register a new node, by creating a tree associated with its
@@ -87,7 +88,7 @@ class MemoryStore():
         try:
             tree = self._polytree[node_id]
             if key not in tree.keys():
-                tree[key] = MemoryLinkedList()  # TODO Add decay
+                tree[key] = MemoryLinkedList(memory=self.memory)
 
             tree[key].put(data)
         except Exception as e:
@@ -209,7 +210,7 @@ class MemoryLinkedList():
         def __repr__(self) -> str:
             return str(self.data)
 
-    def __init__(self, memory: int = 100) -> None:
+    def __init__(self, memory: int = -1) -> None:
         """ A list of linked nodes with, optionally, a specific maximum
             length (its memory). The most recently added node is the head,
             whereas the tail points to the oldest node. These point to
@@ -283,6 +284,10 @@ class MemoryLinkedList():
             removing nodes from the tail forwards. This will
             change the tail node.
         """
+        if self.memory_size < 0:
+            # inf.
+            return
+
         while self.memory_used > self.memory_size:
             if self.tail is None:
                 # this shouldn't happen; empty list?
@@ -303,7 +308,11 @@ class MemoryLinkedList():
             self.memory_used -= 1
 
     def __repr__(self) -> str:
-        return f"MemoryLinkedList ({self.memory_used} / {self.memory_size})"
+        if self.memory_size >= 0:
+            return ("MemoryLinkedList "
+                    f"({self.memory_used} / {self.memory_size})")
+        else:  # < 0
+            return f"MemoryLinkedList ({self.memory_used} / inf.)"
 
     def __len__(self) -> int:
         return self.memory_used
