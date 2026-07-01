@@ -16,14 +16,13 @@ from typing import Callable, Optional
 import numpy as np
 
 from gladoss.adaptors.adaptor import Adaptor
-from gladoss.core.stores import MemoryStore
+from gladoss.core.stores import MemoryStore, PatternVault
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, timeSpanArg
 from gladoss.core.connector import Connector
 from gladoss.core.report import ReportScheduler, ValidationReport
 from gladoss.core.utils import gen_id, import_class, init_rng, list_classes
 from gladoss.modules.graph.monitor import process_graph
-from gladoss.modules.graph.pattern import PatternVault
 from gladoss.modules.stream.monitor import process_stream
 
 
@@ -179,7 +178,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             logger.error(e)
             if i < cconf.retries or cconf.continuous:
                 logger.info("Adaptor initialization failed. Retrying...")
-                controller.wait(cconf.retry_delay)
+                if controller.wait(cconf.retry_delay):
+                    # termination signal received during wait
+                    break
 
                 continue
 
@@ -188,20 +189,33 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
         break
 
     # initiate store to track stream characteristics; lock for multithreading
-    sc_store = MemoryStore(RLock(), pconf.pattern_decay)
-    # TODO: backup and restore option
+    sc_store = MemoryStore(sc_lock := RLock(), pconf.pattern_decay)
 
     # initiate pattern vault which will manage and track patterns over time
     gp_store = PatternVault(gp_lock := RLock())
-    if flags.backup_restore is not None:
-        gp_store = BackupManager.restore_backup(Path(flags.backup_restore))
-        gp_store._lock = gp_lock
 
-        logger.info("Backup restored successfully")
+    # restore saved states
+    if flags.backup_restore is not None:
+        bck_stores = BackupManager.restore_backup(Path(flags.backup_restore))
+        for store_name, store_obj in bck_stores:
+            if store_name == "sc_store":
+                sc_store = store_obj
+                sc_store._lock = sc_lock
+
+                break
+            if store_name == "gp_store":
+                gp_store = store_obj
+                gp_store._lock = gp_lock
+
+                break
+
+        logger.info("Backup restored")
 
     # setup backup manager to periodically write the pattern vault to disk
-    bckmgr = BackupManager(gp_store, Path(flags.backup_path),
-                           gp_lock, flags.backup_interval)
+    bckmgr = BackupManager(location=Path(flags.backup_path),
+                           stores=[("gp_store", gp_store),
+                                   ("sc_store", sc_store)],
+                           interval=flags.backup_interval)
     bckmgr.enable_auto_backup()
 
     # use queues to communicate between threads
@@ -224,11 +238,10 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                                      pconf, econf, q_obs, q_rpt, q_rpts))
     manager.start()
 
-    # start report scheduling thread if requested
-    report_sheduler = None
+    # start report scheduler if requested
+    report_sheduler = ReportScheduler(q_rpts, q_rpt)
     if econf.proactive_notification:
-        logger.debug("Starting report scheduling daemon")
-        report_sheduler = ReportScheduler(q_rpts, q_rpt).enable()
+        report_sheduler.enable()
 
     # loop until all connections have been terminated
     while len(listening_jobs) > 0:
@@ -273,15 +286,12 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     manager.join()
     logger.info("Manager has been terminated")
 
-    if report_sheduler is not None:
-        q_rpts.put(None)  # tell scheduler to terminate
-        report_sheduler.join()
-
-        logger.debug("Report scheduling daemon has been terminated")
+    # tell scheduler to terminate
+    report_sheduler.disable()
 
     # starting emergency backup
     bckmgr.disable_auto_backup()
-    if len(gp_store) > 0:
+    if len(gp_store) > 0:  # sc_store is tied to gp_store
         bckmgr.create_backup()  # emergency backup
 
     logger.info("Waiting on connections to close...")
@@ -306,9 +316,9 @@ def __main__():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         epilog="The development of this program has been funded by HEDGE-IoT")
     parser.add_argument("--backup-interval", help="Intervals between backups. "
-                        + "Expects the input to be an integer followed by 'H'"
-                        + ", 'D', or 'W', denoting hours, days, or weeks.",
-                        type=timeSpanArg, default=None)
+                        + "Expects the input to be an integer followed by 'M' "
+                        + "'H', 'D', or 'W', denoting minutes, hours, days, "
+                        + "or weeks.", type=timeSpanArg, default=None)
     parser.add_argument("--backup-path", help="Directory to write backups to",
                         type=str, default=str(Path().resolve() / "backup"))
     parser.add_argument("--backup-restore", help="Backup file from which to "

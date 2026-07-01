@@ -6,10 +6,10 @@ import logging
 from pathlib import Path
 import pickle
 import sched
-from threading import RLock, Thread
+from threading import Thread
 from typing import Optional
 
-from gladoss.modules.graph.pattern import PatternVault
+from gladoss.core.stores import Store
 
 
 TIME_FORMAT = "%Y%m%dT%H%M%S"
@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class BackupManager():
-    def __init__(self, pv: PatternVault, location: Path, lock: RLock,
+    def __init__(self, location: Path,
+                 stores: list[tuple[str, Store]] = list(),
                  interval: Optional[timedelta] = None):
         """ Manage manual and automatic backups of patterns.
 
@@ -26,9 +27,8 @@ class BackupManager():
         :param location: [TODO:description]
         :param interval: [TODO:description]
         """
-        self.pv = pv
+        self.stores = stores
         self.path = location
-        self._lock = lock
         self.interval = interval
         if type(self.interval) is timedelta:
             self.interval = self.interval.total_seconds()
@@ -46,9 +46,10 @@ class BackupManager():
         self.enabled = True
 
         self._scheduler = sched.scheduler()
-        self._thread = Thread(target=self._create_auto_backup,
-                              args=[self._scheduler])
-        self._thread.start()
+        thread = Thread(target=self._create_auto_backup,
+                        name="BackupManager",
+                        args=[self._scheduler])
+        thread.start()
         logger.debug("Enabled auto backup")
 
     def disable_auto_backup(self):
@@ -91,20 +92,23 @@ class BackupManager():
         # generate filename based on current time
         filename = f"backup-{datetime.now().strftime(TIME_FORMAT)}.bak"
 
-        self._lock.acquire()
+        for _, store in self.stores:
+            store._lock.acquire()
+
         try:
             path = self.path / filename
             with bz2.open(path, "wb") as f:
-                f.write(pickle.dumps(obj=self.pv))
+                f.write(pickle.dumps(obj=self.stores))
 
             logger.info(f"Saved backup to {path}")
         except Exception as err:
             logger.error(f"Unable to create backup: {err}")
         finally:
-            self._lock.release()
+            for _, store in self.stores:
+                store._lock.release()
 
     @staticmethod
-    def restore_backup(filename: Path) -> PatternVault:
+    def restore_backup(filename: Path) -> list[tuple[str, Store]]:
         """ Restore a backup of a pattern vault instance by reading
             and decompressing the provided file. Raises an exception
             on failure.
@@ -115,16 +119,18 @@ class BackupManager():
         """
         assert filename.exists(), f"File '{filename.name}' cannot be found"
 
-        pv = None
+        stores = list()
         try:
             with bz2.open(filename.resolve(), "rb") as f:
                 data = f.read()
 
-            pv = pickle.loads(data)
-            assert isinstance(pv, PatternVault), "Backup does not contain "\
-                                                 "expected data"
+            stores = pickle.loads(data)
+            assert isinstance(stores, list) \
+                and all([isinstance(a, str) and isinstance(b, Store)
+                         for a, b in stores]), "Backup does not contain "\
+                                               "expected data"
         except Exception as err:
             logger.error(f"Unable to restore backup: {err}")
             raise Exception(err)
 
-        return pv
+        return stores

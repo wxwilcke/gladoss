@@ -1,12 +1,9 @@
 #! /usr/bin/env python
 
 from __future__ import annotations
-import bz2
 from collections import Counter
 from copy import deepcopy
-import pickle
 from datetime import datetime
-from threading import RLock
 import logging
 import sys
 from types import SimpleNamespace
@@ -644,120 +641,3 @@ class GraphPattern():
 
     def __hash__(self) -> int:
         return hash(str(self))
-
-
-class PatternVault():
-    def __init__(self, lock: RLock, compress: bool = True) -> None:
-        self.compress = compress
-
-        self._polytree = dict()
-        self._lock = lock
-
-    def add_graph_pattern(self, pattern: GraphPattern) -> None:
-        """ Add new graph pattern to pattern vault, by creating a
-            new tree with the given pattern as root. This operation
-            includes a timestamp to record the moment of creation,
-            and is thread safe.
-
-        :param pattern: [TODO:description]
-        """
-        key = pattern._id
-
-        self._lock.acquire()
-        try:
-            assert key not in self._polytree.keys()
-            self._polytree[key] = [(pattern, datetime.now())]
-        except Exception as e:
-            logger.error(f"Unable to add new pattern vault entry: {e}")
-        finally:
-            self._lock.release()
-
-    def rmv_graph_pattern(self, pattern: GraphPattern) -> None:
-        """ Remove registered graph pattern from the vault. This
-            operation removes the entire tree and is thread safe.
-
-        :param pattern: [TODO:description]
-        """
-        key = pattern._id
-
-        self._lock.acquire()
-        try:
-            assert key in self._polytree.keys()
-            del self._polytree[key]
-        except Exception as e:
-            logger.error(f"Unable to remove pattern vault entry: {e}")
-        finally:
-            self._lock.release()
-
-    def prune_graph_pattern(self, pattern: Optional[GraphPattern]) -> None:
-        """ Prune the tree of the provided graph pattern by replacing
-            the entire tree with a new tree that only contains the
-            most recent graph pattern. Do this for all registered
-            graph patterns if none is provided. This operation is
-            thread safe
-
-        :param pattern: [TODO:description]
-        """
-        prune_lst = [pattern]
-        if pattern is None:
-            prune_lst = [pattern._id for pattern in self._polytree.keys()]
-
-        self._lock.acquire()
-        try:
-            for key in prune_lst:
-                assert key in self._polytree.keys()
-                self._polytree[key] = [self._polytree[key][-1]]
-        except Exception as e:
-            logger.error(f"Unable to prune pattern vault entry: {e}")
-        finally:
-            self._lock.release()
-
-    def update_graph_pattern(self, pattern: GraphPattern) -> None:
-        """ Update registered graph pattern by adding the updated
-            pattern as a new leaf to the tree. The previous version
-            of the pattern automatically becomes a non-terminal
-            vertex in the tree. This operation is thread safe.
-
-        :param pattern: [TODO:description]
-        """
-        key = pattern._id
-        assert len(self._polytree[key]) > 0
-
-        self._lock.acquire()
-        try:
-            # compress old version
-            if self.compress:
-                prev, t_prev = self._polytree[key][-1]
-                prev = bz2.compress(pickle.dumps(prev))
-                self._polytree[-1] = (prev, t_prev)
-
-            self._polytree[key].append((pattern, datetime.now()))
-        except Exception as e:
-            logger.error(f"Unable to update pattern vault entry: {e}")
-        finally:
-            self._lock.release()
-
-    def find_associated_graph_pattern(self, key: str)\
-            -> GraphPattern | None:
-        """ Find and return the most recent associated graph pattern. This
-            operation is thread safe.
-
-        :return: [TODO:description]
-        """
-        self._lock.acquire()
-        try:
-            pattern, _ = self._polytree[key][-1]
-            return pattern
-        except (KeyError, IndexError):
-            return None
-        finally:
-            self._lock.release()
-
-    def __len__(self) -> int:
-        return len(self._polytree.keys())
-
-    def __getstate__(self):
-        return {k: v for k, v in self.__dict__.items() if k != '_lock'}
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)

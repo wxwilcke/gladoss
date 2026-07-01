@@ -42,7 +42,7 @@ class Connector():
 
         self.session = requests.Session()
 
-    def _wait_on_error(self: Self, retries: int) -> None:
+    def _wait_on_error(self: Self, retries: int) -> bool:
         """ Wait a number of seconds after experiencing an error
             before trying again.
 
@@ -57,7 +57,7 @@ class Connector():
         if delay < 0:
             delay = self.request_delay
 
-        self.adaptor._controller.wait(delay)
+        return self.adaptor._controller.wait(delay)
 
     def poll(self: Self,
              session: requests.Session,
@@ -119,7 +119,10 @@ class Connector():
                     logging.debug("Reached maximum number of retries")
                     break
 
-                self._wait_on_error(retries)
+                if self._wait_on_error(retries):
+                    # termination signal received during wait
+                    break
+
                 retries += 1
 
                 continue
@@ -155,7 +158,10 @@ class Connector():
                         logging.debug("Reached maximum number of retries")
                         break
 
-                    self._wait_on_error(retries)
+                    if self._wait_on_error(retries):
+                        # termination signal received during wait
+                        break
+
                     retries += 1
 
                     continue
@@ -175,7 +181,9 @@ class Connector():
                     logging.debug("Reached maximum number of retries")
                     break
 
-                self._wait_on_error(retries)
+                if self._wait_on_error(retries):
+                    # termination signal received during wait
+                    break
 
                 retries += 1
 

@@ -11,9 +11,11 @@ import numpy as np
 from rdf.graph import Statement
 
 from gladoss.core.report import GraphValidationReport, ValidationReport
+from gladoss.core.stores import PatternVault
 from gladoss.core.utils import create_pattern_map
-from gladoss.modules.graph.pattern import (AssertionPattern, GraphPattern,
-                                           PatternVault, create_graph_pattern,
+from gladoss.modules.graph.pattern import (AssertionPattern,
+                                           GraphPattern,
+                                           create_graph_pattern,
                                            update_graph_pattern)
 from gladoss.modules.graph.validator import validate_state_graph
 
@@ -123,7 +125,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
         # or a non-critical deviation has been detected
         gpattern_upd = update_graph_pattern(mkid, pattern, graph,
                                             pattern_map, pconf)
-        pv.update_graph_pattern(gpattern_upd)
+        pv.update_graph_pattern(gpattern_upd, rtime)
     else:
         logger.info(f"Graph failed validation ({graph_id})")
 

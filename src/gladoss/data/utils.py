@@ -67,7 +67,7 @@ def timeSpanArg(arg: str) -> timedelta:
     :param arg: input argument
     :return: a corresponding timedelta object
     """
-    re_pattern = r"(?P<value>[0-9]+)\s*(?P<unit>[dhwDHW])"
+    re_pattern = r"(?P<value>[0-9]+)\s*(?P<unit>[mdhwMDHW])"
 
     value = -1
     unit = ''
@@ -80,7 +80,9 @@ def timeSpanArg(arg: str) -> timedelta:
         raise Exception("'" + arg + "' is not a valid time span. "
                         + "Expects input such as '12H', '7D', or '4W'.")
 
-    if unit == "H":
+    if unit == "M":
+        delta = timedelta(minutes=value)
+    elif unit == "H":
         delta = timedelta(hours=value)
     elif unit == "D":
         delta = timedelta(days=value)

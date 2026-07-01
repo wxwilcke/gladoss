@@ -473,6 +473,7 @@ class ReportScheduler():
         self.q_rapport = q_rapport
 
         self.timers_active = dict()  # type: dict[str, threading.Timer]
+        self.enabled = False
 
     def _schedule(self):
         """ Process new scheduling jobs as they come in, by starting a
@@ -481,11 +482,6 @@ class ReportScheduler():
         while True:
             job = self.q_sheduler.get()
             if job is None:
-                # stop timers and scheduler thread
-                for timer in self.timers_active.values():
-                    timer.cancel()
-                    timer.join()
-
                 break
 
             name, report, time = job
@@ -525,11 +521,32 @@ class ReportScheduler():
     def enable(self):
         """ Start the report scheduler in a new thread.
         """
-        thread = threading.Thread(target=self._schedule,
-                                  name="scheduler")
-        thread.start()
+        if self.enabled:
+            return
 
-        return thread
+        logger.debug("Starting report scheduling daemon")
+        self._thread = threading.Thread(target=self._schedule,
+                                        name="scheduler")
+        self._thread.start()
+
+        self.enabled = True
+
+    def disable(self):
+        """ Terminate the report scheduler and cancel all scheduled reports.
+        """
+        if not self.enabled:
+            return
+
+        logger.debug("Stopping report scheduling daemon")
+        self.q_sheduler.put(None)
+        # stop timers and scheduler thread
+        for timer in self.timers_active.values():
+            timer.cancel()
+            timer.join()
+
+        self._thread.join()
+
+        self.enabled = False
 
     def push_report(self, report: ValidationReport):
         """ Push a scheduled report to the report queue for publishing.
