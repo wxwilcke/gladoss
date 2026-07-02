@@ -334,7 +334,7 @@ class MemoryLinkedList():
         return self.memory_used
 
 
-class PatternVault():
+class PatternVault(Store):
     def __init__(self, lock: RLock, compress: bool = True) -> None:
         super().__init__(lock)
 
@@ -440,3 +440,6 @@ class PatternVault():
             return None
         finally:
             self._lock.release()
+
+    def __repr__(self) -> str:
+        return "PatternVault {" + ", ".join(list(self._polytree.keys())) + "}"

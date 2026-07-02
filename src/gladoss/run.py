@@ -202,12 +202,12 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                 sc_store = store_obj
                 sc_store._lock = sc_lock
 
-                break
+                continue
             if store_name == "gp_store":
                 gp_store = store_obj
                 gp_store._lock = gp_lock
 
-                break
+                continue
 
         logger.info("Backup restored")
 
@@ -510,9 +510,11 @@ def __main__():
     logging.basicConfig(level=log_level,
                         format=log_format)
 
-    logger.debug("\n".join([f"{k}: {v}" for k, v in cconf.__dict__.items()]))
-    logger.debug("\n".join([f"{k}: {v}" for k, v in pconf.__dict__.items()]))
-    logger.debug("\n".join([f"{k}: {v}" for k, v in econf.__dict__.items()]))
+    logger.debug(
+        "Using following configuration options\n-"
+        + "\n-".join([f"{k}: {v}" for k, v in cconf.__dict__.items()])
+        + "\n-" + "\n-".join([f"{k}: {v}" for k, v in pconf.__dict__.items()])
+        + "\n-" + "\n-".join([f"{k}: {v}" for k, v in econf.__dict__.items()]))
 
     # register SIGINT signal handler
     global controller
