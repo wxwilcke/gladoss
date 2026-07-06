@@ -18,7 +18,7 @@ import numpy as np
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.core.stores import MemoryStore, PatternVault
 from gladoss.data.backup import BackupManager
-from gladoss.data.utils import create_namespace_subset, timeSpanArg
+from gladoss.data.utils import create_namespace_subset, pathArg, timeSpanArg
 from gladoss.core.connector import Connector
 from gladoss.core.report import ReportScheduler, ValidationReport
 from gladoss.core.utils import gen_id, import_class, init_rng, list_classes
@@ -196,7 +196,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
     # restore saved states
     if flags.backup_restore is not None:
-        bck_stores = BackupManager.restore_backup(Path(flags.backup_restore))
+        bck_stores = BackupManager.restore_backup(flags.backup_restore)
         for store_name, store_obj in bck_stores:
             if store_name == "sc_store":
                 sc_store = store_obj
@@ -212,7 +212,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
         logger.info("Backup restored")
 
     # setup backup manager to periodically write the pattern vault to disk
-    bckmgr = BackupManager(location=Path(flags.backup_path),
+    bckmgr = BackupManager(location=flags.backup_path,
                            stores=[("gp_store", gp_store),
                                    ("sc_store", sc_store)],
                            interval=flags.backup_interval)
@@ -319,10 +319,13 @@ def __main__():
                         + "Expects the input to be an integer followed by 'M' "
                         + "'H', 'D', or 'W', denoting minutes, hours, days, "
                         + "or weeks.", type=timeSpanArg, default=None)
-    parser.add_argument("--backup-path", help="Directory to write backups to",
-                        type=str, default=str(Path().resolve() / "backup"))
-    parser.add_argument("--backup-restore", help="Backup file from which to "
-                        "import patterns on start.", type=str,
+    parser.add_argument("--backup-path", help="Directory to write backups to, "
+                        "either absolute or relative to the working "
+                        "directory.", type=pathArg,
+                        default=Path().resolve() / "backup")
+    parser.add_argument("--backup-restore", help="Path to backup file (.bak), "
+                        "either absolute or relative to backup path, from "
+                        "which to import patterns on start.", type=pathArg,
                         default=None)
     parser.add_argument("--namespace", help="Namespace to use when generating "
                         "new identifiers. Omit for blank nodes (default).",
@@ -512,9 +515,7 @@ def __main__():
 
     logger.debug(
         "Using following configuration options\n-"
-        + "\n-".join([f"{k}: {v}" for k, v in cconf.__dict__.items()])
-        + "\n-" + "\n-".join([f"{k}: {v}" for k, v in pconf.__dict__.items()])
-        + "\n-" + "\n-".join([f"{k}: {v}" for k, v in econf.__dict__.items()]))
+        + "\n-".join([f"{k}: {v}" for k, v in flags._get_kwargs()]))
 
     # register SIGINT signal handler
     global controller
@@ -529,6 +530,12 @@ def __main__():
     assert flags.adaptor is not None, "No adaptor specified - choose one " \
                                       f"from {list(adaptors.keys())}"
     adaptor = import_class(adaptors, flags.adaptor)
+
+    # Set backup restore path to be relative to backup path
+    if flags.backup_restore is not None \
+       and not flags.backup_restore.is_absolute():
+        # make relative path absolute
+        flags.backup_restore = flags.backup_path / flags.backup_restore
 
     # start main loop
     main(rng, adaptor, flags, cconf, pconf, econf)

@@ -31,7 +31,7 @@ class BackupManager():
         self.path = location
         self.interval = interval
         if type(self.interval) is timedelta:
-            self.interval = self.interval.total_seconds()
+            self.interval = int(self.interval.total_seconds())
 
         self.enabled = False
 

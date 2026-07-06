@@ -3,6 +3,7 @@
 from argparse import Namespace
 from datetime import timedelta
 import logging
+from pathlib import Path
 import re
 import sys
 import termios
@@ -29,6 +30,24 @@ def getCh() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     return ch
+
+
+def pathArg(arg: str) -> Path:
+    """ Custom argument type for path strings.
+        Return the associated Path object.
+
+    :param arg: [TODO:description]
+    :return: [TODO:description]
+    :raises Exception: [TODO:description]
+    """
+    path = None
+    try:
+        path = Path(arg)
+    except Exception:
+        raise Exception("'" + arg + "' is not a valid path. "
+                        "Expects a valid absolute or relative path.")
+
+    return path
 
 
 def integerRangeArg(arg: str) -> range:
