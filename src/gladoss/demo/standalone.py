@@ -35,9 +35,9 @@ def main(flags: argparse.Namespace):
                              config=flags)
 
     conn = adaptor.connectors.pop()  # the demo only defines one connector
-    for graph_id, graph_lst, graph_label in conn.listen():
+    for stream_id, graph_lst, graph_label in conn.listen():
         print(f" {LAND} ".join([str(fact) for fact in graph_lst]))
-        logger.debug(f"Graph Identity: {graph_id}")
+        logger.debug(f"Stream ID: {stream_id}")
 
 
 if __name__ == "__main__":

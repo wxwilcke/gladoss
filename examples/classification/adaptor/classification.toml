@@ -2,6 +2,6 @@
 
 # JSONpath to relevant values 
 node_id = "$.node-id"
-graph_id = "$.graph-id"
+stream_id = "$.stream-id"
 graph_data = "$.graph-data"
 graph_label = "$.graph-label"

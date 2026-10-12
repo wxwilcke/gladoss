@@ -36,11 +36,11 @@ class RESTfulAdaptor(Adaptor):
         to standard output.
 
         Expects data in the form {"node-id": <STRING>,
-                                  "graph-id": <STRING>,
+                                  "stream-id": <STRING>,
                                   "graph-data": "s p o . [...]"},
         with
         - node-id the node (device) identifier
-        - graph-id the graph identifier
+        - stream-id the stream identifier
         - s, p, o as '<http://www.example.org/u>'
         - or o as '"v"', '"v"@lang', or '"v"^^dtype'
         - and dtype as '<http://www.example.org/u>'
@@ -63,7 +63,7 @@ class RESTfulAdaptor(Adaptor):
 
             # JSONpaths to relevant parts of message payload
             self.context["path_to_node_id"] = conf.get("node_id")
-            self.context["path_to_graph_id"] = conf.get("graph_id")
+            self.context["path_to_stream_id"] = conf.get("stream_id")
             self.context["path_to_graph_data"] = conf.get("graph_data")
 
     def cleanup_hook(self: Self) -> None:
@@ -160,7 +160,7 @@ class RESTfulAdaptor(Adaptor):
         :raises SyntaxWarning: warn if translation fails
         """
         node_id = jsonpath_deref(data, self.context['path_to_node_id'])
-        graph_id = jsonpath_deref(data, self.context['path_to_graph_id'])
+        stream_id = jsonpath_deref(data, self.context['path_to_stream_id'])
         graph_data = jsonpath_deref(data, self.context['path_to_graph_data'])
 
         data_translated = list()
@@ -168,8 +168,8 @@ class RESTfulAdaptor(Adaptor):
             logging.debug("Missing content in data package")
             return data_translated
 
-        if not isinstance(graph_id, str) or len(graph_id) <= 0:
-            logging.debug("Missing graph identifier in data package")
+        if not isinstance(stream_id, str) or len(stream_id) <= 0:
+            logging.debug("Missing stream identifier in data package")
             return data_translated
 
         if not isinstance(node_id, str) or len(node_id) <= 0:
@@ -184,7 +184,7 @@ class RESTfulAdaptor(Adaptor):
                 fact = self.process_fact(match)
                 graph.append(fact)
 
-            data_translated.append((node_id, graph_id, graph, None))
+            data_translated.append((node_id, stream_id, graph, None))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {graph_str}")
 
