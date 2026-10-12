@@ -17,8 +17,8 @@ from gladoss.modules.stream.info_elem import StreamInfoElement
 logger = logging.getLogger(__name__)
 
 
-def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
-                    rtime: datetime, econf: SimpleNamespace)\
+def validate_stream(store: MemoryStore, node_id: str, stream_id,
+                    endpoint: str, rtime: datetime, econf: SimpleNamespace)\
         -> tuple[StreamValidationReport, dict[StreamInfoElement, Any]]:
     """ Validate the characteristics of a stream associated with a node
         and endpoint against historical data points. Returns a report
@@ -34,28 +34,30 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
     cache_dct = dict()
     status_msg_lst = list()
 
-    if node_id not in store.nodes:
+    if stream_id not in store.nodes:
         # historical data not available for this message stream
-        logger.error("Aborted transmission validation: node unknown "
-                     f"'{node_id}'")
+        logger.error("Aborted transmission validation: stream unknown "
+                     f"'{stream_id}'")
 
         return (StreamValidationReport(
-                 subject_id=node_id,
+                 node_id=node_id,
+                 stream_id=stream_id,
                  endpoint=endpoint,
                  timestamp=rtime,
                  status_code=ValidationReport.StatusCode.ERROR),
                 cache_dct)
 
     # determine length of historical data points
-    if len(store.get(node_id, StreamInfoElement.RTIME)) < econf.grace_period:
+    if len(store.get(stream_id, StreamInfoElement.RTIME)) < econf.grace_period:
         logger.info("Within grace period: skipping transmission validation "
-                    f"({node_id})")
+                    f"of stream '{stream_id}' from node '{node_id}'.")
     else:
-        logger.info(f"Creating transmission validation report ({node_id})")
+        logger.info("Creating transmission validation report of stream "
+                    f"'{stream_id}' from node '{node_id}'.")
 
     # validate stream characteristics
     status_msg_upd, cache_upd\
-        = validate_message_reception_interval(store, node_id, rtime,
+        = validate_message_reception_interval(store, stream_id, rtime,
                                               econf.alpha_critical,
                                               econf.alpha_suspicious,
                                               econf.pi_tolerance,
@@ -75,9 +77,10 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
                 break
 
     logger.info(f"Transmission validation status {status_code_max.name} "
-                f"({node_id})")
+                f"({stream_id})")
 
-    return (StreamValidationReport(subject_id=node_id,
+    return (StreamValidationReport(node_id=node_id,
+                                   stream_id=stream_id,
                                    endpoint=endpoint,
                                    timestamp=rtime,
                                    status_code=status_code_max,
@@ -86,7 +89,7 @@ def validate_stream(store: MemoryStore, node_id: str, endpoint: str,
 
 
 def validate_message_reception_interval(store: MemoryStore,
-                                        node_id: str,
+                                        stream_id: str,
                                         rtime: datetime,
                                         alpha_critical: float,
                                         alpha_suspicious: float,
@@ -118,17 +121,17 @@ def validate_message_reception_interval(store: MemoryStore,
     cache_dct = dict()
     status_msg_lst = list()
 
-    data_lst = store.get(node_id, StreamInfoElement.RINTERVAL)
-    rtime_prev = store.most_recent(node_id, StreamInfoElement.RTIME)
+    data_lst = store.get(stream_id, StreamInfoElement.RINTERVAL)
+    rtime_prev = store.most_recent(stream_id, StreamInfoElement.RTIME)
     if rtime_prev is None or len(data_lst) < grace_period:
         logger.debug("Within grace period "
                      f"[t = {len(data_lst)} < {grace_period}]: "
                      "skipping transmission reception interval validation "
-                     f"({node_id})")
+                     f"of stream '{stream_id}'.")
         return status_msg_lst, cache_dct
     else:
-        logger.debug(f"Validating stream reception interval ({node_id}; "
-                     f"t = {len(data_lst)})")
+        logger.debug("Validating transmission reception interval of "
+                     f"stream '{stream_id}' [t = {len(data_lst)}]")
 
     min_no_samples = 100  # hard lower limit for pi calculation
     if len(data_lst) < min_no_samples:

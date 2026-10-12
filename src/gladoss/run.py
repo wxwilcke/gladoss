@@ -60,13 +60,13 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     """
     # represent validation report
     logger.debug(f"Preparing publication of validation report "
-                 f"({report.subject_id})")
+                 f"('{report.stream_id}')")
     report_graph = report.to_graph(namespace, mkid)
     logger.debug(f" {{\n{'\n  '.join([str(s) for s in report_graph])}\n  }}")
 
     # publish report to endpoint
-    logger.info(f"Publishing validation report ({report.subject_id})")
-    success = adaptor.publish_report(report.type, report.subject_id,
+    logger.info(f"Publishing validation report ('{report.stream_id}')")
+    success = adaptor.publish_report(report.type, report.stream_id,
                                      report_graph, label)
 
     return success
@@ -101,14 +101,14 @@ def process_message(rng: np.random.Generator, mkid: Callable,
 
             break
 
-        (node_id, graph_id, graph_data, graph_label), endpoint, rtime = job
+        (node_id, stream_id, graph_data, graph_label), endpoint, rtime = job
         logger.info(f"Received new message from '{endpoint}'")
 
         # process stream info in parallel
         thread_id = f"worker-{len(jobs_active)+1}"
         thread = threading.Thread(target=process_stream, name=thread_id,
-                                  args=(sc_store, node_id, endpoint, rtime,
-                                        econf, q_rpt, q_rpts))
+                                  args=(sc_store, node_id, stream_id, endpoint,
+                                        rtime, econf, q_rpt, q_rpts))
         thread.start()
         jobs_active.append(thread)
 
@@ -116,8 +116,8 @@ def process_message(rng: np.random.Generator, mkid: Callable,
         thread_id = f"worker-{len(jobs_active)+1}"
         thread = threading.Thread(target=process_graph, name=thread_id,
                                   args=(rng, mkid, gp_store, graph_data,
-                                        graph_id, graph_label, rtime,
-                                        pconf, econf, q_rpt))
+                                        node_id, stream_id, graph_label,
+                                        rtime, pconf, econf, q_rpt))
         thread.start()
         jobs_active.append(thread)
 
@@ -269,12 +269,12 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             assert isinstance(report, ValidationReport)
             logger.debug("Processing validation report with status "
                          f"{report.status_code.name} "
-                         f"({report.subject_id})")
+                         f"('{report.stream_id}')")
             if report.status_code >= econf.report_level:
                 if not publish_validation_report(adaptor, report, label,
                                                  flags.namespace, mkid):
                     logger.info("Unable to publish validation report "
-                                f"({report.subject_id})")
+                                f"('{report.stream_id}')")
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 

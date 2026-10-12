@@ -16,17 +16,16 @@ from gladoss.modules.stream.validator import validate_stream
 logger = logging.getLogger(__name__)
 
 
-def schedule_rinterval_check(
-        node_id: str, endpoint: str,
-        rtime: datetime, q_rpts: Queue,
-        cache: dict[StreamInfoElement, Any]) -> bool:
+def schedule_rinterval_check(node_id: str, stream_id: str, endpoint: str,
+                             rtime: datetime, q_rpts: Queue,
+                             cache: dict[StreamInfoElement, Any]) -> bool:
     """ Schedule a report publication at the moment of exceeding the
         expected reception interval of the next message from the
         specified node. This cancels a previously scheduled report
         about that node---calling this function confirms the reception
         of a previous message.
 
-    :param node_id: [TODO:description]
+    :param stream_id: [TODO:description]
     :param endpoint: [TODO:description]
     :param rtime: [TODO:description]
     :param q_rpts: [TODO:description]
@@ -63,10 +62,12 @@ def schedule_rinterval_check(
     status_msg = "Critical Reception Interval Deviation"
     status_msg_long = \
         "Message not received within expected interval "\
-        f"of {rinterval_str} from endpoint '{endpoint}'"
+        f"of {rinterval_str} from node '{node_id}' via "\
+        f"endpoint '{endpoint}' on stream '{stream_id}'."
     status_code = ValidationReport.StatusCode.CRITICAL
 
-    report = StreamValidationReport(subject_id=node_id,
+    report = StreamValidationReport(node_id=node_id,
+                                    stream_id=stream_id,
                                     endpoint=endpoint,
                                     timestamp=rtime,
                                     status_code=status_code,
@@ -75,7 +76,7 @@ def schedule_rinterval_check(
                                                      status_code)])
 
     # schedule report for publication
-    q_rpts.put((node_id, report, rinterval_upper))
+    q_rpts.put((stream_id, report, rinterval_upper))
 
     logger.debug("Scheduled reception interval check.")
 
@@ -83,7 +84,7 @@ def schedule_rinterval_check(
 
 
 def update_stream_characteristics(
-        store: MemoryStore, node_id: str, endpoint: str,
+        store: MemoryStore, node_id: str, stream_id: str, endpoint: str,
         rtime: datetime, q_rpts: Queue, schedule_report: bool,
         cache: dict[StreamInfoElement, Any])\
             -> bool:
@@ -95,29 +96,31 @@ def update_stream_characteristics(
         instable stream.
 
     :param store: [TODO:description]
-    :param node_id: [TODO:description]
+    :param stream_id: [TODO:description]
     :param rtime: [TODO:description]
     :return: [TODO:description]
     """
     success = True
-    logger.info(f"Updating transmission parameters ({node_id})")
+    logger.info(f"Updating transmission parameters ({stream_id})")
 
     # reception interval
-    rtime_prev = store.most_recent(node_id, StreamInfoElement.RTIME)
+    rtime_prev = store.most_recent(stream_id, StreamInfoElement.RTIME)
     if rtime_prev is not None:
         rinterval = (rtime - rtime_prev).total_seconds()  # type: float
-        if not store.add(node_id, StreamInfoElement.RINTERVAL, rinterval):
+        if not store.add(stream_id, StreamInfoElement.RINTERVAL, rinterval):
             success = False
 
         # schedule report for exceeding expected interval on next message
         if schedule_report:
-            schedule_rinterval_check(node_id, endpoint, rtime, q_rpts, cache)
+            schedule_rinterval_check(node_id, stream_id, endpoint,
+                                     rtime, q_rpts, cache)
 
     return success
 
 
-def create_validation_report(store: MemoryStore, node_id: str, endpoint: str,
-                             rtime: datetime, econf: SimpleNamespace)\
+def create_validation_report(store: MemoryStore, node_id: str, stream_id: str,
+                             endpoint: str, rtime: datetime,
+                             econf: SimpleNamespace)\
         -> tuple[StreamValidationReport, dict[StreamInfoElement, Any]]:
     """ Generate a validation report for the monitored stream from the
         provided node. This will start the validation procedure.
@@ -125,17 +128,20 @@ def create_validation_report(store: MemoryStore, node_id: str, endpoint: str,
     :return: [TODO:description]
     """
     try:
-        report, cache = validate_stream(store, node_id, endpoint, rtime, econf)
+        report, cache = validate_stream(store, node_id, stream_id,
+                                        endpoint, rtime, econf)
     except Exception as err:
         logger.error(f"Exception during transmission validation: {err}")
 
         # create validation report without technical detaiks (which are logged)
         status_msg = "Validation Malfunction"
-        status_msg_long = "An exception occurred during the evaluation of "\
-                          f"the monitored transmission from node '{node_id}.'"
+        status_msg_long = ("An exception occurred during the evaluation of "
+                           f"the stream from node '{node_id}' via endpoint "
+                           f"'{endpoint}' ('{stream_id}.').")
         status_code = ValidationReport.StatusCode.ERROR
         report = StreamValidationReport(endpoint=endpoint,
-                                        subject_id=node_id,
+                                        node_id=node_id,
+                                        stream_id=stream_id,
                                         timestamp=rtime,
                                         status_code=status_code,
                                         status_msg_lst=[(status_msg,
@@ -145,8 +151,8 @@ def create_validation_report(store: MemoryStore, node_id: str, endpoint: str,
     return report, cache
 
 
-def process_stream(store: MemoryStore, node_id: str, endpoint: str,
-                   rtime: datetime,  econf: SimpleNamespace,
+def process_stream(store: MemoryStore, node_id: str, stream_id: str,
+                   endpoint: str, rtime: datetime,  econf: SimpleNamespace,
                    q_rpt: Queue, q_rpts: Queue)\
         -> None:
     """ Process various stream characteristics. This procedure will first
@@ -156,7 +162,7 @@ def process_stream(store: MemoryStore, node_id: str, endpoint: str,
         validation report with is always returned.
 
     :param store: [TODO:description]
-    :param node_id: [TODO:description]
+    :param stream_id: [TODO:description]
     :param endpoint: [TODO:description]
     :param rtime: [TODO:description]
     """
@@ -164,38 +170,40 @@ def process_stream(store: MemoryStore, node_id: str, endpoint: str,
         return
 
     thread_id = threading.current_thread().name
-    logger.info(f"Processing new transmission ({node_id})")
+    logger.info(f"Processing transmission from node '{node_id}' "
+                f"('{stream_id}')")
 
-    # register graph by identifier if needed
-    if node_id not in store.nodes:
+    # register stream by identifier if needed
+    if stream_id not in store.nodes:
         logger.debug("Associated stream not found "
-                     f"({node_id})")
-        logger.info(f"Registering new transmission stream ({node_id})")
-        if not store.register_node(node_id):
-            logger.error(f"Unable to register or access stream ({node_id})")
+                     f"('{stream_id}')")
+        logger.info(f"Registering new transmission stream ('{stream_id}')")
+        if not store.register_node(stream_id):
+            logger.error("Unable to register or access stream "
+                         f"('{stream_id}')")
 
         return  # no need to evaluate the stream on first sight
 
-    logger.debug(f"Associated stream found ({node_id})")
+    logger.debug(f"Associated stream found ('{stream_id}')")
 
     # validate stream characteristics
-    report, cache = create_validation_report(store, node_id, endpoint,
-                                             rtime, econf)
+    report, cache = create_validation_report(store, node_id, stream_id,
+                                             endpoint, rtime, econf)
     if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                               ValidationReport.StatusCode.NODATA,
                               ValidationReport.StatusCode.SUSPICIOUS]:
         # update parameters if non-critical (to allow natural drift)
         if not update_stream_characteristics(
-                store, node_id, endpoint, rtime, q_rpts,
-                econf.proactive_notification, cache):
+                store, node_id, stream_id, endpoint, rtime,
+                q_rpts, econf.proactive_notification, cache):
             logger.error("Encountered problems during transmission "
-                         f"parameters update ({node_id})")
+                         f"parameters update ('{stream_id}')")
     else:
-        logger.info(f"Transmission failed validation ({node_id})")
+        logger.info(f"Transmission failed validation ('{stream_id}')")
 
     # always update reception time
-    if not store.add(node_id, StreamInfoElement.RTIME, rtime):
+    if not store.add(stream_id, StreamInfoElement.RTIME, rtime):
         logger.error("Unable to update transmission reception time "
-                     f"({node_id})")
+                     f"('{stream_id}')")
 
     q_rpt.put((thread_id, (report, None)))

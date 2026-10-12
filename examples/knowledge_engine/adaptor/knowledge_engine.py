@@ -189,6 +189,7 @@ class KE_Adaptor(Adaptor):
         self.context['postKnowledgeInteractions'] = dict()
         self.context['postKowledgeInteractionConnectors'] = dict()
         self.context['argumentGraphPatterns'] = dict()
+        self.context['argumentGraphPatternsNodeID'] = dict()
 
         kb_id = conf['knowledgeBaseId']
         kb_name = conf['knowledgeBaseName']
@@ -199,6 +200,7 @@ class KE_Adaptor(Adaptor):
                 # keep track of registered knowledge interactions
                 self.context['reactKnowledgeInteractions'][ki_endpoint] = set()
 
+            ki_node_id_var = ki['argumentGraphPatternNodeID'][1:]  # omit '?'
             ki_pattern = ki['argumentGraphPattern']
             ki_prefixes = ki['prefixes']
             ki_payload = {
@@ -223,12 +225,14 @@ class KE_Adaptor(Adaptor):
                 logger.info("Registered REACT knowledge interaction at "
                             f"endpoint {ki_endpoint}")
 
-                self.context['reactKnowledge'
-                             'Interactions'][ki_endpoint].add(ki_id)
-                self.context['reactKnowledge'
-                             'InteractionsInv'][ki_id] = ki_endpoint
-                self.context['argumentGraphPatterns'][ki_id] = [ki_pattern,
-                                                                ki_prefixes]
+                _rki = self.context['reactKnowledgeInteractions']
+                _rki[ki_endpoint].add(ki_id)
+                self.context['reactKnowledgeInteractionsInv'][ki_id]\
+                    = ki_endpoint
+                self.context['argumentGraphPatterns'][ki_id]\
+                    = [ki_pattern, ki_prefixes]
+                self.context['argumentGraphPatternsNodeID'][ki_id]\
+                    = ki_node_id_var
             except Exception:
                 logger.error(f"Unable to register at endpoint '{ki_endpoint}'")
 
@@ -488,18 +492,19 @@ class KE_Adaptor(Adaptor):
                           + f"with knowledge interaction {ki_id}")
             return data_translated
 
-        # node identifier
-        node_id = ki_id  # the KI ID refers to this specific stream
-
-        # graph identifier
-        graph_id = ki_id  # the KI ID is associated with example one graph
+        # stream identifier
+        stream_id = ki_id  # the KI ID is associated with example one stream
 
         ki_pattern, ki_prefixes = self.context['argumentGraphPatterns'][ki_id]
+        ki_node_id_var = self.context['argumentGraphPatternsNodeID'][ki_id]
         bindings = data["bindingSet"]  # type: list[dict[str,str]]
         try:
             statements_lst = self.create_pattern_template(ki_pattern,
                                                           ki_prefixes)
             for bset in bindings:
+                # node identifier
+                node_id = bset.get(ki_node_id_var)
+
                 graph = list()
                 for s in self.instantiate_graph(statements_lst, bset):
                     match = re.fullmatch(STATEMENT, s)
@@ -508,7 +513,7 @@ class KE_Adaptor(Adaptor):
 
                         graph.append(fact)
 
-                data_translated.append((node_id, graph_id, graph, None))
+                data_translated.append((node_id, stream_id, graph, None))
         except Exception:
             raise SyntaxWarning(f"Unexpected data format: {bindings}")
 

@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 def validate_state_graph(rng: np.random.Generator,
+                         node_id: str,
+                         stream_id: str,
+                         graph_id: str,
                          pattern: GraphPattern,
                          graph: Collection[Statement],
                          pattern_map: tuple[list[tuple[Statement,
@@ -51,7 +54,8 @@ def validate_state_graph(rng: np.random.Generator,
     """
     # validate structure, semantics, and data
     status_msg_lst_map, status_msg_lst\
-        = validate_state_graph_components(rng, pattern, pattern_map, config)
+        = validate_state_graph_components(rng, graph_id, pattern,
+                                          pattern_map, config)
 
     # summarize validation results by highest code
     status_code_max = ValidationReport.StatusCode.NOMINAL
@@ -65,13 +69,15 @@ def validate_state_graph(rng: np.random.Generator,
                 break
 
     logger.info(f"Graph validation status {status_code_max.name} "
-                f"({pattern._id})")
+                f"('{graph_id}')")
 
     # convert to simpler form for validation report
     assertion_ap_pairs, _, _ = pattern_map
     apa_map = {ap._id: a for a, ap in assertion_ap_pairs}
 
-    return GraphValidationReport(subject_id=pattern._id,
+    return GraphValidationReport(node_id=node_id,
+                                 stream_id=stream_id,
+                                 graph_id=graph_id,
                                  pattern=pattern,
                                  graph=graph,
                                  apa_map=apa_map,
@@ -82,6 +88,7 @@ def validate_state_graph(rng: np.random.Generator,
 
 
 def validate_state_graph_components(rng: np.random.Generator,
+                                    graph_id: str,
                                     pattern: GraphPattern,
                                     pattern_map: tuple[
                                         list[tuple[Statement,
@@ -113,10 +120,10 @@ def validate_state_graph_components(rng: np.random.Generator,
             logger.debug(f"In grace period "
                          f"[t = {pattern._t} < {config.grace_period}]: "
                          "skipping graph structure validation "
-                         f"({pattern._id})")
+                         f"('{graph_id}')")
         else:
             # no longer in learning phase
-            logger.info(f"Validating graph structure ({pattern._id})")
+            logger.info(f"Validating graph structure ('{graph_id}')")
             status_msg_lst_struc = validate_graph_structure(pattern,
                                                             assertion_ap_pairs,
                                                             unmatched,
@@ -131,11 +138,11 @@ def validate_state_graph_components(rng: np.random.Generator,
                 logger.debug("In grace period "
                              f"[t = {ap._t} < {config.grace_period}]: "
                              "skipping graph data validation of component "
-                             f"{i}/{len(assertion_ap_pairs)} ({pattern._id})")
+                             f"{i}/{len(assertion_ap_pairs)} ('{graph_id}')")
                 continue
 
             logger.info("Validating graph data of component "
-                        f"{i}/{len(assertion_ap_pairs)} ({pattern._id})")
+                        f"{i}/{len(assertion_ap_pairs)} ('{graph_id}')")
             status_msg_lst = validate_graph_data(rng, assertion, ap,
                                                  config.alpha_critical,
                                                  config.alpha_suspicious,

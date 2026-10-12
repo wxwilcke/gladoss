@@ -100,7 +100,9 @@ class ValidationReport():
     def __init__(
             self,
             type: ValidationReport.ReportType,
-            subject_id: str,
+            node_id: str,
+            stream_id: str,
+            graph_id: Optional[str],
             timestamp: datetime,
             status_code: ValidationReport.StatusCode,
             status_msg_lst: list[tuple[str,
@@ -123,7 +125,9 @@ class ValidationReport():
         :param status_msg_lst_map: [TODO:description]
         """
         self.type = type
-        self.subject_id = subject_id
+        self.node_id = node_id
+        self.stream_id = stream_id
+        self.graph_id = graph_id
         self.timestamp = timestamp
         self.status_code = status_code
         self.status_msg_lst_map = status_msg_lst_map
@@ -132,7 +136,10 @@ class ValidationReport():
 
 class GraphValidationReport(ValidationReport):
     def __init__(
-            self, subject_id: str,
+            self,
+            node_id: str,
+            stream_id: str,
+            graph_id: str,
             pattern: GraphPattern,
             graph: Collection[Statement],
             apa_map: dict[str, Statement],
@@ -160,7 +167,9 @@ class GraphValidationReport(ValidationReport):
         :param status_msg_long: [TODO:description]
         """
         super().__init__(ValidationReport.ReportType.GRAPH_VALIDATION_REPORT,
-                         subject_id,
+                         node_id,
+                         stream_id,
+                         graph_id,
                          timestamp,
                          status_code,
                          status_msg_lst,
@@ -204,7 +213,7 @@ class GraphValidationReport(ValidationReport):
         :return: [TODO:description]
         """
         logger.debug("Exporting graph validation report to SHACL "
-                     f"({self.subject_id})")
+                     f"('{self.graph_id}')")
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:
@@ -224,7 +233,7 @@ class GraphValidationReport(ValidationReport):
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
             Statement(root, DCT + 'subject',
-                      Literal(self.subject_id, datatype=XSD + 'string')),
+                      Literal(self.node_id, datatype=XSD + 'string')),
             Statement(root, DCT + 'conformsTo', Literal(
                 "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
             ]
@@ -299,6 +308,8 @@ class GraphValidationReport(ValidationReport):
 
     def __hash__(self):
         return hash(str(self.pattern)
+                    + str(self.node_id)
+                    + str(self.stream_id)
                     + str(self.graph)
                     + str(self.timestamp))
 
@@ -306,7 +317,8 @@ class GraphValidationReport(ValidationReport):
 class StreamValidationReport(ValidationReport):
     def __init__(
             self,
-            subject_id: str,
+            node_id: str,
+            stream_id: str,
             endpoint: str,
             timestamp: datetime,
             status_code: ValidationReport.StatusCode,
@@ -334,12 +346,15 @@ class StreamValidationReport(ValidationReport):
         :param status_msg_long: [TODO:description]
         """
 
-        super().__init__(ValidationReport.ReportType.STREAM_VALIDATION_REPORT,
-                         subject_id,
-                         timestamp,
-                         status_code,
-                         status_msg_lst,
-                         status_msg_lst_map)
+        super().__init__(
+                type=ValidationReport.ReportType.STREAM_VALIDATION_REPORT,
+                node_id=node_id,
+                stream_id=stream_id,
+                graph_id=None,
+                timestamp=timestamp,
+                status_code=status_code,
+                status_msg_lst=status_msg_lst,
+                status_msg_lst_map=status_msg_lst_map)
 
         self.endpoint = endpoint
 
@@ -374,7 +389,7 @@ class StreamValidationReport(ValidationReport):
         :return: [TODO:description]
         """
         logger.debug("Exporting stream validation report to SHACL "
-                     f"({self.subject_id})")
+                     f"({self.stream_id})")
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:
@@ -394,7 +409,7 @@ class StreamValidationReport(ValidationReport):
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
             Statement(root, DCT + 'subject',
-                      Literal(self.subject_id, datatype=XSD + 'string')),
+                      Literal(self.node_id, datatype=XSD + 'string')),
 
             Statement(root, DCT + 'conformsTo', Literal(
                 "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
@@ -435,7 +450,8 @@ class StreamValidationReport(ValidationReport):
 
     def __hash__(self):
         return hash(str(self.endpoint)
-                    + str(self.subject_id)
+                    + str(self.node_id)
+                    + str(self.stream_id)
                     + str(self.timestamp))
 
 
@@ -499,7 +515,7 @@ class ReportScheduler():
             if time is None or report is None:
                 # this was a cancel request
                 logger.debug("Cancelled scheduled report "
-                             f"({report.subject_id})")
+                             f"('{report.stream_id}')")
 
                 continue
 
@@ -516,7 +532,7 @@ class ReportScheduler():
             self.timers_active[name] = timer
 
             logger.debug(f"Scheduled report for +{time:0.3g}s "
-                         f"({report.subject_id})")
+                         f"('{report.stream_id}')")
 
     def enable(self):
         """ Start the report scheduler in a new thread.
@@ -555,5 +571,5 @@ class ReportScheduler():
         """
         thread_id = threading.current_thread().name
 
-        logger.debug(f"Pushing scheduled report ({report.subject_id})")
+        logger.debug(f"Pushing scheduled report ('{report.stream_id}')")
         self.q_rapport.put((thread_id, (report, None)))
