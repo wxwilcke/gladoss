@@ -47,10 +47,10 @@ def create_validation_report(rng: np.random.Generator,
     """
     try:
         if pattern._t >= econf.grace_period:
-            logger.info(f"Creating graph validation report ('{graph_id}')")
+            logger.info(f"Creating graph validation report (GID '{graph_id}')")
         else:
             logger.info("Within grace period: skipping graph validation "
-                        f"('{graph_id}')")
+                        f"(GID '{graph_id}')")
         report = validate_state_graph(rng, node_id, stream_id, graph_id,
                                       pattern, graph, pattern_map, rtime,
                                       econf)
@@ -64,8 +64,9 @@ def create_validation_report(rng: np.random.Generator,
         # create validation report without technical detaiks (which are logged)
         status_msg = "Validation Malfunction"
         status_msg_long = "An exception occurred during the evaluation of "\
-                          f"the observed state graph ('{graph_id})'."
+                          f"the observed state graph (GID '{graph_id})'."
         status_code = ValidationReport.StatusCode.ERROR
+        violation_type = ValidationReport.ViolationType.ERR
         report = GraphValidationReport(node_id=node_id,
                                        stream_id=stream_id,
                                        graph_id=graph_id,
@@ -75,7 +76,8 @@ def create_validation_report(rng: np.random.Generator,
                                        status_code=status_code,
                                        status_msg_lst=[(status_msg,
                                                         status_msg_long,
-                                                        status_code)])
+                                                        status_code,
+                                                        violation_type)])
 
     return report
 
@@ -99,8 +101,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     :param config: [TODO:description]
     """
     thread_id = threading.current_thread().name
-    logger.info(f"Processing graph from node '{node_id}' "
-                f"('{stream_id}')")
+    logger.info(f"Processing graph (SID '{stream_id}')")
     logger.debug(f" {{\n{'\n  '.join([str(s) for s in graph])}\n  }}")
 
     # TODO: each stream is currently associated with exactly one graph. In
@@ -111,18 +112,19 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
 
     pattern = pv.find_associated_graph_pattern(graph_id)
     if pattern is None:
-        logger.debug(f"Associated pattern not found ('{graph_id}')")
+        logger.debug(f"Associated pattern not found (GID '{graph_id}')")
         pattern = create_graph_pattern(mkid=mkid, graph=graph,
                                        graph_id=graph_id,
                                        threshold=pconf.pattern_threshold,
                                        decay=pconf.pattern_decay)
 
-        logger.debug(f"Registering new graph pattern ('{graph_id}')")
+        logger.debug(f"Registering new graph pattern (GID '{graph_id}')")
         pv.add_graph_pattern(pattern)
 
         return  # no need to evaluate a graph on first sight
 
-    logger.debug(f"Associated pattern found ('{graph_id}') [t = {pattern._t}]")
+    logger.debug(f"Associated pattern found (GID '{graph_id}') "
+                 f"[epoch {pattern._t}]")
 
     pattern_map = create_pattern_map(graph, pattern)
     report = create_validation_report(rng, node_id, stream_id, graph_id,
@@ -133,7 +135,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
                               ValidationReport.StatusCode.SUSPICIOUS]:
         # update parameters if non-critical (to allow natural drift)
         if pattern._t >= econf.grace_period:
-            logger.info(f"Graph passed validation ('{graph_id}')")
+            logger.info(f"Graph passed validation (GID '{graph_id}')")
 
         # either the state graph passed the validation check
         # or a non-critical deviation has been detected
@@ -141,6 +143,6 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
                                             pattern_map, pconf)
         pv.update_graph_pattern(gpattern_upd, rtime)
     else:
-        logger.info(f"Graph failed validation ('{graph_id}')")
+        logger.info(f"Graph failed validation (GID '{graph_id}')")
 
     q_rpt.put((thread_id, (report, graph_label)))

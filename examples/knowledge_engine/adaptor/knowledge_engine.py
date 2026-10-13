@@ -32,7 +32,7 @@ FILENAME_CONF = "knowledge_engine.toml"
 CONF_PATH = os.path.join(FILE_DIR, FILENAME_CONF)
 REPORT_GRAPH_PATTERN_GRAPH = """
 ?report rdf:type sh:ValidationReport .
-?report dct:date ?reportDate .
+?report dct:issued ?reportDate .
 ?report dct:subject ?reportSubject .
 ?report dct:conformsTo ?reportLanguage .
 ?report sh:conforms ?validationPassed .
@@ -43,6 +43,7 @@ REPORT_GRAPH_PATTERN_GRAPH = """
 ?result sh:focusNode ?resultFocusNode .
 ?result sh:resultPath ?resultPath .
 ?result sh:value ?resultValue .
+?result dct:type ?resultViolationType .
 ?result sh:resultMessage ?resultStatusMsgLong .
 ?result sh:resultSeverity ?resultSeverity .
 
@@ -60,6 +61,7 @@ REPORT_GRAPH_PATTERN_STREAM = """
 
 ?result rdf:type sh:ValidationResult .
 ?result rdfs:label ?resultStatusMsg .
+?result dct:type ?resultViolationType .
 ?result sh:resultMessage ?resultStatusMsgLong .
 ?result sh:resultSeverity ?resultSeverity .
 
@@ -570,7 +572,7 @@ class KE_Adaptor(Adaptor):
             for statement in data:
                 sbj = statement.subject
                 if sbj == root:
-                    if statement.predicate == DCT + "date":
+                    if statement.predicate == DCT + "issued":
                         report[sbj]["reportDate"] = statement.object
 
                         continue
@@ -605,6 +607,9 @@ class KE_Adaptor(Adaptor):
                         results[sbj]["resultValue"] = statement.object
 
                         continue
+                    if statement.predicate == DCT + "type":
+                        results[sbj]["resultViolationType"] = statement.object
+
                     if statement.predicate == SHACL + "resultMessage":
                         results[sbj]["resultStatusMsgLong"] = statement.object
 

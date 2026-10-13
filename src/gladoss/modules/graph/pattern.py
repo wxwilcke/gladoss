@@ -62,13 +62,13 @@ def create_graph_pattern(mkid: Callable,
     :param decay: [TODO:description]
     :return: [TODO:description]
     """
-    logger.info(f"Creating new graph pattern ({graph_id})")
+    logger.info(f"Creating new graph pattern (GID '{graph_id}')")
     # create assertion patterns from given set of assertions
     structure = dict()
     for i, assertion in enumerate(graph, 1):
         # TODO; accomodate dangling heads
         logger.info(f"Creating new assertion pattern {i}/{len(graph)} "
-                    f"({graph_id})")
+                    f"(GID '{graph_id}')")
 
         anchor = infer_class(assertion.subject, graph)
         ap = create_assertion_pattern(mkid, assertion, anchor)
@@ -96,7 +96,7 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     :param gPattern: [TODO:description]
     :param facts: [TODO:description]
     """
-    logger.info(f"Updating graph pattern parameters ({gPattern._id})")
+    logger.info(f"Updating graph pattern parameters (GID '{gPattern._id}')")
     # unpack assertion to assertion pattern map
     assertion_ap_pairs, assertion_uc_pairs, unmatched = pattern_map
 
@@ -486,7 +486,7 @@ class GraphPattern():
         :return: [TODO:description]
         """
         logger.info("Generating SHACL shape graph for graph pattern "
-                    f"{self._id}")
+                    f"(GID '{self._id}')")
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:

@@ -59,8 +59,8 @@ def validate_state_graph(rng: np.random.Generator,
 
     # summarize validation results by highest code
     status_code_max = ValidationReport.StatusCode.NOMINAL
-    for _, _, status_code in chain.from_iterable([*status_msg_lst_map.values(),
-                                                  status_msg_lst]):
+    for _, _, status_code, _ in chain.from_iterable([
+            *status_msg_lst_map.values(), status_msg_lst]):
         if status_code > status_code_max:
             status_code_max = status_code
 
@@ -69,7 +69,7 @@ def validate_state_graph(rng: np.random.Generator,
                 break
 
     logger.info(f"Graph validation status {status_code_max.name} "
-                f"('{graph_id}')")
+                f"(GID '{graph_id}')")
 
     # convert to simpler form for validation report
     assertion_ap_pairs, _, _ = pattern_map
@@ -118,12 +118,12 @@ def validate_state_graph_components(rng: np.random.Generator,
         # validate the structure of the state graph
         if pattern._t < config.grace_period:
             logger.debug(f"In grace period "
-                         f"[t = {pattern._t} < {config.grace_period}]: "
+                         f"[epoch {pattern._t} < {config.grace_period}]: "
                          "skipping graph structure validation "
-                         f"('{graph_id}')")
+                         f"(GID '{graph_id}')")
         else:
             # no longer in learning phase
-            logger.info(f"Validating graph structure ('{graph_id}')")
+            logger.info(f"Validating graph structure (GID '{graph_id}')")
             status_msg_lst_struc = validate_graph_structure(pattern,
                                                             assertion_ap_pairs,
                                                             unmatched,
@@ -136,13 +136,14 @@ def validate_state_graph_components(rng: np.random.Generator,
             if ap._t < config.grace_period:
                 # still in learning phase
                 logger.debug("In grace period "
-                             f"[t = {ap._t} < {config.grace_period}]: "
+                             f"[epoch {ap._t} < {config.grace_period}]: "
                              "skipping graph data validation of component "
-                             f"{i}/{len(assertion_ap_pairs)} ('{graph_id}')")
+                             f"{i}/{len(assertion_ap_pairs)} "
+                             f"(GID '{graph_id}')")
                 continue
 
             logger.info("Validating graph data of component "
-                        f"{i}/{len(assertion_ap_pairs)} ('{graph_id}')")
+                        f"{i}/{len(assertion_ap_pairs)} (GID '{graph_id}')")
             status_msg_lst = validate_graph_data(rng, assertion, ap,
                                                  config.alpha_critical,
                                                  config.alpha_suspicious,
@@ -161,7 +162,9 @@ def validate_graph_data(rng: np.random.Generator,
                         alpha_critical: float, alpha_suspicious: float,
                         timestamp_eval: bool, samplesize: int,
                         interruption: int, tolerance: float)\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Validate the data of a single assertion by checking resource and data
         types, comparing provided and expected values, and performing
         statistical tests. Mutiple validation checks are performed to provide
@@ -191,11 +194,13 @@ def validate_graph_data(rng: np.random.Generator,
                 f"OBSERVED: N = {ap.value.num_samples} {EMDASH} "\
                 f"EXPECTED: N >= {min_no_samples} {QED}"
             status_code = ValidationReport.StatusCode.NODATA
+            violation_type = ValidationReport.ViolationType.DAT
 
             logger.info(status_msg_long)
 
             # skip further evaluation
-            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+            status_msg_lst.extend([(status_msg, status_msg_long,
+                                    status_code, violation_type)])
 
             return status_msg_lst
 
@@ -214,7 +219,9 @@ def validate_graph_data(rng: np.random.Generator,
 
 def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
                                  dtype_observed: Optional[IRIRef])\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Evaluate whether the provided resource fits to the associated discrete
         distribution, by checking resource type, data type, and the category of
         the data type against that of the expected distribution. This fuction
@@ -238,7 +245,8 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
             f"OBSERVED: '{type(assertion.object)}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
-                               ValidationReport.StatusCode.CRITICAL))
+                               ValidationReport.StatusCode.CRITICAL,
+                               ValidationReport.ViolationType.GSV1))
         logger.info(status_msg_long)
     elif isinstance(assertion.object, Literal):
         if dtype_observed not in XSD_DISCRETE:
@@ -251,7 +259,8 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
                 f"OBSERVED: '{type(assertion.object)}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.INCONSISTENCY))
+                                   ValidationReport.StatusCode.INCONSISTENCY,
+                                   ValidationReport.ViolationType.GSV6))
             logger.info(status_msg_long)
 
         if ap.value.dtype is not None\
@@ -264,7 +273,8 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
                 f"OBSERVED: '{dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.INCONSISTENCY))
+                                   ValidationReport.StatusCode.INCONSISTENCY,
+                                   ValidationReport.ViolationType.GSV4))
             logger.info(status_msg_long)
 
     return status_msg_lst
@@ -272,7 +282,9 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
 
 def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
                                    dtype_observed: Optional[IRIRef])\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Evaluate whether the provided resource fits to the associated
         continuous distribution, by checking resource type, data type, and the
         category of the data type against that of the expected distribution.
@@ -295,7 +307,8 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
             f"OBSERVED: '{type(assertion.object)}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
-                               ValidationReport.StatusCode.CRITICAL))
+                               ValidationReport.StatusCode.CRITICAL,
+                               ValidationReport.ViolationType.GSV1))
         logger.info(status_msg_long)
     else:
         if dtype_observed not in XSD_CONTINUOUS:
@@ -308,7 +321,8 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
                 f"OBSERVED: '{type(assertion.object)}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.INCONSISTENCY))
+                                   ValidationReport.StatusCode.INCONSISTENCY,
+                                   ValidationReport.ViolationType.GVV1))
             logger.info(status_msg_long)
         if ap.value.dtype is not None\
                 and dtype_observed != ap.value.dtype:
@@ -320,7 +334,8 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
                 f"OBSERVED: '{dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.INCONSISTENCY))
+                                   ValidationReport.StatusCode.INCONSISTENCY,
+                                   ValidationReport.ViolationType.GSV4))
             logger.info(status_msg_long)
 
     return status_msg_lst
@@ -335,7 +350,9 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                                      samplesize: int,
                                      interruption: int,
                                      tolerance: float)\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Validate various aspects of a newly observed value against the
         distribution that belongs to the associated pattern.
 
@@ -428,7 +445,9 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 def validate_graph_data_categorical(assertion: Statement,
                                     ap: AssertionPattern,
                                     value_new: str)\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Test whether a newly observed value is a member of the set
         of nominal values, and, if this is not the case, flag the
         value as a critical anomaly.
@@ -461,7 +480,8 @@ def validate_graph_data_categorical(assertion: Statement,
             f"OBSERVED: '{assertion.object}' {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
-        status_msg_lst.append((status_msg, status_msg_long, status_code))
+        status_msg_lst.append((status_msg, status_msg_long, status_code,
+                               ValidationReport.ViolationType.GVV1))
         logger.info(status_msg_long)
 
     return status_msg_lst
@@ -473,7 +493,9 @@ def validate_graph_data_numerical(assertion: Statement,
                                   alpha_critical: float,
                                   alpha_suspicious: float,
                                   tolerance: float)\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Test whether a newly observed value falls outside the computed
         symmetric non-parametric prediction interval (l, u] at the provided
         critical and suspicious levels, in which case the value is flagged
@@ -510,7 +532,8 @@ def validate_graph_data_numerical(assertion: Statement,
         logger.info(status_msg_long)
 
         # skip further evaluation
-        status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+        status_msg_lst.extend([(status_msg, status_msg_long, status_code,
+                                ValidationReport.ViolationType.DAT)])
 
         return status_msg_lst
 
@@ -552,7 +575,8 @@ def validate_graph_data_numerical(assertion: Statement,
                 f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
 
-            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+            status_msg_lst.extend([(status_msg, status_msg_long, status_code,
+                                    ValidationReport.ViolationType.GVV1)])
             logger.info(status_msg_long)
         elif prob == 1 - alpha_suspicious:
             # observed value falls outside of prediction interval at
@@ -569,7 +593,8 @@ def validate_graph_data_numerical(assertion: Statement,
                 f"OBSERVED: '{assertion.object}' {QED}"
             status_code = ValidationReport.StatusCode.SUSPICIOUS
 
-            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+            status_msg_lst.extend([(status_msg, status_msg_long, status_code,
+                                    ValidationReport.ViolationType.GVV2)])
             logger.info(status_msg_long)
 
     return status_msg_lst
@@ -583,7 +608,9 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
                                          alpha_critical: float,
                                          alpha_suspicious: float,
                                          samplesize: int, interruption: int)\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Test whether the n most recently observed values, including the newly
         observed value, follow the same underlying distribution as the oldest
         N - n observed values. The outcome of this test will be negative if the
@@ -645,7 +672,8 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
             f"OBSERVED: Prob = {p_value:0.2f} {QED}"
         status_code = ValidationReport.StatusCode.CRITICAL
 
-        status_msg_lst.append((status_msg, status_msg_long, status_code))
+        status_msg_lst.append((status_msg, status_msg_long, status_code,
+                               ValidationReport.ViolationType.GVV2))
         logger.info(status_msg_long)
     elif test_suspicious == HypothesisTest.REJECT_H0:
         # enough evidence to reject the zero hypothesis that both samples were
@@ -662,14 +690,17 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
 
         status_code = ValidationReport.StatusCode.SUSPICIOUS
 
-        status_msg_lst.append((status_msg, status_msg_long, status_code))
+        status_msg_lst.append((status_msg, status_msg_long, status_code,
+                               ValidationReport.ViolationType.GVV2))
         logger.info(status_msg_long)
 
     return status_msg_lst
 
 
 def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Evaluate the resources of the observed state graph against the expected
         resources of the associated graph pattern, by checking the resource
         type, data type (in case of Literal), and exact value. This function is
@@ -689,7 +720,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
             f"OBSERVED: '{type(assertion.object)}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
-                               ValidationReport.StatusCode.INCONSISTENCY))
+                               ValidationReport.StatusCode.INCONSISTENCY,
+                               ValidationReport.ViolationType.GSV1))
         logger.info(status_msg_long)
     if isinstance(ap.value, IRIRef) and ap.value != assertion.object:
         status_msg = "Value Equality Violation"
@@ -699,7 +731,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
             f"OBSERVED: '{assertion.object}' {QED}"
 
         status_msg_lst.append((status_msg, status_msg_long,
-                               ValidationReport.StatusCode.CRITICAL))
+                               ValidationReport.StatusCode.CRITICAL,
+                               ValidationReport.ViolationType.GSV2))
         logger.info(status_msg_long)
     elif isinstance(ap.value, Literal):
         dtype_expected = infer_datatype(ap.value)
@@ -713,7 +746,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
                 f"OBSERVED: '{dtype_observed}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.INCONSISTENCY))
+                                   ValidationReport.StatusCode.INCONSISTENCY,
+                                   ValidationReport.ViolationType.GSV4))
             logger.info(status_msg_long)
         if assertion.object != ap.value:
             status_msg = "Value Equality Violation"
@@ -724,7 +758,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
                 f"OBSERVED: '{assertion.object}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.CRITICAL))
+                                   ValidationReport.StatusCode.CRITICAL,
+                                   ValidationReport.ViolationType.GSV3))
             logger.info(status_msg_long)
         if assertion.object.language is not None\
                 and ap.value.language is not None\
@@ -737,7 +772,8 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
                 f"OBSERVED: '{assertion.object.language}' {QED}"
 
             status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.INCONSISTENCY))
+                                   ValidationReport.StatusCode.INCONSISTENCY,
+                                   ValidationReport.ViolationType.GSV5))
 
     return status_msg_lst
 
@@ -747,7 +783,9 @@ def validate_graph_structure(pattern: GraphPattern,
                                                             AssertionPattern]],
                              unmatched: set[Statement],
                              match_cwa: bool, match_exact: bool)\
-        -> list[tuple[str, str, ValidationReport.StatusCode]]:
+        -> list[tuple[str, str,
+                      ValidationReport.StatusCode,
+                      ValidationReport.ViolationType]]:
     """ Validate the structure of the observed state graph, by checking
         possible mapped and unmapped sub-structures.
 
@@ -776,6 +814,13 @@ def validate_graph_structure(pattern: GraphPattern,
                 f"OBSERVED: {matched_str} \N{UNION} {unmatched_str} {EMDASH} "\
                 f"EXPECTED: all of {pattern} {QED}"
             logger.info(status_msg_long)
+
+            if match_exact:
+                status_msg = "Exact Match Requirement Violation."
+                status_msg_lst.append(
+                        (status_msg, status_msg_long,
+                         ValidationReport.StatusCode.INCONSISTENCY,
+                         ValidationReport.ViolationType.GTV3))
         else:  # state graph is smaller than expected
             # this can occur when all assertions are mapped, but some assertion
             # patterns are still unpaired
@@ -790,13 +835,8 @@ def validate_graph_structure(pattern: GraphPattern,
                 status_msg = "Exact Match Requirement Violation."
                 status_msg_lst.append(
                         (status_msg, status_msg_long,
-                         ValidationReport.StatusCode.INCONSISTENCY))
-
-        if match_cwa:
-            # With CWA, we assume that missing pairs are false
-            status_msg = "Closed-World Assumption Violation."
-            status_msg_lst.append((status_msg, status_msg_long,
-                                   ValidationReport.StatusCode.INCONSISTENCY))
+                         ValidationReport.StatusCode.INCONSISTENCY,
+                         ValidationReport.ViolationType.GTV1))
     elif len(assertion_ap_pairs) == len(pattern):  # complete map
         if len(unmatched) > 0:
             unmatched_str = "{'" + "'; '".join(unmatched) + "'}"
@@ -814,6 +854,7 @@ def validate_graph_structure(pattern: GraphPattern,
                 status_msg = "Exact Match Requirement Violation."
                 status_msg_lst.append(
                         (status_msg, status_msg_long,
-                         ValidationReport.StatusCode.INCONSISTENCY))
+                         ValidationReport.StatusCode.INCONSISTENCY,
+                         ValidationReport.ViolationType.GTV2))
 
     return status_msg_lst

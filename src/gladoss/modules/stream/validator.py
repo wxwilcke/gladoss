@@ -36,24 +36,34 @@ def validate_stream(store: MemoryStore, node_id: str, stream_id,
 
     if stream_id not in store.nodes:
         # historical data not available for this message stream
-        logger.error("Aborted transmission validation: stream unknown "
-                     f"'{stream_id}'")
+        logger.error("Aborted transmission stream validation: stream unknown "
+                     f"(SID '{stream_id}')")
+
+        # create report
+        status_msg = "Unknown Stream"
+        status_msg_long = ("Stream ID cannot be found in the registry. "
+                           "Aborting stream validation.")
+        status_code = ValidationReport.StatusCode.ERROR
+        violation_type = ValidationReport.ViolationType.ERR
 
         return (StreamValidationReport(
                  node_id=node_id,
                  stream_id=stream_id,
                  endpoint=endpoint,
                  timestamp=rtime,
-                 status_code=ValidationReport.StatusCode.ERROR),
+                 status_code=ValidationReport.StatusCode.ERROR,
+                 status_msg_lst=[(status_msg,
+                                  status_msg_long,
+                                  status_code,
+                                  violation_type)]),
                 cache_dct)
 
     # determine length of historical data points
     if len(store.get(stream_id, StreamInfoElement.RTIME)) < econf.grace_period:
-        logger.info("Within grace period: skipping transmission validation "
-                    f"of stream '{stream_id}' from node '{node_id}'.")
+        logger.info("Within grace period: skipping stream validation "
+                    f"(SID '{stream_id}').")
     else:
-        logger.info("Creating transmission validation report of stream "
-                    f"'{stream_id}' from node '{node_id}'.")
+        logger.info(f"Creating stream validation report (SID '{stream_id}').")
 
     # validate stream characteristics
     status_msg_upd, cache_upd\
@@ -68,7 +78,7 @@ def validate_stream(store: MemoryStore, node_id: str, stream_id,
 
     # summarize validation results by highest code
     status_code_max = ValidationReport.StatusCode.NOMINAL
-    for _, _, status_code in status_msg_lst:
+    for _, _, status_code, _ in status_msg_lst:
         if status_code > status_code_max:
             status_code_max = status_code
 
@@ -76,8 +86,8 @@ def validate_stream(store: MemoryStore, node_id: str, stream_id,
                 # no need to continue
                 break
 
-    logger.info(f"Transmission validation status {status_code_max.name} "
-                f"({stream_id})")
+    logger.info(f"Stream validation status {status_code_max.name} "
+                f"(SID '{stream_id}')")
 
     return (StreamValidationReport(node_id=node_id,
                                    stream_id=stream_id,
@@ -125,13 +135,13 @@ def validate_message_reception_interval(store: MemoryStore,
     rtime_prev = store.most_recent(stream_id, StreamInfoElement.RTIME)
     if rtime_prev is None or len(data_lst) < grace_period:
         logger.debug("Within grace period "
-                     f"[t = {len(data_lst)} < {grace_period}]: "
+                     f"[epoch {len(data_lst)} < {grace_period}]: "
                      "skipping transmission reception interval validation "
                      f"of stream '{stream_id}'.")
         return status_msg_lst, cache_dct
     else:
         logger.debug("Validating transmission reception interval of "
-                     f"stream '{stream_id}' [t = {len(data_lst)}]")
+                     f"stream '{stream_id}' [epoch {len(data_lst)}]")
 
     min_no_samples = 100  # hard lower limit for pi calculation
     if len(data_lst) < min_no_samples:
@@ -143,11 +153,13 @@ def validate_message_reception_interval(store: MemoryStore,
             f"OBSERVED: N = {len(data_lst)} {EMDASH} "\
             f"EXPECTED: N >= {min_no_samples} {QED}"
         status_code = ValidationReport.StatusCode.NODATA
+        violation_type = ValidationReport.ViolationType.DAT
 
         logger.info(status_msg_long)
 
         # skip further evaluation
-        status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+        status_msg_lst.extend([(status_msg, status_msg_long, status_code,
+                                violation_type)])
 
         return status_msg_lst, cache_dct
 
@@ -202,8 +214,10 @@ def validate_message_reception_interval(store: MemoryStore,
                 f"{EMDASH} "\
                 f"OBSERVED: {rinterval_new:0.3g} seconds {QED}"
             status_code = ValidationReport.StatusCode.CRITICAL
+            violation_type = ValidationReport.ViolationType.SHV1
 
-            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+            status_msg_lst.extend([(status_msg, status_msg_long,
+                                    status_code, violation_type)])
             logger.info(status_msg_long)
         elif prob == 1 - alpha_suspicious:
             # observed value falls outside of prediction interval at
@@ -219,8 +233,10 @@ def validate_message_reception_interval(store: MemoryStore,
                 f"{EMDASH} "\
                 f"OBSERVED: {rinterval_new:0.3g} seconds {QED}"
             status_code = ValidationReport.StatusCode.SUSPICIOUS
+            violation_type = ValidationReport.ViolationType.SHV2
 
-            status_msg_lst.extend([(status_msg, status_msg_long, status_code)])
+            status_msg_lst.extend([(status_msg, status_msg_long,
+                                    status_code, violation_type)])
             logger.info(status_msg_long)
 
     cache_dct[StreamInfoElement.RINTERVAL] = (pi_min, pi_max)

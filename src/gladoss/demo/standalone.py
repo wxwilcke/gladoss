@@ -35,9 +35,12 @@ def main(flags: argparse.Namespace):
                              config=flags)
 
     conn = adaptor.connectors.pop()  # the demo only defines one connector
-    for stream_id, graph_lst, graph_label in conn.listen():
-        print(f" {LAND} ".join([str(fact) for fact in graph_lst]))
-        logger.debug(f"Stream ID: {stream_id}")
+    for payload, endpoint in conn.listen():
+        node_id, stream_id, graph_data, graph_label = payload
+        logger.debug(f"Received message from node '{node_id}' via "
+                     f"endpoint '{endpoint}' on stream '{stream_id}'.")
+
+        print(f" {LAND} ".join([str(fact) for fact in graph_data]))
 
 
 if __name__ == "__main__":

@@ -65,6 +65,7 @@ def schedule_rinterval_check(node_id: str, stream_id: str, endpoint: str,
         f"of {rinterval_str} from node '{node_id}' via "\
         f"endpoint '{endpoint}' on stream '{stream_id}'."
     status_code = ValidationReport.StatusCode.CRITICAL
+    violation_type = ValidationReport.ViolationType.SHV1
 
     report = StreamValidationReport(node_id=node_id,
                                     stream_id=stream_id,
@@ -73,7 +74,8 @@ def schedule_rinterval_check(node_id: str, stream_id: str, endpoint: str,
                                     status_code=status_code,
                                     status_msg_lst=[(status_msg,
                                                      status_msg_long,
-                                                     status_code)])
+                                                     status_code,
+                                                     violation_type)])
 
     # schedule report for publication
     q_rpts.put((stream_id, report, rinterval_upper))
@@ -101,7 +103,7 @@ def update_stream_characteristics(
     :return: [TODO:description]
     """
     success = True
-    logger.info(f"Updating transmission parameters ({stream_id})")
+    logger.info(f"Updating transmission parameters (SID '{stream_id}')")
 
     # reception interval
     rtime_prev = store.most_recent(stream_id, StreamInfoElement.RTIME)
@@ -131,14 +133,15 @@ def create_validation_report(store: MemoryStore, node_id: str, stream_id: str,
         report, cache = validate_stream(store, node_id, stream_id,
                                         endpoint, rtime, econf)
     except Exception as err:
-        logger.error(f"Exception during transmission validation: {err}")
+        logger.error(f"Exception during stream validation: {err}")
 
         # create validation report without technical detaiks (which are logged)
         status_msg = "Validation Malfunction"
         status_msg_long = ("An exception occurred during the evaluation of "
                            f"the stream from node '{node_id}' via endpoint "
                            f"'{endpoint}' ('{stream_id}.').")
-        status_code = ValidationReport.StatusCode.ERROR
+        status_code = ValidationReport.StatusCode.ERROR,
+        violation_type = ValidationReport.ViolationType.ERR
         report = StreamValidationReport(endpoint=endpoint,
                                         node_id=node_id,
                                         stream_id=stream_id,
@@ -146,7 +149,8 @@ def create_validation_report(store: MemoryStore, node_id: str, stream_id: str,
                                         status_code=status_code,
                                         status_msg_lst=[(status_msg,
                                                          status_msg_long,
-                                                         status_code)])
+                                                         status_code,
+                                                         violation_type)])
 
     return report, cache
 
@@ -170,21 +174,20 @@ def process_stream(store: MemoryStore, node_id: str, stream_id: str,
         return
 
     thread_id = threading.current_thread().name
-    logger.info(f"Processing transmission from node '{node_id}' "
-                f"('{stream_id}')")
+    logger.info(f"Processing transmssion stream (SID '{stream_id}')")
 
     # register stream by identifier if needed
     if stream_id not in store.nodes:
-        logger.debug("Associated stream not found "
-                     f"('{stream_id}')")
-        logger.info(f"Registering new transmission stream ('{stream_id}')")
+        logger.debug("Associated transmssion stream not found "
+                     f"(SID '{stream_id}')")
+        logger.info(f"Registering new transmission stream (SID '{stream_id}')")
         if not store.register_node(stream_id):
-            logger.error("Unable to register or access stream "
-                         f"('{stream_id}')")
+            logger.error("Unable to register or access transmission stream "
+                         f"(SID '{stream_id}')")
 
         return  # no need to evaluate the stream on first sight
 
-    logger.debug(f"Associated stream found ('{stream_id}')")
+    logger.debug(f"Associated transmission stream found (SID '{stream_id}')")
 
     # validate stream characteristics
     report, cache = create_validation_report(store, node_id, stream_id,
@@ -196,14 +199,14 @@ def process_stream(store: MemoryStore, node_id: str, stream_id: str,
         if not update_stream_characteristics(
                 store, node_id, stream_id, endpoint, rtime,
                 q_rpts, econf.proactive_notification, cache):
-            logger.error("Encountered problems during transmission "
-                         f"parameters update ('{stream_id}')")
+            logger.error("Encountered problems during stream "
+                         f"parameters update (SID '{stream_id}')")
     else:
         logger.info(f"Transmission failed validation ('{stream_id}')")
 
     # always update reception time
     if not store.add(stream_id, StreamInfoElement.RTIME, rtime):
         logger.error("Unable to update transmission reception time "
-                     f"('{stream_id}')")
+                     f"(SID '{stream_id}')")
 
     q_rpt.put((thread_id, (report, None)))

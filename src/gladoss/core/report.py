@@ -34,6 +34,32 @@ class ValidationReport():
         GRAPH_VALIDATION_REPORT = auto()
         STREAM_VALIDATION_REPORT = auto()
 
+    class ViolationType(Enum):
+        # Generic Violations
+        ERR = auto()  # generic error
+        DAT = auto()  # insufficient data
+
+        # Graph Topology Violations
+        GTV1 = auto()  # exact match violation (missing statements)
+        GTV2 = auto()  # exact match violation (extra statements)
+        GTV3 = auto()  # exact match violation (unmatched statements)
+
+        # Graph Semantics Violations
+        GSV1 = auto()  # resource equality violation (IRI/BNode/Literal)
+        GSV2 = auto()  # value equality violation (different IRI)
+        GSV3 = auto()  # value equality violation (different literal value)
+        GSV4 = auto()  # value equality violation (different data type)
+        GSV5 = auto()  # value equality violation (different language tag)
+        GSV6 = auto()  # value equality violation (discrete/continuous)
+
+        # Graph Value Space Violations
+        GVV1 = auto()  # critical value violation (unexpected value)
+        GVV2 = auto()  # non-critical value violation (unexpected value)
+
+        # Stream Health Violations
+        SHV1 = auto()  # critical reception interval deviation
+        SHV2 = auto()  # non-critical reception interval deviation
+
     @total_ordering
     class StatusCode(IntEnum):
         NOMINAL = 0, "Nominal Behaviour"
@@ -102,18 +128,21 @@ class ValidationReport():
             type: ValidationReport.ReportType,
             node_id: str,
             stream_id: str,
-            graph_id: Optional[str],
             timestamp: datetime,
             status_code: ValidationReport.StatusCode,
+            graph_id: Optional[str] = None,
             status_msg_lst: list[tuple[str,
                                        str,
-                                       ValidationReport.StatusCode
+                                       ValidationReport.StatusCode,
+                                       ValidationReport.ViolationType
                                        ]
                                  ] = list(),
             status_msg_lst_map: dict[str,
                                      list[tuple[str,
                                                 str,
-                                                ValidationReport.StatusCode]
+                                                ValidationReport.StatusCode,
+                                                ValidationReport.ViolationType
+                                                ]
                                           ]
                                      ] = dict()):
         """ Report with results of an executed job with a (named) list
@@ -147,13 +176,16 @@ class GraphValidationReport(ValidationReport):
             status_code: ValidationReport.StatusCode,
             status_msg_lst: list[tuple[str,
                                        str,
-                                       ValidationReport.StatusCode
+                                       ValidationReport.StatusCode,
+                                       ValidationReport.ViolationType
                                        ]
                                  ] = list(),
             status_msg_lst_map: dict[str,
                                      list[tuple[str,
                                                 str,
-                                                ValidationReport.StatusCode]
+                                                ValidationReport.StatusCode,
+                                                ValidationReport.ViolationType
+                                                ]
                                           ]
                                      ] = dict()):
         """ A validation report for an obversed state graph with its associated
@@ -166,14 +198,15 @@ class GraphValidationReport(ValidationReport):
         :param status_msg: [TODO:description]
         :param status_msg_long: [TODO:description]
         """
-        super().__init__(ValidationReport.ReportType.GRAPH_VALIDATION_REPORT,
-                         node_id,
-                         stream_id,
-                         graph_id,
-                         timestamp,
-                         status_code,
-                         status_msg_lst,
-                         status_msg_lst_map)
+        super().__init__(
+                type=ValidationReport.ReportType.GRAPH_VALIDATION_REPORT,
+                node_id=node_id,
+                stream_id=stream_id,
+                graph_id=graph_id,
+                timestamp=timestamp,
+                status_code=status_code,
+                status_msg_lst=status_msg_lst,
+                status_msg_lst_map=status_msg_lst_map)
 
         self.pattern = pattern
         self.graph = graph
@@ -190,7 +223,7 @@ class GraphValidationReport(ValidationReport):
             The output is of the following form:
 
             > ?report rdf:type sh:ValidationReport .
-            > ?report dct:date ?reportDate .
+            > ?report dct:issued ?reportDate .
             > ?report dct:subject ?reportSubject .
             > ?report dct:conformsTo ?reportLanguage .
             > ?report sh:conforms ?validationPassed .
@@ -198,6 +231,7 @@ class GraphValidationReport(ValidationReport):
 
             > ?result rdf:type sh:ValidationResult .
             > ?result rdfs:label ?resultStatusMsg .
+            ? ?result dct:type ?resultViolationType .
             > ?result sh:focusNode ?resultFocusNode .
             > ?result sh:resultPath ?resultPath .
             > ?result sh:value ?resultValue .
@@ -213,7 +247,7 @@ class GraphValidationReport(ValidationReport):
         :return: [TODO:description]
         """
         logger.debug("Exporting graph validation report to SHACL "
-                     f"('{self.graph_id}')")
+                     f"(GID '{self.graph_id}')")
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:
@@ -229,7 +263,7 @@ class GraphValidationReport(ValidationReport):
         root = mknode(namespace, mkid)
         graph = [
             Statement(root, RDF + 'type', SHACL + 'ValidationReport'),
-            Statement(root, DCT + 'date',
+            Statement(root, DCT + 'issued',
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
             Statement(root, DCT + 'subject',
@@ -240,7 +274,8 @@ class GraphValidationReport(ValidationReport):
 
         # process violations and errors without associated shape
         for status_msg_lst in self.status_msg_lst:
-            status_msg, status_msg_long, status_code = status_msg_lst
+            status_msg, status_msg_long, status_code, violation_type\
+                    = status_msg_lst
 
             res = mknode(namespace, mkid)
             graph.extend([
@@ -248,6 +283,7 @@ class GraphValidationReport(ValidationReport):
                 Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
                 Statement(res, RDFS + 'label',
                           Literal(status_msg, language="en")),
+                Statement(res, DCT + 'type', Literal(violation_type.name)),
                 Statement(res, SHACL + 'resultMessage',
                           Literal(status_msg_long, language="en"))
                 ])
@@ -272,7 +308,8 @@ class GraphValidationReport(ValidationReport):
 
             # one result per anomaly
             assertion = self.apa_map[ap_id]  # type: Statement
-            for status_msg, status_msg_long, status_code in status_msg_lst:
+            for status_msg, status_msg_long, status_code, violation_type\
+                    in status_msg_lst:
                 res = mknode(namespace, mkid)
                 graph.extend([
                     Statement(root, DCT + 'hasPart', res),
@@ -282,6 +319,7 @@ class GraphValidationReport(ValidationReport):
                     Statement(res, SHACL + 'value', assertion.object),
                     Statement(res, RDFS + 'label',
                               Literal(status_msg, language="en")),
+                    Statement(res, DCT + 'type', Literal(violation_type.name)),
                     Statement(res, SHACL + 'resultMessage',
                               Literal(status_msg_long, language="en"))
                     ])
@@ -324,14 +362,17 @@ class StreamValidationReport(ValidationReport):
             status_code: ValidationReport.StatusCode,
             status_msg_lst: list[tuple[str,
                                        str,
-                                       ValidationReport.StatusCode
+                                       ValidationReport.StatusCode,
+                                       ValidationReport.ViolationType
                                        ]
                                  ] = list(),
             status_msg_lst_map: Optional[
                 dict[str,
                      list[tuple[str,
                                 str,
-                                ValidationReport.StatusCode]
+                                ValidationReport.StatusCode,
+                                ValidationReport.ViolationType
+                                ]
                           ]
                      ]
                 ] = dict()):
@@ -369,7 +410,7 @@ class StreamValidationReport(ValidationReport):
             The output is of the following form:
 
             > ?report rdf:type sh:ValidationReport .
-            > ?report dct:date ?reportDate .
+            > ?report dct:issued ?reportDate .
             > ?report dct:subject ?reportSubject .
             > ?report dct:conformsTo ?reportLanguage .
             > ?report sh:conforms ?validationPassed .
@@ -377,6 +418,7 @@ class StreamValidationReport(ValidationReport):
 
             > ?result rdf:type sh:ValidationResult .
             > ?result rdfs:label ?resultStatusMsg .
+            ? ?result dct:type ?resultViolationType .
             > ?result sh:resultMessage ?resultStatusMsgLong .
             > ?result sh:resultSeverity ?resultSeverity .
 
@@ -389,7 +431,7 @@ class StreamValidationReport(ValidationReport):
         :return: [TODO:description]
         """
         logger.debug("Exporting stream validation report to SHACL "
-                     f"({self.stream_id})")
+                     f"(SID '{self.stream_id}')")
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:
@@ -405,7 +447,7 @@ class StreamValidationReport(ValidationReport):
         root = mknode(namespace, mkid)
         graph = [
             Statement(root, RDF + 'type', SHACL + 'ValidationReport'),
-            Statement(root, DCT + 'date',
+            Statement(root, DCT + 'issued',
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
             Statement(root, DCT + 'subject',
@@ -417,7 +459,8 @@ class StreamValidationReport(ValidationReport):
 
         # process violations and errors without associated shape
         for status_msg_lst in self.status_msg_lst:
-            status_msg, status_msg_long, status_code = status_msg_lst
+            status_msg, status_msg_long, status_code, violation_type\
+                    = status_msg_lst
 
             res = mknode(namespace, mkid)
             graph.extend([
@@ -425,6 +468,7 @@ class StreamValidationReport(ValidationReport):
                 Statement(res, RDF + 'type', SHACL + 'ValidationResult'),
                 Statement(res, RDFS + 'label',
                           Literal(status_msg, language="en")),
+                Statement(res, DCT + 'type', Literal(violation_type.name)),
                 Statement(res, SHACL + 'resultMessage',
                           Literal(status_msg_long, language="en"))
                 ])
@@ -435,6 +479,7 @@ class StreamValidationReport(ValidationReport):
                 Statement(sev, RDF + 'type', SHACL + 'Severity'),
                 Statement(sev, RDFS + 'label',
                           Literal(status_code.name, datatype=XSD + 'string')),
+                Statement(res, DCT + 'type', Literal(violation_type.name)),
                 Statement(sev, RDFS + 'comment',
                           Literal(status_code.description, language="en"))
                 ])
@@ -515,7 +560,7 @@ class ReportScheduler():
             if time is None or report is None:
                 # this was a cancel request
                 logger.debug("Cancelled scheduled report "
-                             f"('{report.stream_id}')")
+                             f"(SID '{report.stream_id}')")
 
                 continue
 
@@ -532,7 +577,7 @@ class ReportScheduler():
             self.timers_active[name] = timer
 
             logger.debug(f"Scheduled report for +{time:0.3g}s "
-                         f"('{report.stream_id}')")
+                         f"(SID '{report.stream_id}')")
 
     def enable(self):
         """ Start the report scheduler in a new thread.
@@ -571,5 +616,5 @@ class ReportScheduler():
         """
         thread_id = threading.current_thread().name
 
-        logger.debug(f"Pushing scheduled report ('{report.stream_id}')")
+        logger.debug(f"Pushing scheduled report (SID '{report.stream_id}')")
         self.q_rapport.put((thread_id, (report, None)))

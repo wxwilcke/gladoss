@@ -60,12 +60,12 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     """
     # represent validation report
     logger.debug(f"Preparing publication of validation report "
-                 f"('{report.stream_id}')")
+                 f"(SID '{report.stream_id}')")
     report_graph = report.to_graph(namespace, mkid)
     logger.debug(f" {{\n{'\n  '.join([str(s) for s in report_graph])}\n  }}")
 
     # publish report to endpoint
-    logger.info(f"Publishing validation report ('{report.stream_id}')")
+    logger.info(f"Publishing validation report (SID '{report.stream_id}')")
     success = adaptor.publish_report(report.type, report.stream_id,
                                      report_graph, label)
 
@@ -102,7 +102,8 @@ def process_message(rng: np.random.Generator, mkid: Callable,
             break
 
         (node_id, stream_id, graph_data, graph_label), endpoint, rtime = job
-        logger.info(f"Received new message from '{endpoint}'")
+        logger.info(f"Received new message from node '{node_id}' via "
+                    f"endpoint '{endpoint}' in stream '{stream_id}'.")
 
         # process stream info in parallel
         thread_id = f"worker-{len(jobs_active)+1}"
@@ -269,12 +270,12 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             assert isinstance(report, ValidationReport)
             logger.debug("Processing validation report with status "
                          f"{report.status_code.name} "
-                         f"('{report.stream_id}')")
+                         f"(SID '{report.stream_id}')")
             if report.status_code >= econf.report_level:
                 if not publish_validation_report(adaptor, report, label,
                                                  flags.namespace, mkid):
                     logger.info("Unable to publish validation report "
-                                f"('{report.stream_id}')")
+                                f"(SID '{report.stream_id}')")
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 
