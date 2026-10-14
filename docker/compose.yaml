@@ -30,7 +30,6 @@ services:
     command: gladoss-demo --verbose --cachesize=5 --host "0.0.0.0" --port 8000
 
 networks:
-  semantic_network:
+  semnet:
     name: semnet
     driver: bridge
-    external: true

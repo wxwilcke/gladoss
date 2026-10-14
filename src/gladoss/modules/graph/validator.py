@@ -807,36 +807,47 @@ def validate_graph_structure(pattern: GraphPattern,
             unmatched_str = "{'" + "'; '".join(unmatched) + "'}"
             # not all assertions can be mapped to assertion patterns
             # this can occur if the structure or tail type is changed
+            status_msg = "Exact Match Requirement Violation."
             status_msg_long = \
                 "Observed state graph contains triples that cannot be mapped "\
                 "to any known subpattern of the associated graph pattern "\
                 f"{BECAUSE} "\
                 f"OBSERVED: {matched_str} \N{UNION} {unmatched_str} {EMDASH} "\
                 f"EXPECTED: all of {pattern} {QED}"
-            logger.info(status_msg_long)
+            violation_type = ValidationReport.ViolationType.GTV3
 
-            if match_exact:
-                status_msg = "Exact Match Requirement Violation."
-                status_msg_lst.append(
-                        (status_msg, status_msg_long,
-                         ValidationReport.StatusCode.INCONSISTENCY,
-                         ValidationReport.ViolationType.GTV3))
+            logger.info(status_msg_long)
         else:  # state graph is smaller than expected
             # this can occur when all assertions are mapped, but some assertion
             # patterns are still unpaired
+            status_msg = "Exact Match Requirement Violation."
             status_msg_long = \
-                "Observed state graph contains less triples than required by "\
-                f"the associated graph pattern {BECAUSE} "\
+                "Observed state graph contains less triples than required "\
+                f"by the associated graph pattern {BECAUSE} "\
                 f"OBSERVED: {matched_str} {EMDASH} "\
                 f"EXPECTED: all of {pattern} {QED}"
+            violation_type = ValidationReport.ViolationType.GTV1
+
             logger.info(status_msg_long)
 
-            if match_exact:
-                status_msg = "Exact Match Requirement Violation."
-                status_msg_lst.append(
-                        (status_msg, status_msg_long,
-                         ValidationReport.StatusCode.INCONSISTENCY,
-                         ValidationReport.ViolationType.GTV1))
+        if match_exact:
+            status_msg_lst.append(
+                    (status_msg, status_msg_long,
+                     ValidationReport.StatusCode.INCONSISTENCY,
+                     violation_type))
+        if match_cwa:
+            # allow for extra but not less triples
+            status_msg = "Closed-World Assumption Violation."
+            status_msg_long = \
+                "Observed state graph misses one or more triples required "\
+                f"by the associated graph pattern {BECAUSE} "\
+                f"OBSERVED: {matched_str} {EMDASH} "\
+                f"EXPECTED: all of {pattern} {QED}"
+            violation_type = ValidationReport.ViolationType.GTV1
+            status_msg_lst.append(
+                    (status_msg, status_msg_long,
+                     ValidationReport.StatusCode.INCONSISTENCY,
+                     violation_type))
     elif len(assertion_ap_pairs) == len(pattern):  # complete map
         if len(unmatched) > 0:
             unmatched_str = "{'" + "'; '".join(unmatched) + "'}"

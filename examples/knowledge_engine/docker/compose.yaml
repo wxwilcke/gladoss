@@ -33,4 +33,3 @@ networks:
   semnet:
     name: semnet
     driver: bridge
-    external: true

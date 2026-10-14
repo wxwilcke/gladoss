@@ -42,7 +42,7 @@ class ValidationReport():
         # Graph Topology Violations
         GTV1 = auto()  # exact match violation (missing statements)
         GTV2 = auto()  # exact match violation (extra statements)
-        GTV3 = auto()  # exact match violation (unmatched statements)
+        GTV3 = auto()  # exact match violation (different statements)
 
         # Graph Semantics Violations
         GSV1 = auto()  # resource equality violation (IRI/BNode/Literal)

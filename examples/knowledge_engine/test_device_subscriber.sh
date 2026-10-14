@@ -28,7 +28,7 @@ register_ki() {
     "knowledgeInteractionType": "ReactKnowledgeInteraction",
     "knowledgeInteractionName": "AnomalyReceiver",
     "argumentGraphPattern": "?report rdf:type sh:ValidationReport .
-                             ?report dct:date ?reportDate .
+                             ?report dct:issued ?reportDate .
                              ?report dct:subject ?reportSubject .
                              ?report dct:conformsTo ?reportLanguage .
                              ?report sh:conforms ?validationPassed .
@@ -39,6 +39,7 @@ register_ki() {
                              ?result sh:focusNode ?resultFocusNode .
                              ?result sh:resultPath ?resultPath .
                              ?result sh:value ?resultValue .
+                             ?result dct:type ?resultViolationType .
                              ?result sh:resultMessage ?resultStatusMsgLong .
                              ?result sh:resultSeverity ?resultSeverity .
 
