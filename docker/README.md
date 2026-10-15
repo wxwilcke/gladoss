@@ -2,10 +2,10 @@
 
 The latest version of GLADoSS can be deployed via Docker by building and then running an image using the files provided in this directory. Hereto, clone or download these files to a local directory and follow the instruction below.
 
-1) Provide the appropriate adaptor in the entrypoint file. By default this is set to use the `demo` adaptor.
+1) Provide the appropriate adaptor in the entrypoint file. By default this is set to use the `restful` adaptor.
 
 ```bash
-gladoss-run --verbose --continuous demo
+gladoss-run --verbose --continuous restful
 ```
 
 The `continuous` flag tells GLADoSS to keep listening for incoming messages regardless of communication and/or data issues.

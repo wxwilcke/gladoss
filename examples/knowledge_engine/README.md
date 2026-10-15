@@ -44,8 +44,8 @@ knowledgeBaseDescription = "Graph-based Live Anomaly Detection on Semantic Strea
 knowledgeInteractionEndpoint = "http://127.0.0.1:8280/rest"
 knowledgeInteractionName = "DeviceObservationsRequest"
 argumentGraphPattern = """
-  ?sensor rdf:type saref:Sensor .
-  ?measurement saref:measurementMadeBy ?sensor .
+  ?measurement rdf:type saref:Observation .
+  ?measurement saref:madeBy ?node .
   ?measurement saref:isMeasuredIn saref:TemperatureUnit .
   ?measurement saref:hasValue ?temperature .
   ?measurement saref:hasTimestamp ?timestamp .
@@ -88,7 +88,7 @@ knowledgeInteractionEndpoint = "http://knowledge_engine:8280/rest"
 [...]
 ```
 
-3) Set the appropriate adaptor in the entrypoint file:
+3) Set the appropriate adaptor (`knowledge_engine`) in the entrypoint file:
 
 ```bash
 gladoss-run --verbose --continuous knowledge_engine

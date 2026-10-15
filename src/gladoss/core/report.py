@@ -13,7 +13,7 @@ from rdf.graph import Statement
 from rdf.namespaces import SHACL, RDF, RDFS, XSD
 from rdf.terms import IRIRef, Literal
 
-from gladoss.data.utils import mknode
+from gladoss.data.utils import mknode, string_to_node
 from gladoss.modules.graph.pattern import GraphPattern
 
 
@@ -266,8 +266,7 @@ class GraphValidationReport(ValidationReport):
             Statement(root, DCT + 'issued',
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
-            Statement(root, DCT + 'subject',
-                      Literal(self.node_id, datatype=XSD + 'string')),
+            Statement(root, DCT + 'subject', string_to_node(self.node_id)),
             Statement(root, DCT + 'conformsTo', Literal(
                 "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
             ]
@@ -450,9 +449,7 @@ class StreamValidationReport(ValidationReport):
             Statement(root, DCT + 'issued',
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),
-            Statement(root, DCT + 'subject',
-                      Literal(self.node_id, datatype=XSD + 'string')),
-
+            Statement(root, DCT + 'subject', string_to_node(self.node_id)),
             Statement(root, DCT + 'conformsTo', Literal(
                 "https://www.w3.org/TR/shacl/", datatype=XSD + 'anyURI'))
             ]

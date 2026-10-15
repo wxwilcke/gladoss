@@ -13,13 +13,13 @@ GLADoSS is a Python program designed for the real-time detection of (possible fu
 
 Both incoming state information and outgoing reports are expected to be encoded as well-formed graphs conforming to the [_Resource Description Framework_ (RDF)](https://www.w3.org/TR/rdf11-concepts/). RDF is an open [W3C](https://www.w3.org/) standard in which knowledge, information, and data are encoded using binary statements, often called triples. Triples relate an object `o` to its subject `s` via a relationship `p`, and are represented via the infix notation: `s, p, o`. Here, both subject `s` and relationship `p` are denoted via _Universal Resource Identifiers_ (URI) which are a generalisation of the URL, whereas object `o` can be either a URI or a raw value, called a literal. Literals can have an optional datatype annotation, provided as URI, or language tag.
 
-The following graph is an example of the expected input data, and is encoded using the [Turtle serialization format](https://www.w3.org/TR/turtle/):
+The following graph is an example of possible input data (a single sample) received from the specified endpoint, and is encoded using the [Turtle serialization format](https://www.w3.org/TR/turtle/). In this particular example, the message pertains a measurement made by a smart temperature sensor at a certain point in time. Future messages from this device on this stream are treated as updates (new states) with the entire sequence being regarded as a temporal knowledge graph.
 
 ```Turtle
+@PREFIX ex:    <http://example.org/demo/> .
 @PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @PREFIX saref: <http://saref.etsi.org/core/> .
 @PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#> .
-@PREFIX ex:    <http://example.org/demo/> .
 
 ex:Uwmi0dxkgf8qjrd9bmsjc rdf:type saref:Observation .
 ex:Uwmi0dxkgf8qjrd9bmsjc saref:madeBy ex:Uqwodyj51zp144lnzuqtw> .
@@ -32,28 +32,29 @@ ex:Uwm2wgp669iloqrcjz8j7 saref:hasValue "-1.93"^^xsd:float .
 ex:Uwm2wgp669iloqrcjz8j7 saref:isMeasuredIn "kWh"^^xsd:string .
 ```
 
-The following graph is an example of the expected output data, and is encoded using the [Turtle serialization format](https://www.w3.org/TR/turtle/):
+The following graph is an example of possible output data (a single report) and is encoded using the [Turtle serialization format](https://www.w3.org/TR/turtle/). In this particular example, the observed value of "-1.93" is reported as an anomaly based on the evidence from a statistical test.
 
 ```Turtle
+@PREFIX dct:   <http://purl.org/dc/terms/> .
+@PREFIX ex:    <http://example.org/demo/> .
 @PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@PREFIX saref: <http://saref.etsi.org/core/> .
 @PREFIX sh:    <http://www.w3.org/ns/shacl#> .
 @PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#> .
-@PREFIX dct:   <http://purl.org/dc/terms/> .
-@PREFIX saref: <http://saref.etsi.org/core/> .
-@PREFIX ex:    <http://example.org/demo/> .
 
 _:BUtcw1hbu2x53tsalyktei rdf:type sh:ValidationReport .
-_:BUtcw1hbu2x53tsalyktei dct:date "2025-07-07T12:12:45.482481"^^xsd:dateTime .
+_:BUtcw1hbu2x53tsalyktei dct:issued "2025-07-07T12:12:45.482481"^^xsd:dateTime .
 _:BUtcw1hbu2x53tsalyktei dct:subject ex:Uwmi0dxkgf8qjrd9bmsjc .
 _:BUtcw1hbu2x53tsalyktei dct:conformsTo "https://www.w3.org/TR/shacl/"^^xsd:anyURI .
 _:BUtcw1hbu2x53tsalyktei dct:hasPart _:BUifsw7dl0q491dz9z21i6 .
 _:BUtcw1hbu2x53tsalyktei sh:conforms "false"^^xsd:boolean .
 
 _:BUifsw7dl0q491dz9z21i6 rdf:type sh:ValidationResult .
+_:BUifsw7dl0q491dz9z21i6 dct:type "CVA2" .
 _:BUifsw7dl0q491dz9z21i6 sh:focusNode ex:Uwm2wgp669iloqrcjz8j7 .
 _:BUifsw7dl0q491dz9z21i6 sh:resultPath saref:hasValue .
-_:BUifsw7dl0q491dz9z21i6 sh:value "47.09"^^xsd:float
+_:BUifsw7dl0q491dz9z21i6 sh:value "-1.93"^^xsd:float
 _:BUifsw7dl0q491dz9z21i6 rdfs:label "Critical Value Violation"@en .
 _:BUifsw7dl0q491dz9z21i6 sh:resultMessage "Evidence from the statistical evaluation suggests that this triple of the observed state graph differs significantly from the associated graph pattern at the critical level (alpha = 0.05)."@en
 _:BUifsw7dl0q491dz9z21i6 sh:resultSeverity _:BU12ymsmziok9c29pjtt9i .
@@ -70,6 +71,7 @@ The following anomalies can be detected by GLADoSS:
 - Structural Violations¹
     - Exact Match Requirement Violation:
         - Number of observed assertions is higher than expected.
+        - Observed graph structure differs from what is expected.
         - Closed-World Assumption Violation:
             - Number of observed assertions is lower than expected. 
 - Semantic Violations
@@ -206,7 +208,7 @@ To create a custom adaptor
 
 3) Write the necessary procedures. These procedures are defined in the abstract base class, and include
 
-    - procedures to set the headers and body of the various HTTP requests
+    - procedures to set the header and body of the various HTTP requests
     - procedures to translate the incoming data to N-Triples format
     - procedures to publish (and optionaly translate) the validation report
 
@@ -219,4 +221,4 @@ env GLADOSS_ADAPTOR_DIRECTORY=${PWD}/adaptor/ python -m gladoss -v custom_adapto
 ```
 ---
 
-This project is funded by the Hedge-IoT project
+This project is funded by the EU [HEDGE-IoT project](https://hedgeiot.eu/)

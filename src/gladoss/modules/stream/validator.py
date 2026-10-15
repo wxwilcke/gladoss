@@ -135,7 +135,7 @@ def validate_message_reception_interval(store: MemoryStore,
     rtime_prev = store.most_recent(stream_id, StreamInfoElement.RTIME)
     if rtime_prev is None or len(data_lst) < grace_period:
         logger.debug("Within grace period "
-                     f"[epoch {len(data_lst)} < {grace_period}]: "
+                     f"[epoch {len(data_lst)}/{grace_period}]: "
                      "skipping transmission reception interval validation "
                      f"of stream '{stream_id}'.")
         return status_msg_lst, cache_dct

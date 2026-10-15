@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 from datetime import datetime
+import hashlib
 import logging
 from queue import Queue
 import threading
@@ -108,7 +109,7 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     # reality, one stream can produce multiple graphs. Also, a single graph can
     # diverge into two or more patterns (e.g., weekdays and weekends) which
     # would necessitate different identifiers (instead of a single stream ID).
-    graph_id = stream_id
+    graph_id = hashlib.md5(stream_id.encode("UTF-8")).hexdigest()
 
     pattern = pv.find_associated_graph_pattern(graph_id)
     if pattern is None:

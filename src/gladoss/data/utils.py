@@ -11,7 +11,7 @@ import tty
 from types import SimpleNamespace
 from typing import Any, Callable, Optional
 
-from rdf.terms import BNode, IRIRef
+from rdf.terms import BNode, IRIRef, Literal
 
 
 logger = logging.getLogger(__name__)
@@ -186,3 +186,20 @@ def mknode(namespace: Optional[IRIRef], mkid: Callable) -> BNode | IRIRef:
     rand_id = mkid()
 
     return BNode(rand_id) if namespace is None else namespace + rand_id
+
+
+def string_to_node(v: str) -> BNode | IRIRef | Literal:
+    """ Convert a string representation of an RDF node to its native type.
+
+    :param v: [TODO:description]
+    :return: [TODO:description]
+    """
+    if len(v) > 2:
+        if v.startswith('<') and v.endswith('>'):
+            # possibly IRIRef
+            return IRIRef(v[1:-1])  # omit '<' and '>'
+        if v.startswith("_:"):
+            # possible BNode
+            return BNode(v[2])  # omit '_:'
+
+    return Literal(v)

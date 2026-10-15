@@ -8,7 +8,7 @@ knowledgeBaseDescription = "Graph-based Live Anomaly Detection on Semantic Strea
 knowledgeInteractionEndpoint = "http://knowledge_engine:8280/rest"
 knowledgeInteractionName = "DeviceObservationsRequest"
 argumentGraphPattern = """
-  ?sensor rdf:type saref:Observation .
+  ?measurement rdf:type saref:Observation .
   ?measurement saref:madeBy ?node .
   ?measurement saref:isMeasuredIn saref:TemperatureUnit .
   ?measurement saref:hasValue ?temperature .

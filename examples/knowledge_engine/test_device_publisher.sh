@@ -27,8 +27,8 @@ register_ki() {
 {
     "knowledgeInteractionType": "PostKnowledgeInteraction",
     "knowledgeInteractionName": "DeviceObservations",
-    "argumentGraphPattern": "?sensor rdf:type saref:Sensor .
-                             ?measurement saref:measurementMadeBy ?sensor .
+    "argumentGraphPattern": "?measurement rdf:type saref:Observation .
+                             ?measurement saref:madeBy ?node .
                              ?measurement saref:isMeasuredIn saref:TemperatureUnit .
                              ?measurement saref:hasValue ?temperature .
                              ?measurement saref:hasTimestamp ?timestamp .",
@@ -56,7 +56,7 @@ post_data() {
          -d @- << EOF
 [
     {
-        "sensor": "ex:Sensor",
+        "node": "ex:MyTemperatureSensor",
         "measurement": "ex:Measurement",
         "temperature": "\"$VALUE\"^^<http://www.w3.org/2001/XMLSchema#float>",
         "timestamp": "\"$TIMESTAMP\"^^<http://www.w3.org/2001/XMLSchema#dateTime>"
