@@ -417,6 +417,11 @@ def __main__():
                              "assertion during the validation procedure. "
                              "This can be regarded as the training time.",
                              type=int, default=100)
+    parser_eval.add_argument("--noise-ratio", help="Add Gaussian noise to "
+                             "the population before evaluation, scaled by "
+                             "the square root of the population's standard "
+                             "deviation. A value of zero disables this "
+                             "feature (default).", type=float, default=0.)
     parser_eval.add_argument("--samplesize", help="Number of samples to draw "
                              "from the population and to evaluate against "
                              "the distribution underlying that population. "
@@ -469,6 +474,7 @@ def __main__():
     assert 0. <= flags.alpha_critical <= 1.
     assert 0. <= flags.alpha_suspicious <= 1.
     assert 0 < flags.grace_period
+    assert 0. <= flags.noise_ratio <= 1.
     assert 0 < flags.samplesize
     assert 0 <= flags.samplegap
     assert 0. <= flags.pi_tolerance <= 1.
@@ -489,6 +495,7 @@ def __main__():
                                             'evaluate_stream',
                                             'evaluate_timestamps',
                                             'grace_period',
+                                            'noise_ratio',
                                             'samplesize',
                                             'samplegap',
                                             'match_cwa',

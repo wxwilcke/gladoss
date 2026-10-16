@@ -150,7 +150,8 @@ def validate_state_graph_components(rng: np.random.Generator,
                                                  config.evaluate_timestamps,
                                                  config.samplesize,
                                                  config.samplegap,
-                                                 config.pi_tolerance)
+                                                 config.pi_tolerance,
+                                                 config.noise_ratio)
 
             status_msg_lst_data[ap._id] = status_msg_lst
 
@@ -161,7 +162,8 @@ def validate_graph_data(rng: np.random.Generator,
                         assertion: Statement, ap: AssertionPattern,
                         alpha_critical: float, alpha_suspicious: float,
                         timestamp_eval: bool, samplesize: int,
-                        interruption: int, tolerance: float)\
+                        interruption: int, tolerance: float,
+                        noise_ratio: float)\
         -> list[tuple[str, str,
                       ValidationReport.StatusCode,
                       ValidationReport.ViolationType]]:
@@ -212,7 +214,8 @@ def validate_graph_data(rng: np.random.Generator,
                                                  timestamp_eval,
                                                  samplesize,
                                                  interruption,
-                                                 tolerance))
+                                                 tolerance,
+                                                 noise_ratio))
 
     return status_msg_lst
 
@@ -349,7 +352,8 @@ def validate_graph_data_distribution(rng: np.random.Generator,
                                      timestamp_eval: bool,
                                      samplesize: int,
                                      interruption: int,
-                                     tolerance: float)\
+                                     tolerance: float,
+                                     noise_ratio: float)\
         -> list[tuple[str, str,
                       ValidationReport.StatusCode,
                       ValidationReport.ViolationType]]:
@@ -411,13 +415,23 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 
     # test whether a newly observed value falls outside the prediction interval
     if len(status_msg_lst) <= 0:  # if no previous violations have been found
+        population = ap.value.data
+        if noise_ratio > 0:  # add Gaussian noise
+            noise_mu = 0.
+            noise_sigma = noise_ratio * np.sqrt(np.std(population))
+
+            logger.debug(f"Adding Gaussian noise ({noise_ratio}) to "
+                         "distribution")
+            population = population + rng.normal(noise_mu, noise_sigma,
+                                                 len(population))
+
         if isinstance(value_new, str):
             status_msg_lst.extend(
-                    validate_graph_data_categorical(assertion, ap,
+                    validate_graph_data_categorical(assertion, population,
                                                     value_new))
         elif isinstance(value_new, int) or isinstance(value_new, float):
             status_msg_lst.extend(
-                    validate_graph_data_numerical(assertion, ap,
+                    validate_graph_data_numerical(assertion, population,
                                                   value_new,
                                                   alpha_critical,
                                                   alpha_suspicious,
@@ -432,7 +446,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
             # between sets of values.
             status_msg_lst.extend(
                     validate_graph_data_distribution_fit(rng, assertion,
-                                                         ap, value_new,
+                                                         population, value_new,
                                                          test_statistic,
                                                          alpha_critical,
                                                          alpha_suspicious,
@@ -443,7 +457,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
 
 
 def validate_graph_data_categorical(assertion: Statement,
-                                    ap: AssertionPattern,
+                                    data: np.ndarray,
                                     value_new: str)\
         -> list[tuple[str, str,
                       ValidationReport.StatusCode,
@@ -464,8 +478,7 @@ def validate_graph_data_categorical(assertion: Statement,
     #       approach would incorporate the likelyhood of observing
     #       the new value.
 
-    population = np.array(ap.value.data)
-    members = np.unique(population)
+    members = np.unique(data)
 
     status_msg_lst = list()
     if value_new not in members:
@@ -488,7 +501,7 @@ def validate_graph_data_categorical(assertion: Statement,
 
 
 def validate_graph_data_numerical(assertion: Statement,
-                                  ap: AssertionPattern,
+                                  data: np.ndarray,
                                   value_new: int | float,
                                   alpha_critical: float,
                                   alpha_suspicious: float,
@@ -518,14 +531,17 @@ def validate_graph_data_numerical(assertion: Statement,
     """
     status_msg_lst = list()
 
+    population = data
+    num_samples = len(population)
+
     min_no_samples = 100  # hard lower limit for pi calculation
-    if ap.value.num_samples < min_no_samples:
+    if num_samples < min_no_samples:
         status_msg = "Insufficient Data"
         status_msg_long = \
             "Insufficient samples have yet been observed "\
             "to accurately establish nominal behaviour or "\
             f"deviations thereof {BECAUSE} "\
-            f"OBSERVED: N = {ap.value.num_samples} {EMDASH} "\
+            f"OBSERVED: N = {num_samples} {EMDASH} "\
             f"EXPECTED: N >= {min_no_samples} {QED}"
         status_code = ValidationReport.StatusCode.NODATA
 
@@ -536,8 +552,6 @@ def validate_graph_data_numerical(assertion: Statement,
                                 ValidationReport.ViolationType.DAT)])
 
         return status_msg_lst
-
-    population = np.array(ap.value.data)
 
     prob_critical = 1. - alpha_critical
     prob_suspicious = 1. - alpha_suspicious
@@ -602,12 +616,13 @@ def validate_graph_data_numerical(assertion: Statement,
 
 def validate_graph_data_distribution_fit(rng: np.random.Generator,
                                          assertion: Statement,
-                                         ap: AssertionPattern,
+                                         data: np.ndarray,
                                          value_new: str | int | float,
                                          test_statistic: Callable,
                                          alpha_critical: float,
                                          alpha_suspicious: float,
-                                         samplesize: int, interruption: int)\
+                                         samplesize: int,
+                                         interruption: int)\
         -> list[tuple[str, str,
                       ValidationReport.StatusCode,
                       ValidationReport.ViolationType]]:
@@ -637,13 +652,13 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
     # obtain most recent n samples and append the newly observed sample.
     # The result will be regarded as a sample of the population  that
     # will be evaluated against the true distribution.
-    sample = np.array(ap.value.lastn(n=samplesize) + [value_new])
+    sample = np.array(data[-samplesize:] + [value_new])
 
     # obtain all samples that are older than the most recent n samples,
     # with or without a brief interval in between to strengthen the
     # difference between these subsets. The result will be regarded as the
     # true distribution of the population.
-    population = np.array(ap.value.data[:-samplesize - interruption])
+    population = np.array(data[:-samplesize - interruption])
 
     # test whether the sample might have been drawn from the same
     # distribution as the one underlying the population.
