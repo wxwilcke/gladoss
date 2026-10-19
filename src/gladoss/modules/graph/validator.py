@@ -416,20 +416,20 @@ def validate_graph_data_distribution(rng: np.random.Generator,
     # test whether a newly observed value falls outside the prediction interval
     if len(status_msg_lst) <= 0:  # if no previous violations have been found
         population = ap.value.data
-        if noise_ratio > 0:  # add Gaussian noise
-            noise_mu = 0.
-            noise_sigma = noise_ratio * np.sqrt(np.std(population))
-
-            logger.debug(f"Adding Gaussian noise ({noise_ratio}) to "
-                         "distribution")
-            population = population + rng.normal(noise_mu, noise_sigma,
-                                                 len(population))
-
         if isinstance(value_new, str):
             status_msg_lst.extend(
                     validate_graph_data_categorical(assertion, population,
                                                     value_new))
         elif isinstance(value_new, int) or isinstance(value_new, float):
+            if noise_ratio > 0:  # add Gaussian noise
+                noise_mu = 0.
+                noise_sigma = noise_ratio * np.sqrt(np.std(population))
+
+                logger.debug(f"Adding Gaussian noise 'N({noise_mu}, "
+                             f"{noise_sigma})' to distribution")
+                population = population + rng.normal(noise_mu, noise_sigma,
+                                                     len(population))
+
             status_msg_lst.extend(
                     validate_graph_data_numerical(assertion, population,
                                                   value_new,
