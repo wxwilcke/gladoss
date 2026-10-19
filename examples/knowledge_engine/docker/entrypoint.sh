@@ -11,7 +11,6 @@ gladoss-run -v -v \
     --evaluate-stream \
     --proactive-notification \
     --pi-right-sided \
-    --noise-ratio=0.1 \
     --pattern-decay=120 \
     --samplesize=30 \
     --namespace "https://report.example.org/" \

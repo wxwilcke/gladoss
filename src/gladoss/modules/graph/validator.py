@@ -423,7 +423,9 @@ def validate_graph_data_distribution(rng: np.random.Generator,
         elif isinstance(value_new, int) or isinstance(value_new, float):
             if noise_ratio > 0:  # add Gaussian noise
                 noise_mu = 0.
-                noise_sigma = noise_ratio * np.sqrt(np.std(population))
+                noise_sigma = noise_ratio * np.sqrt(np.std(population,
+                                                           mean=noise_mu,
+                                                           ddof=1))
 
                 logger.debug(f"Adding Gaussian noise 'N({noise_mu}, "
                              f"{noise_sigma})' to distribution")
@@ -445,7 +447,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
             # run this test infrequently as it can only detect deviations
             # between sets of values.
             status_msg_lst.extend(
-                    validate_graph_data_distribution_fit(rng, assertion,
+                    validate_graph_data_distribution_fit(rng,
                                                          population, value_new,
                                                          test_statistic,
                                                          alpha_critical,
@@ -615,7 +617,6 @@ def validate_graph_data_numerical(assertion: Statement,
 
 
 def validate_graph_data_distribution_fit(rng: np.random.Generator,
-                                         assertion: Statement,
                                          data: np.ndarray,
                                          value_new: str | int | float,
                                          test_statistic: Callable,
