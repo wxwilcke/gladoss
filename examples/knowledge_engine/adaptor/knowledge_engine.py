@@ -202,7 +202,7 @@ class KE_Adaptor(Adaptor):
                 # keep track of registered knowledge interactions
                 self.context['reactKnowledgeInteractions'][ki_endpoint] = set()
 
-            ki_node_id_var = ki['argumentGraphPatternNodeID'][1:]  # omit '?'
+            ki_node_id_var = ki['argumentGraphPatternNodeID']
             ki_pattern = ki['argumentGraphPattern']
             ki_prefixes = ki['prefixes']
             ki_payload = {
@@ -505,7 +505,9 @@ class KE_Adaptor(Adaptor):
                                                           ki_prefixes)
             for bset in bindings:
                 # node identifier
-                node_id = bset.get(ki_node_id_var)
+                node_id = ki_node_id_var  # default to given value
+                if ki_node_id_var.startwith('?'):
+                    node_id = bset.get(ki_node_id_var[1:])  # omit '?'
 
                 graph = list()
                 for s in self.instantiate_graph(statements_lst, bset):
