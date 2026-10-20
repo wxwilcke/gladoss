@@ -231,7 +231,7 @@ class GraphValidationReport(ValidationReport):
 
             > ?result rdf:type sh:ValidationResult .
             > ?result rdfs:label ?resultStatusMsg .
-            ? ?result dct:type ?resultViolationType .
+            > ?result dct:type ?resultViolationType .
             > ?result sh:focusNode ?resultFocusNode .
             > ?result sh:resultPath ?resultPath .
             > ?result sh:value ?resultValue .
@@ -417,7 +417,7 @@ class StreamValidationReport(ValidationReport):
 
             > ?result rdf:type sh:ValidationResult .
             > ?result rdfs:label ?resultStatusMsg .
-            ? ?result dct:type ?resultViolationType .
+            > ?result dct:type ?resultViolationType .
             > ?result sh:resultMessage ?resultStatusMsgLong .
             > ?result sh:resultSeverity ?resultSeverity .
 
