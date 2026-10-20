@@ -506,7 +506,7 @@ class KE_Adaptor(Adaptor):
             for bset in bindings:
                 # node identifier
                 node_id = ki_node_id_var  # default to given value
-                if ki_node_id_var.startwith('?'):
+                if ki_node_id_var.startswith('?'):
                     node_id = bset.get(ki_node_id_var[1:])  # omit '?'
 
                 graph = list()
