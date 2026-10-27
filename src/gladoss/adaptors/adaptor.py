@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
-from abc import ABC, abstractmethod
 import argparse
-from enum import Enum
 import logging
+from abc import ABC, abstractmethod
+from collections.abc import Collection
+from enum import Enum
 from threading import Event
 from types import SimpleNamespace
-from typing import Any, Collection, Optional, Self
+from typing import Any, Self
 
 from rdf.graph import Statement
 
@@ -25,7 +26,7 @@ class Adaptor(ABC):
         self.config = config
         self._controller = controller
 
-        self.context = dict()  # share data between functions
+        self.context = {}  # share data between functions
         self.connectors = set()
 
         self.init_hook()
@@ -37,19 +38,16 @@ class Adaptor(ABC):
         """ Add connectors to adaptor, one for each different endpoint
             or request type.
         """
-        pass
 
     @abstractmethod
     def init_hook(self: Self) -> None:
         """ Execute additional commands on initialisation.
         """
-        pass
 
     @abstractmethod
     def cleanup_hook(self: Self) -> None:
         """ Execute additional commands on exit.
         """
-        pass
 
     @abstractmethod
     def set_headers(self: Self) -> dict[str, Any]:
@@ -59,7 +57,7 @@ class Adaptor(ABC):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        return dict()
+        return {}
 
     @abstractmethod
     def set_payload(self: Self) -> list[Any] | dict[str, Any]:
@@ -69,7 +67,7 @@ class Adaptor(ABC):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        return dict()
+        return {}
 
     @abstractmethod
     def set_receipt_headers(self: Self, data: dict[str, Any])\
@@ -80,7 +78,7 @@ class Adaptor(ABC):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        return dict()
+        return {}
 
     @abstractmethod
     def set_receipt_payload(self: Self, data: dict[str, Any])\
@@ -91,14 +89,14 @@ class Adaptor(ABC):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        return dict()
+        return {}
 
     @abstractmethod
     def publish_report(self: Self,
                        rtype: Enum,
                        identifier: str,
                        data: Collection[Statement],
-                       label: Optional[int | list[int]]) -> bool:
+                       label: int | list[int] | None) -> bool:
         """ Publish the validation report (as N-Triples) for
             the state graph with the provided identifier.
 
@@ -115,7 +113,7 @@ class Adaptor(ABC):
             -> list[tuple[str,
                           str,
                           list[Statement],
-                          Optional[int | list[int]]]]:
+                          int | list[int] | None]]:
         """ Translate the received data to RDF.
 
         :param data: data received from API
@@ -123,4 +121,4 @@ class Adaptor(ABC):
         :return: a list with statements, their identifier, and
                  an optional label list
         """
-        return list()
+        return []

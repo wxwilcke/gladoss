@@ -1,29 +1,44 @@
 #!/usr/bin/env python
 
 from __future__ import annotations
+
+import logging
+from collections.abc import Callable, Collection
 from datetime import datetime
 from itertools import chain
-import logging
 from types import SimpleNamespace
-from typing import Callable, Collection, Optional
 
 import numpy as np
 from rdf.graph import Statement
-from rdf.terms import IRIRef, Literal, Resource
 from rdf.namespaces import XSD
+from rdf.terms import IRIRef, Literal, Resource
 
-from gladoss.core.report import (GraphValidationReport, ValidationReport,
-                                 BECAUSE, EMDASH, QED, PM, ELEMOF)
-from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
-                                Distribution, HypothesisTest,
-                                test_statistic_discrete,
-                                test_statistic_continuous,
-                                two_sample_hypothesis_test,
-                                nonparametric_prediction_interval)
-from gladoss.modules.graph.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
-                                             cast_literal, infer_datatype)
+from gladoss.core.report import (
+    BECAUSE,
+    ELEMOF,
+    EMDASH,
+    PM,
+    QED,
+    GraphValidationReport,
+    ValidationReport,
+)
+from gladoss.core.stats import (
+    ContinuousDistribution,
+    DiscreteDistribution,
+    Distribution,
+    HypothesisTest,
+    nonparametric_prediction_interval,
+    test_statistic_continuous,
+    test_statistic_discrete,
+    two_sample_hypothesis_test,
+)
+from gladoss.modules.graph.datatypes import (
+    XSD_CONTINUOUS,
+    XSD_DISCRETE,
+    cast_literal,
+    infer_datatype,
+)
 from gladoss.modules.graph.pattern import AssertionPattern, GraphPattern
-
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +127,8 @@ def validate_state_graph_components(rng: np.random.Generator,
     # find pairs of assertions and associated assertion patterns
     assertion_ap_pairs, _, unmatched = pattern_map
 
-    status_msg_lst_data = dict()
-    status_msg_lst_struc = list()
+    status_msg_lst_data = {}
+    status_msg_lst_struc = []
     if config.evaluate_structure:
         # validate the structure of the state graph
         if pattern._t < config.grace_period:
@@ -182,7 +197,7 @@ def validate_graph_data(rng: np.random.Generator,
     :param interruption: [TODO:description]
     :return: [TODO:description]
     """
-    status_msg_lst = list()
+    status_msg_lst = []
     if isinstance(ap.value, Resource):
         status_msg_lst = validate_graph_data_resource(assertion, ap)
     elif isinstance(ap.value, Distribution):
@@ -221,7 +236,7 @@ def validate_graph_data(rng: np.random.Generator,
 
 
 def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
-                                 dtype_observed: Optional[IRIRef])\
+                                 dtype_observed: IRIRef | None)\
         -> list[tuple[str, str,
                       ValidationReport.StatusCode,
                       ValidationReport.ViolationType]]:
@@ -236,7 +251,7 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
     :param dtype_observed: [TODO:description]
     :return: [TODO:description]
     """
-    status_msg_lst = list()
+    status_msg_lst = []
     if isinstance(assertion.object, IRIRef)\
             and ap.value.dtype != XSD + 'anyURI':
         status_msg = "Resource Type Violation"
@@ -284,7 +299,7 @@ def validate_graph_data_discrete(assertion: Statement, ap: AssertionPattern,
 
 
 def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
-                                   dtype_observed: Optional[IRIRef])\
+                                   dtype_observed: IRIRef | None)\
         -> list[tuple[str, str,
                       ValidationReport.StatusCode,
                       ValidationReport.ViolationType]]:
@@ -300,7 +315,7 @@ def validate_graph_data_continuous(assertion: Statement, ap: AssertionPattern,
     :return: [TODO:description]
     """
 
-    status_msg_lst = list()
+    status_msg_lst = []
     if not isinstance(assertion.object, Literal):
         status_msg = "Resource Type Violation"
         status_msg_long = \
@@ -384,7 +399,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
         raise NotImplementedError()
 
     # evaluate distribution types via meta data
-    status_msg_lst = list()
+    status_msg_lst = []
     if isinstance(ap.value, DiscreteDistribution):
         test_statistic = test_statistic_discrete
         status_msg_lst.extend(
@@ -420,7 +435,7 @@ def validate_graph_data_distribution(rng: np.random.Generator,
             status_msg_lst.extend(
                     validate_graph_data_categorical(assertion, population,
                                                     value_new))
-        elif isinstance(value_new, int) or isinstance(value_new, float):
+        elif isinstance(value_new, (int, float)):
             if noise_ratio > 0:  # add Gaussian noise
                 noise_mu = 0.
                 noise_sigma = noise_ratio * np.sqrt(np.std(population,
@@ -482,7 +497,7 @@ def validate_graph_data_categorical(assertion: Statement,
 
     members = np.unique(data)
 
-    status_msg_lst = list()
+    status_msg_lst = []
     if value_new not in members:
         members_str = "{'" + "'; '".join(members) + "'}"
 
@@ -504,7 +519,7 @@ def validate_graph_data_categorical(assertion: Statement,
 
 def validate_graph_data_numerical(assertion: Statement,
                                   data: np.ndarray,
-                                  value_new: int | float,
+                                  value_new: float,
                                   alpha_critical: float,
                                   alpha_suspicious: float,
                                   tolerance: float)\
@@ -531,7 +546,7 @@ def validate_graph_data_numerical(assertion: Statement,
     :param alpha_suspicious: [TODO:description]
     :return: [TODO:description]
     """
-    status_msg_lst = list()
+    status_msg_lst = []
 
     population = data
     num_samples = len(population)
@@ -618,7 +633,7 @@ def validate_graph_data_numerical(assertion: Statement,
 
 def validate_graph_data_distribution_fit(rng: np.random.Generator,
                                          data: np.ndarray,
-                                         value_new: str | int | float,
+                                         value_new: str | float,
                                          test_statistic: Callable,
                                          alpha_critical: float,
                                          alpha_suspicious: float,
@@ -673,7 +688,7 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
                                      alpha_suspicious=alpha_suspicious)
 
     # infer validity from test results
-    status_msg_lst = list()
+    status_msg_lst = []
     if test_critical == HypothesisTest.REJECT_H0:
         # enough evidence to reject the zero hypothesis that both samples were
         # drawn from the same underlying distribution at the critical level:
@@ -726,7 +741,7 @@ def validate_graph_data_resource(assertion: Statement, ap: AssertionPattern)\
     :param ap: [TODO:description]
     :return: [TODO:description]
     """
-    status_msg_lst = list()
+    status_msg_lst = []
     if type(ap.value) is not type(assertion.object):
         status_msg = "Resource Type Violation"
         status_msg_long = \
@@ -813,7 +828,7 @@ def validate_graph_structure(pattern: GraphPattern,
     :param exact: [TODO:description]
     :return: [TODO:description]
     """
-    status_msg_lst = list()
+    status_msg_lst = []
     if len(assertion_ap_pairs) < len(pattern):
         # there is an incomplete mapping between the graph and its pattern
         matched_str = "{'" + \

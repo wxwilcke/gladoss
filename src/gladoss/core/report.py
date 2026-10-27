@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 
 from __future__ import annotations
+
+import logging
+import threading
+from collections.abc import Callable, Collection
 from datetime import datetime
 from enum import Enum, IntEnum, auto
 from functools import total_ordering
-import logging
 from queue import Queue
-import threading
-from typing import Callable, Collection, Optional
 
 from rdf.graph import Statement
-from rdf.namespaces import SHACL, RDF, RDFS, XSD
+from rdf.namespaces import RDF, RDFS, SHACL, XSD
 from rdf.terms import IRIRef, Literal
 
 from gladoss.data.utils import mknode, string_to_node
 from gladoss.modules.graph.pattern import GraphPattern
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ PM = '\N{PLUS-MINUS SIGN}'
 ELEMOF = '\N{ELEMENT OF}'
 
 
-class ValidationReport():
+class ValidationReport:
     class ReportType(Enum):
         GRAPH_VALIDATION_REPORT = auto()
         STREAM_VALIDATION_REPORT = auto()
@@ -130,13 +130,13 @@ class ValidationReport():
             stream_id: str,
             timestamp: datetime,
             status_code: ValidationReport.StatusCode,
-            graph_id: Optional[str] = None,
+            graph_id: str | None = None,
             status_msg_lst: list[tuple[str,
                                        str,
                                        ValidationReport.StatusCode,
                                        ValidationReport.ViolationType
                                        ]
-                                 ] = list(),
+                                 ] = [],
             status_msg_lst_map: dict[str,
                                      list[tuple[str,
                                                 str,
@@ -144,7 +144,7 @@ class ValidationReport():
                                                 ValidationReport.ViolationType
                                                 ]
                                           ]
-                                     ] = dict()):
+                                     ] = {}):
         """ Report with results of an executed job with a (named) list
             of failed tests, the most pressing status code, and timestamp.
 
@@ -179,7 +179,7 @@ class GraphValidationReport(ValidationReport):
                                        ValidationReport.StatusCode,
                                        ValidationReport.ViolationType
                                        ]
-                                 ] = list(),
+                                 ] = [],
             status_msg_lst_map: dict[str,
                                      list[tuple[str,
                                                 str,
@@ -187,7 +187,7 @@ class GraphValidationReport(ValidationReport):
                                                 ValidationReport.ViolationType
                                                 ]
                                           ]
-                                     ] = dict()):
+                                     ] = {}):
         """ A validation report for an obversed state graph with its associated
             pattern, status code, and description of the evaluation results.
 
@@ -212,7 +212,7 @@ class GraphValidationReport(ValidationReport):
         self.graph = graph
         self.apa_map = apa_map
 
-    def to_graph(self, namespace: Optional[str], mkid: Callable)\
+    def to_graph(self, namespace: str | None, mkid: Callable)\
             -> list[Statement]:
         """ Convert a graph validation report object to RDF graph in N-Triples
             format that conforms to the SHACL specification. Each detected
@@ -251,7 +251,7 @@ class GraphValidationReport(ValidationReport):
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:
-            if not (namespace.endswith('/') or namespace.endswith('#')):
+            if not namespace.endswith(('/', '#')):
                 namespace += '#'
 
             namespace = IRIRef(namespace)
@@ -302,7 +302,7 @@ class GraphValidationReport(ValidationReport):
         # process violations and errors with associated shape
         # iterate over all validated shapes
         for ap_id, status_msg_lst in self.status_msg_lst_map.items():
-            if ap_id not in self.apa_map.keys():
+            if ap_id not in self.apa_map:
                 continue
 
             # one result per anomaly
@@ -364,17 +364,15 @@ class StreamValidationReport(ValidationReport):
                                        ValidationReport.StatusCode,
                                        ValidationReport.ViolationType
                                        ]
-                                 ] = list(),
-            status_msg_lst_map: Optional[
-                dict[str,
-                     list[tuple[str,
-                                str,
-                                ValidationReport.StatusCode,
-                                ValidationReport.ViolationType
-                                ]
-                          ]
-                     ]
-                ] = dict()):
+                                 ] = [],
+            status_msg_lst_map: dict[str,
+                                     list[tuple[str,
+                                                str,
+                                                ValidationReport.StatusCode,
+                                                ValidationReport.ViolationType
+                                                ]
+                                          ]
+                                     ] | None = {}):
         """ A validation report for a transmission stream with its associated
             node, status code, and description of the evaluation results.
 
@@ -398,7 +396,7 @@ class StreamValidationReport(ValidationReport):
 
         self.endpoint = endpoint
 
-    def to_graph(self, namespace: Optional[str], mkid: Callable)\
+    def to_graph(self, namespace: str | None, mkid: Callable)\
             -> list[Statement]:
         """ Convert a stream validation report object to RDF graph in N-Triples
             format that conforms to the SHACL specification. Each detected
@@ -434,7 +432,7 @@ class StreamValidationReport(ValidationReport):
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:
-            if not (namespace.endswith('/') or namespace.endswith('#')):
+            if not namespace.endswith(('/', '#')):
                 namespace += '#'
 
             namespace = IRIRef(namespace)
@@ -497,25 +495,19 @@ class StreamValidationReport(ValidationReport):
                     + str(self.timestamp))
 
 
-class ReportScheduler():
+class ReportScheduler:
     def __init__(self,
-                 q_sheduler: Queue[Optional[
-                                    tuple[
-                                        str,
-                                        ValidationReport,
-                                        float
-                                        ]
-                                    ]
+                 q_sheduler: Queue[tuple[str,
+                                         ValidationReport,
+                                         float
+                                         ] | None
                                    ],
-                 q_rapport: Queue[Optional[
-                                   tuple[
-                                       str,
-                                       tuple[
-                                           ValidationReport,
-                                           int | list[int]
-                                           ]
-                                       ]
-                                   ]
+                 q_rapport: Queue[tuple[str,
+                                        tuple[ValidationReport,
+                                              int |
+                                              list[int]
+                                              ]
+                                        ] | None
                                   ]):
         """ Thread safe class to manage scheduling of reports via timers.
             Adding and removing reports to the schedule is handled by a
@@ -530,7 +522,7 @@ class ReportScheduler():
         self.q_sheduler = q_sheduler
         self.q_rapport = q_rapport
 
-        self.timers_active = dict()  # type: dict[str, threading.Timer]
+        self.timers_active = {}  # type: dict[str, threading.Timer]
         self.enabled = False
 
     def _schedule(self):
@@ -550,7 +542,7 @@ class ReportScheduler():
                                   if timer.is_alive()}
 
             # stop and rmv active timer if registered
-            if name in self.timers_active.keys():
+            if name in self.timers_active:
                 self.timers_active[name].cancel()
                 del self.timers_active[name]
 

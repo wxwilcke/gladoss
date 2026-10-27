@@ -1,15 +1,18 @@
 #! /usr/bin/env python
 
+import logging
 from ast import literal_eval
 from datetime import datetime
-import logging
 
 from rdf.namespaces import XSD
-from rdf.terms import Literal, IRIRef
+from rdf.terms import IRIRef, Literal
 
-from gladoss.modules.graph.timeutils import (cast_datefrag, cast_datefrag_rev,
-                                             cast_datetime, cast_datetime_rev)
-
+from gladoss.modules.graph.timeutils import (
+    cast_datefrag,
+    cast_datefrag_rev,
+    cast_datetime,
+    cast_datetime_rev,
+)
 
 XSD_DATEFRAG = {XSD + 'gDay',
                 XSD + 'gMonth',
@@ -138,7 +141,7 @@ def cast_literal(dtype: IRIRef | None, v: Literal) -> str | int | float:
     return value
 
 
-def cast_literal_rev(value: str | int | float,
+def cast_literal_rev(value: str | float,
                      dtype: IRIRef | None, lang: str | None) -> Literal:
     if dtype is not None:
         try:

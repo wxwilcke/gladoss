@@ -2,9 +2,8 @@
 
 from datetime import datetime, timedelta
 
-from rdf.terms import IRIRef, Literal
 from rdf.namespaces import XSD
-
+from rdf.terms import IRIRef, Literal
 
 EPOCH_TIME = datetime(year=1970, month=1, day=1, hour=1)
 SECONDS_PER_MIN = 60

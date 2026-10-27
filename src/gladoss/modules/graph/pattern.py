@@ -1,25 +1,32 @@
 #! /usr/bin/env python
 
 from __future__ import annotations
-from collections import Counter
-from copy import deepcopy
-from datetime import datetime
+
 import logging
 import sys
+from collections import Counter
+from collections.abc import Callable, Collection
+from copy import deepcopy
+from datetime import datetime
 from types import SimpleNamespace
-from typing import Any, Callable, Optional, Collection
 
 from rdf.graph import Statement
-from rdf.namespaces import SHACL, OWL, RDF, XSD
+from rdf.namespaces import OWL, RDF, SHACL, XSD
 from rdf.terms import BNode, IRIRef, Literal, Resource
 
-from gladoss.data.utils import mknode
-from gladoss.core.stats import (ContinuousDistribution, DiscreteDistribution,
-                                Distribution)
+from gladoss.core.stats import (
+    ContinuousDistribution,
+    DiscreteDistribution,
+    Distribution,
+)
 from gladoss.core.utils import infer_class
-from gladoss.modules.graph.datatypes import (cast_literal, infer_datatype,
-                                             XSD_NUMERIC, cast_literal_rev)
-
+from gladoss.data.utils import mknode
+from gladoss.modules.graph.datatypes import (
+    XSD_NUMERIC,
+    cast_literal,
+    cast_literal_rev,
+    infer_datatype,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +71,7 @@ def create_graph_pattern(mkid: Callable,
     """
     logger.info(f"Creating new graph pattern (GID '{graph_id}')")
     # create assertion patterns from given set of assertions
-    structure = dict()
+    structure = {}
     for i, assertion in enumerate(graph, 1):
         # TODO; accomodate dangling heads
         logger.info(f"Creating new assertion pattern {i}/{len(graph)} "
@@ -120,11 +127,11 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     return gp_upd
 
 
-class AssertionPattern():
+class AssertionPattern:
     def __init__(self,  anchor: IRIRef,
                  relation: IRIRef,
                  value: IRIRef | Literal | Distribution,
-                 identifier: str, _t: Optional[int] = None) -> None:
+                 identifier: str, _t: int | None = None) -> None:
         """ Initialize a new AssertionPattern.
 
         :param anchor: the class of resource at the head position
@@ -313,7 +320,7 @@ class AssertionPattern():
 
         return ap
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return self._id == other._id
 
     def __lt__(self, other: AssertionPattern) -> bool:
@@ -337,7 +344,7 @@ class AssertionPattern():
                                 str(self.value)]) + ")"
 
 
-class GraphPattern():
+class GraphPattern:
     """ GraphPattern class
 
     Holds all assertions of a graph pattern and keeps
@@ -366,10 +373,10 @@ class GraphPattern():
 
         # track newly observed assertion patterns
         # these are added to the structure upon reaching threshold
-        self._under_consideration = dict()
+        self._under_consideration = {}
 
         # schedule future decay of assertion patterns
-        self._decay_tracker = dict()
+        self._decay_tracker = {}
         if self.decay > 0:
             t_decay = (self._t + self.decay) % sys.maxsize
             self._decay_tracker[t_decay] = set(self.structure)
@@ -388,10 +395,10 @@ class GraphPattern():
 
         # update assertion patterns
         for ap in updates:
-            if ap._id in gp.structure.keys():
+            if ap._id in gp.structure:
                 # known member of the current graph pattern
                 gp.structure[ap._id] = ap  # just replace
-            elif ap._id in gp._under_consideration.keys():
+            elif ap._id in gp._under_consideration:
                 # known assertion pattern under consideration
                 gp._under_consideration[ap._id] = ap  # just replace
             else:  # unknown assertion pattern: add for consideration
@@ -435,14 +442,14 @@ class GraphPattern():
             to the structure, thereby including them in the nominal behaviour.
         """
         remove_set = set()
-        for ap_id in self._under_consideration.keys():
-            if ap_id in self._freq_tracker.keys():
-                if self._freq_tracker[ap_id] >= self.threshold:
-                    # add assertion pattern to graph pattern structure
-                    self.structure[ap_id] = self._under_consideration[ap_id]
-                    remove_set.add(ap_id)
+        for ap_id in self._under_consideration:
+            if (ap_id in self._freq_tracker and
+                    self._freq_tracker[ap_id] >= self.threshold):
+                # add assertion pattern to graph pattern structure
+                self.structure[ap_id] = self._under_consideration[ap_id]
+                remove_set.add(ap_id)
 
-                    continue
+                continue
 
         for ap_id in remove_set:
             del self._under_consideration[ap_id]
@@ -451,16 +458,16 @@ class GraphPattern():
         """ Forget about assertion patterns that have exceeded their
             decay period, by removing them from the structure.
         """
-        if self._t in self._decay_tracker.keys():
+        if self._t in self._decay_tracker:
             for ap_id in self._decay_tracker[self._t]:
-                if ap_id in self._freq_tracker.keys():
+                if ap_id in self._freq_tracker:
                     # decrease sample count
                     self._freq_tracker[ap_id] -= 1
 
                     if self._freq_tracker[ap_id] <= 0:
-                        if ap_id in self.structure.keys():
+                        if ap_id in self.structure:
                             del self.structure[ap_id]
-                        elif ap_id in self._under_consideration.keys():
+                        elif ap_id in self._under_consideration:
                             del self._under_consideration[ap_id]
 
                         # remove sample from index
@@ -471,7 +478,7 @@ class GraphPattern():
 
     def to_graph(self, mkid: Callable,
                  timestamp: datetime,
-                 namespace: Optional[str]) -> list[Statement]:
+                 namespace: str | None) -> list[Statement]:
         """ Convert graph pattern object to RDF graph in N-Triple format that
             conforms to the SHACL specification for shape graphs. Each
             assertion pattern is converted into a shape structure, with full
@@ -490,7 +497,7 @@ class GraphPattern():
 
         # use provided namespace for new nodes
         if isinstance(namespace, str) and len(namespace) > 0:
-            if not (namespace.endswith('/') or namespace.endswith('#')):
+            if not namespace.endswith(('/', '#')):
                 namespace += '#'
 
             namespace = IRIRef(namespace)
@@ -594,7 +601,7 @@ class GraphPattern():
 
                         lst = lst_rest
             else:
-                NotImplementedError()
+                raise NotImplementedError()
 
         return graph
 
@@ -629,7 +636,7 @@ class GraphPattern():
 
         :rtype: str
         """
-        return "GraphPattern [{}]".format(str(self))
+        return f"GraphPattern [{self!s}]"
 
     def __str__(self) -> str:
         """ Return a string representation

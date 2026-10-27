@@ -1,9 +1,9 @@
 #! /usr/bin/env python
 
-from datetime import datetime, timedelta
 import logging
-from queue import Queue
 import threading
+from datetime import datetime, timedelta
+from queue import Queue
 from types import SimpleNamespace
 from typing import Any
 
@@ -11,7 +11,6 @@ from gladoss.core.report import StreamValidationReport, ValidationReport
 from gladoss.core.stores import MemoryStore
 from gladoss.modules.stream.info_elem import StreamInfoElement
 from gladoss.modules.stream.validator import validate_stream
-
 
 logger = logging.getLogger(__name__)
 

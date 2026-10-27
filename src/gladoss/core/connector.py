@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 
-import logging
 import json
-from typing import Any, Generator, Self
+import logging
+from collections.abc import Generator
+from typing import Any, Self
 
-from rdf import Statement
 import requests
+from rdf import Statement
 
 from gladoss.adaptors.adaptor import Adaptor
-
 
 logger = logging.getLogger(__name__)
 
 
-class Connector():
+class Connector:
     def __init__(self: Self, adaptor: Adaptor,
                  endpoint: str = "http://127.0.0.1:8000",
                  continuous: bool = False, num_retries: int = 3,
@@ -105,7 +105,7 @@ class Connector():
         package_headers = self.adaptor.set_headers()
         package_payload = self.adaptor.set_payload()
         while not self.adaptor._controller.is_set():
-            logging.debug("Polling server")
+            logger.debug("Polling server")
             try:
                 status_code, data_raw = self.poll(self.session,
                                                   self.endpoint,
@@ -116,7 +116,7 @@ class Connector():
                             f"{self.endpoint}")
 
                 if not self.continuous and retries >= self.num_retries:
-                    logging.debug("Reached maximum number of retries")
+                    logger.debug("Reached maximum number of retries")
                     break
 
                 if self._wait_on_error(retries):
@@ -155,7 +155,7 @@ class Connector():
                     logger.exception("JSONDecodeError on {data_raw}")
 
                     if not self.continuous and retries >= self.num_retries:
-                        logging.debug("Reached maximum number of retries")
+                        logger.debug("Reached maximum number of retries")
                         break
 
                     if self._wait_on_error(retries):
@@ -178,7 +178,7 @@ class Connector():
             if status_code >= requests.codes.bad_request:  # 400: server error
                 logger.debug("Error with request or response")
                 if not self.continuous and retries >= self.num_retries:
-                    logging.debug("Reached maximum number of retries")
+                    logger.debug("Reached maximum number of retries")
                     break
 
                 if self._wait_on_error(retries):

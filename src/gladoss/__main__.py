@@ -2,9 +2,8 @@
 
 import sys
 
-from gladoss.run import __main__ as run
 from gladoss.demo.demo_device import __main__ as demo
-
+from gladoss.run import __main__ as run
 
 if __name__ == '__main__':
     print(sys.argv)

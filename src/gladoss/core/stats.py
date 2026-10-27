@@ -1,30 +1,33 @@
 #! /usr/bin/env python
 
 from __future__ import annotations
+
+import logging
+import sys
 from collections import Counter
 from enum import Enum, auto
-import logging
-from typing import Any, Optional
-import sys
 
 import numpy as np
-from rdf.terms import IRIRef, Literal, Resource
 from rdf.namespaces import XSD
+from rdf.terms import IRIRef, Literal, Resource
 
-from gladoss.modules.graph.datatypes import (XSD_CONTINUOUS, XSD_DISCRETE,
-                                             cast_literal, infer_datatype)
-
+from gladoss.modules.graph.datatypes import (
+    XSD_CONTINUOUS,
+    XSD_DISCRETE,
+    cast_literal,
+    infer_datatype,
+)
 
 logger = logging.getLogger(__name__)
 
 # TODO: consider swapping distributions for LSTMs with OCSVMs
 
 
-class Distribution():
+class Distribution:
     def __init__(self,
                  decay: int = -1,
-                 dtype: Optional[IRIRef] = None,
-                 lang: Optional[str] = None) -> None:
+                 dtype: IRIRef | None = None,
+                 lang: str | None = None) -> None:
         """ Statistical distribution over samples of a specific
             (data) type. Samples are kept until they decay (a
             negative value disables this feature) and the last
@@ -42,7 +45,7 @@ class Distribution():
 
         self._t = 0  # time steps since initialisation
         self.samples = Counter()  # keep track of samples and their frequency
-        self._decay_tracker = dict()  # keep track of decay
+        self._decay_tracker = {}  # keep track of decay
 
     def addSample(self, sample: str | float) -> None:
         """ Add a single sample to the distribution and push
@@ -51,7 +54,7 @@ class Distribution():
         :param sample: the sample to add
         """
         # add sample to distribution or increment count
-        if sample not in self.samples.keys():
+        if sample not in self.samples:
             self.samples[sample] = 0
         self.samples[sample] += 1
 
@@ -159,9 +162,9 @@ class Distribution():
             the samples slated for decay at this epoch. Removes the entry
             afterwards to clean up the data structure.
         """
-        if self._t in self._decay_tracker.keys():
+        if self._t in self._decay_tracker:
             for sample in self._decay_tracker[self._t]:
-                if sample in self.samples.keys():
+                if sample in self.samples:
                     # decrease sample count
                     self.samples[sample] -= 1
 
@@ -191,7 +194,7 @@ class Distribution():
     def __hash__(self) -> int:
         return hash(repr(self))
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return type(self) is type(other) and repr(self) == repr(other)
 
     def __lt__(self, other: Distribution) -> bool:
@@ -204,8 +207,8 @@ class Distribution():
 class ContinuousDistribution(Distribution):
     def __init__(self, decay: int = -1,
                  resolution: int = -1,
-                 dtype: Optional[IRIRef] = None,
-                 lang: Optional[str] = None) -> None:
+                 dtype: IRIRef | None = None,
+                 lang: str | None = None) -> None:
         """ Continuous distribution over Real numbers. A
             resolution above zero will truncate the samples
             to that number of significant figures.
@@ -258,8 +261,8 @@ class ContinuousDistribution(Distribution):
 
 class DiscreteDistribution(Distribution):
     def __init__(self, decay: int = -1,
-                 dtype: Optional[IRIRef] = None,
-                 lang: Optional[str] = None) -> None:
+                 dtype: IRIRef | None = None,
+                 lang: str | None = None) -> None:
         """ Discrete distribution
 
         :param decay: time until seen sample is forgotten
@@ -317,7 +320,7 @@ def test_statistic_discrete(samples: np.ndarray, samples_idx: dict)\
 
     n = len(samples)
     proportions = np.array([np.nan] * len(samples_idx), dtype=float)
-    for k in counter.keys():
+    for k in counter:
         p = counter[k] / n  # proportion in sample
 
         proportions[samples_idx[k]] = p
@@ -435,7 +438,7 @@ def two_sample_bootstrap_hypothesis_test(rng: np.random.Generator,
     samples_idx = {sample: i for i, sample in enumerate(samples_uniq)}
 
     # bootstrap method
-    results_a, results_b = list(), list()
+    results_a, results_b = [], []
     for samples, results in [(sample_a, results_a),
                              (sample_b, results_b)]:
         for _ in range(num_resamples):
@@ -520,7 +523,7 @@ def nonparametric_prediction_interval(population: np.ndarray,
     :return: [TODO:description]
     """
     def predicate_interval(sample: np.ndarray,
-                           pi_i: int | float) -> float:
+                           pi_i: float) -> float:
         weight = pi_i % 1
         if weight > 0:
             # weigted average of the values from two adjacent points

@@ -1,26 +1,24 @@
 #!/usr/bin/env python
 
 import bz2
-from datetime import datetime, timedelta
 import logging
-from pathlib import Path
 import pickle
 import sched
+from datetime import datetime, timedelta
+from pathlib import Path
 from threading import Thread
-from typing import Optional
 
 from gladoss.core.stores import Store
-
 
 TIME_FORMAT = "%Y%m%dT%H%M%S"
 
 logger = logging.getLogger(__name__)
 
 
-class BackupManager():
+class BackupManager:
     def __init__(self, location: Path,
-                 stores: list[tuple[str, Store]] = list(),
-                 interval: Optional[timedelta] = None):
+                 stores: list[tuple[str, Store]] = [],
+                 interval: timedelta | None = None):
         """ Manage manual and automatic backups of patterns.
 
         :param pv: [TODO:description]
@@ -119,7 +117,7 @@ class BackupManager():
         """
         assert filename.exists(), f"File '{filename.name}' cannot be found"
 
-        stores = list()
+        stores = []
         try:
             with bz2.open(filename.resolve(), "rb") as f:
                 data = f.read()

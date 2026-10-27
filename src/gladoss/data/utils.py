@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 
-from argparse import Namespace
-from datetime import timedelta
 import logging
-from pathlib import Path
 import re
 import sys
 import termios
 import tty
+from argparse import Namespace
+from collections.abc import Callable
+from datetime import timedelta
+from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Callable, Optional
+from typing import Any
 
 from rdf.terms import BNode, IRIRef, Literal
-
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ def jsonpath_deref(root: dict | list, jsonpath: list[Any]) -> Any:
         :param path: [TODO:description]
         :return: [TODO:description]
         """
-        if not (isinstance(struc, dict) or isinstance(struc, list)) \
+        if not isinstance(struc, (dict, list)) \
            or len(path) <= 0:
             return struc
 
@@ -176,7 +176,7 @@ def jsonpath_deref(root: dict | list, jsonpath: list[Any]) -> Any:
     return traverse(root, path_lst)
 
 
-def mknode(namespace: Optional[IRIRef], mkid: Callable) -> BNode | IRIRef:
+def mknode(namespace: IRIRef | None, mkid: Callable) -> BNode | IRIRef:
     """ Create a new blank node or an IRI if a namespace is provided.
 
     :param namespace: [TODO:description]

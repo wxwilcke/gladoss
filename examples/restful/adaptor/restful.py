@@ -3,15 +3,16 @@
 import logging
 import os
 import re
+from collections.abc import Collection
 from sys import stdout
-import tomllib
-from typing import Any, Collection, Self
+from typing import Any, Self
 
+import tomllib
 from rdf import IRIRef, Literal, Statement
 
+from gladoss.adaptors.adaptor import Adaptor
 from gladoss.core.connector import Connector
 from gladoss.core.report import ValidationReport
-from gladoss.adaptors.adaptor import Adaptor
 from gladoss.data.utils import jsonpath_deref
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ class RESTfulAdaptor(Adaptor):
     def init_hook(self: Self) -> None:
         """ Execute additional commands on initialisation.
         """
-        conf = dict()
+        conf = {}
         with open(CONF_PATH, 'rb') as f:
             conf = tomllib.load(f)
 
@@ -163,24 +164,24 @@ class RESTfulAdaptor(Adaptor):
         stream_id = jsonpath_deref(data, self.context['path_to_stream_id'])
         graph_data = jsonpath_deref(data, self.context['path_to_graph_data'])
 
-        data_translated = list()
+        data_translated = []
         if not isinstance(graph_data, str) or len(graph_data) <= 0:
-            logging.debug("Missing content in data package")
+            logger.debug("Missing content in data package")
             return data_translated
 
         if not isinstance(stream_id, str) or len(stream_id) <= 0:
-            logging.debug("Missing stream identifier in data package")
+            logger.debug("Missing stream identifier in data package")
             return data_translated
 
         if not isinstance(node_id, str) or len(node_id) <= 0:
-            logging.debug("Missing node identifier in data package")
+            logger.debug("Missing node identifier in data package")
             return data_translated
 
         graph_str = graph_data.strip()
         try:
-            graph = list()
+            graph = []
             for match in re.finditer(STATEMENT, graph_str):
-                logging.debug(match.groupdict())
+                logger.debug(match.groupdict())
                 fact = self.process_fact(match)
                 graph.append(fact)
 

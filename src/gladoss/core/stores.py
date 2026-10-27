@@ -1,21 +1,21 @@
 #! /usr/bin/env python
 
 from __future__ import annotations
+
 import bz2
-from datetime import datetime
-from enum import Enum
 import logging
 import pickle
+from datetime import datetime
+from enum import Enum
 from threading import RLock
-from typing import Any, Optional
+from typing import Any
 
 from gladoss.modules.graph.pattern import GraphPattern
-
 
 logger = logging.getLogger(__name__)
 
 
-class Store():
+class Store:
     def __init__(self, lock: RLock) -> None:
         """ Thread safe object store with pickle support.
 
@@ -25,7 +25,7 @@ class Store():
 
         :param lock: [TODO:description]
         """
-        self._polytree = dict()
+        self._polytree = {}
         self._lock = lock
 
     def __getstate__(self):
@@ -64,8 +64,8 @@ class MemoryStore(Store):
         """
         self._lock.acquire()
         try:
-            if node_id not in self._polytree.keys():
-                self._polytree[node_id] = dict()
+            if node_id not in self._polytree:
+                self._polytree[node_id] = {}
         except Exception as e:
             logger.error(f"Unable to register node '{node_id}': {e}")
             return False
@@ -116,7 +116,7 @@ class MemoryStore(Store):
         self._lock.acquire()
         try:
             tree = self._polytree[node_id]
-            if key not in tree.keys():
+            if key not in tree:
                 tree[key] = MemoryLinkedList(memory=self.memory)
 
             tree[key].put(data)
@@ -164,7 +164,7 @@ class MemoryStore(Store):
         """
         self._lock.acquire()
 
-        data_lst = list()
+        data_lst = []
         try:
             branch = self._polytree[node_id].get(key)
             if branch is not None:
@@ -190,10 +190,10 @@ class MemoryStore(Store):
         """
         self._lock.acquire()
 
-        data_dct = dict()
+        data_dct = {}
         try:
             tree = self._polytree[node_id]
-            for key in tree.keys():
+            for key in tree:
                 branch = tree[key]
                 data_dct[key] = [
                     item.data for item in branch.lastn(branch.memory_used)
@@ -206,11 +206,11 @@ class MemoryStore(Store):
         return data_dct
 
 
-class MemoryLinkedList():
-    class LinkedListNode():
-        def __init__(self, data: Optional[Any],
-                     prev: Optional[MemoryLinkedList.LinkedListNode] = None,
-                     next: Optional[MemoryLinkedList.LinkedListNode] = None)\
+class MemoryLinkedList:
+    class LinkedListNode:
+        def __init__(self, data: Any | None,
+                     prev: MemoryLinkedList.LinkedListNode | None = None,
+                     next: MemoryLinkedList.LinkedListNode | None = None)\
                              -> None:
             """ A node in a linked list with associated data and, optionally,
                 a previous and next neighbour node.
@@ -258,7 +258,7 @@ class MemoryLinkedList():
 
         self._trim()
 
-    def pop(self) -> Optional[MemoryLinkedList.LinkedListNode]:
+    def pop(self) -> MemoryLinkedList.LinkedListNode | None:
         """ Remove the most recently added node from the list and
             return it. This will move the head of the list back one
             node.
@@ -283,7 +283,7 @@ class MemoryLinkedList():
         :param n: [TODO:description]
         :return: [TODO:description]
         """
-        out = list()
+        out = []
 
         node = self.head
         for i in range(min(self.memory_used, n)):
@@ -352,7 +352,7 @@ class PatternVault(Store):
 
         self._lock.acquire()
         try:
-            assert key not in self._polytree.keys()
+            assert key not in self._polytree
             self._polytree[key] = [(pattern, datetime.now())]
         except Exception as e:
             logger.error(f"Unable to add new pattern vault entry: {e}")
@@ -369,14 +369,14 @@ class PatternVault(Store):
 
         self._lock.acquire()
         try:
-            assert key in self._polytree.keys()
+            assert key in self._polytree
             del self._polytree[key]
         except Exception as e:
             logger.error(f"Unable to remove pattern vault entry: {e}")
         finally:
             self._lock.release()
 
-    def prune_graph_pattern(self, pattern: Optional[GraphPattern]) -> None:
+    def prune_graph_pattern(self, pattern: GraphPattern | None) -> None:
         """ Prune the tree of the provided graph pattern by replacing
             the entire tree with a new tree that only contains the
             most recent graph pattern. Do this for all registered
@@ -387,12 +387,12 @@ class PatternVault(Store):
         """
         prune_lst = [pattern]
         if pattern is None:
-            prune_lst = [pattern._id for pattern in self._polytree.keys()]
+            prune_lst = [pattern._id for pattern in self._polytree]
 
         self._lock.acquire()
         try:
             for key in prune_lst:
-                assert key in self._polytree.keys()
+                assert key in self._polytree
                 self._polytree[key] = [self._polytree[key][-1]]
         except Exception as e:
             logger.error(f"Unable to prune pattern vault entry: {e}")

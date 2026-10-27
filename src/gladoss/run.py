@@ -1,30 +1,29 @@
 #!/usr/bin/env python
 
 import argparse
-from datetime import datetime
 import functools
 import logging
 import os
+import signal
+import threading
+from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from queue import Queue
-import signal
 from threading import Event, RLock
-import threading
 from types import SimpleNamespace
-from typing import Callable, Optional
 
 import numpy as np
 
 from gladoss.adaptors.adaptor import Adaptor
-from gladoss.core.stores import MemoryStore, PatternVault
-from gladoss.data.backup import BackupManager
-from gladoss.data.utils import create_namespace_subset, pathArg, timeSpanArg
 from gladoss.core.connector import Connector
 from gladoss.core.report import ReportScheduler, ValidationReport
+from gladoss.core.stores import MemoryStore, PatternVault
 from gladoss.core.utils import gen_id, import_class, init_rng, list_classes
+from gladoss.data.backup import BackupManager
+from gladoss.data.utils import create_namespace_subset, pathArg, timeSpanArg
 from gladoss.modules.graph.monitor import process_graph
 from gladoss.modules.stream.monitor import process_stream
-
 
 logger = logging.getLogger(__name__)
 ROOT_PATH = Path(__file__).parent
@@ -47,8 +46,8 @@ def signal_handler(signum, frame):
 
 
 def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
-                              label: Optional[int | list[int]],
-                              namespace: Optional[str],
+                              label: int | list[int] | None,
+                              namespace: str | None,
                               mkid: Callable) -> bool:
     """ Convert the validation report to RDF graph format and publish
         the result via the adaptor.
@@ -62,7 +61,9 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     logger.debug(f"Preparing publication of validation report "
                  f"(SID '{report.stream_id}')")
     report_graph = report.to_graph(namespace, mkid)
-    logger.debug(f" {{\n{'\n  '.join([str(s) for s in report_graph])}\n  }}")
+    logger.debug("REPORT {{\n{}\n\t}}".format(
+        "\n ".join([str(s) for s in report_graph]))
+     )
 
     # publish report to endpoint
     logger.info(f"Publishing validation report (SID '{report.stream_id}')")
@@ -91,7 +92,7 @@ def process_message(rng: np.random.Generator, mkid: Callable,
     :param r: [TODO:description]
     """
     logger.info("Manager is awaiting new messages")
-    jobs_active = list()
+    jobs_active = []
     while True:
         job = q_obs.get()
         if job is None:
@@ -225,7 +226,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     q_rpts = Queue()  # queue scheduled reports here
 
     # listen to all endpoints in parallel
-    listening_jobs = list()
+    listening_jobs = []
     for i, connector in enumerate(adaptor.connectors, 1):
         thread_id = f"listner-{i}"
         thread = threading.Thread(target=listener, name=thread_id,
@@ -253,7 +254,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                 logger.info(f"Listner {thread_id} has terminated")
 
                 # terminate and remove listner from tracker
-                listening_jobs_new = list()
+                listening_jobs_new = []
                 for listner in listening_jobs:
                     if listner.name == thread_id:
                         listner.join()
@@ -271,11 +272,11 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             logger.debug("Processing validation report with status "
                          f"{report.status_code.name} "
                          f"(SID '{report.stream_id}')")
-            if report.status_code >= econf.report_level:
-                if not publish_validation_report(adaptor, report, label,
-                                                 flags.namespace, mkid):
-                    logger.info("Unable to publish validation report "
-                                f"(SID '{report.stream_id}')")
+            if (report.status_code >= econf.report_level and
+                not publish_validation_report(adaptor, report, label,
+                                              flags.namespace, mkid)):
+                logger.info("Unable to publish validation report "
+                            f"(SID '{report.stream_id}')")
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 
@@ -323,7 +324,7 @@ def __main__():
     parser.add_argument("--backup-path", help="Directory to write backups to, "
                         "either absolute or relative to the working "
                         "directory.", type=pathArg,
-                        default=Path().resolve() / "backup")
+                        default=Path().cwd() / "backup")
     parser.add_argument("--backup-restore", help="Path to backup file (.bak), "
                         "either absolute or relative to backup path, from "
                         "which to import patterns on start.", type=pathArg,

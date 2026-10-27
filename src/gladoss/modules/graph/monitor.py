@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 
-from datetime import datetime
 import hashlib
 import logging
-from queue import Queue
 import threading
+from collections.abc import Callable, Collection
+from datetime import datetime
+from queue import Queue
 from types import SimpleNamespace
-from typing import Callable, Collection, Optional
 
 import numpy as np
 from rdf.graph import Statement
@@ -14,12 +14,13 @@ from rdf.graph import Statement
 from gladoss.core.report import GraphValidationReport, ValidationReport
 from gladoss.core.stores import PatternVault
 from gladoss.core.utils import create_pattern_map
-from gladoss.modules.graph.pattern import (AssertionPattern,
-                                           GraphPattern,
-                                           create_graph_pattern,
-                                           update_graph_pattern)
+from gladoss.modules.graph.pattern import (
+    AssertionPattern,
+    GraphPattern,
+    create_graph_pattern,
+    update_graph_pattern,
+)
 from gladoss.modules.graph.validator import validate_state_graph
-
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ def create_validation_report(rng: np.random.Generator,
 def process_graph(rng: np.random.Generator, mkid: Callable,
                   pv: PatternVault, graph: Collection[Statement],
                   node_id: str, stream_id: str,
-                  graph_label: Optional[int | list[int]],
+                  graph_label: int | list[int] | None,
                   rtime: datetime,
                   pconf: SimpleNamespace, econf: SimpleNamespace,
                   q_rpt: Queue) -> None:
@@ -103,7 +104,9 @@ def process_graph(rng: np.random.Generator, mkid: Callable,
     """
     thread_id = threading.current_thread().name
     logger.info(f"Processing graph (SID '{stream_id}')")
-    logger.debug(f" {{\n{'\n  '.join([str(s) for s in graph])}\n  }}")
+    logger.debug("GRAPH {{\n{}\n\t}}".format(
+        "\n ".join([str(s) for s in graph]))
+     )
 
     # TODO: each stream is currently associated with exactly one graph. In
     # reality, one stream can produce multiple graphs. Also, a single graph can

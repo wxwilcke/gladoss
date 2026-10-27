@@ -3,10 +3,11 @@
 import logging
 import os
 import re
-import tomllib
-from typing import Any, Collection, Optional, Self
+from collections.abc import Collection
+from typing import Any, Self
 
 import requests
+import tomllib
 from rdf import BNode, IRIRef, Literal, Statement
 from rdf.namespaces import RDF, RDFS, SHACL
 
@@ -119,7 +120,7 @@ class KE_Adaptor(Adaptor):
         return response.status_code == requests.codes.ok  # 200: ok
 
     def register_ki(self: Self, endpoint: str, kb_id: str,
-                    ki_payload: dict[str, str]) -> Optional[str]:
+                    ki_payload: dict[str, str]) -> str | None:
         """ Register knowledge interaction.
 
         :param endpoint: [TODO:description]
@@ -181,17 +182,17 @@ class KE_Adaptor(Adaptor):
             knowledge interactions should be of the type 'react', and
             will have an empty results graph.
         """
-        conf = dict()
+        conf = {}
         with open(CONF_PATH, 'rb') as f:
             conf = tomllib.load(f)
 
         # use context to share data between hooks
-        self.context['reactKnowledgeInteractions'] = dict()
-        self.context['reactKnowledgeInteractionsInv'] = dict()
-        self.context['postKnowledgeInteractions'] = dict()
-        self.context['postKowledgeInteractionConnectors'] = dict()
-        self.context['argumentGraphPatterns'] = dict()
-        self.context['argumentGraphPatternsNodeID'] = dict()
+        self.context['reactKnowledgeInteractions'] = {}
+        self.context['reactKnowledgeInteractionsInv'] = {}
+        self.context['postKnowledgeInteractions'] = {}
+        self.context['postKowledgeInteractionConnectors'] = {}
+        self.context['argumentGraphPatterns'] = {}
+        self.context['argumentGraphPatternsNodeID'] = {}
 
         kb_id = conf['knowledgeBaseId']
         kb_name = conf['knowledgeBaseName']
@@ -283,10 +284,10 @@ class KE_Adaptor(Adaptor):
             send to the same endpoint as where the graph or stream,
             about which the report reports, are received from.
         """
-        registered_ki = dict()
+        registered_ki = {}
 
         kb_id = self.context['knowledgeBaseId']
-        for ki_endpoint in self.context['reactKnowledgeInteractions'].keys():
+        for ki_endpoint in self.context['reactKnowledgeInteractions']:
             ki_payload = {
                     'knowledgeInteractionType': "PostKnowledgeInteraction",
                     'knowledgeInteractionName': name,
@@ -358,7 +359,7 @@ class KE_Adaptor(Adaptor):
         """ Add connectors to adaptor, one for each different endpoint.
         """
         # connections to listen on
-        for ki_endpoint in self.context['reactKnowledgeInteractions'].keys():
+        for ki_endpoint in self.context['reactKnowledgeInteractions']:
             self.connectors.add(Connector(
                 adaptor=self,
                 endpoint=ki_endpoint + "/sc/handle",
@@ -398,7 +399,7 @@ class KE_Adaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        headers = dict()
+        headers = {}
         try:
             ki_endpoint\
                 = self.context['reactKnowledgeInteractionsInv'][identifier]
@@ -437,7 +438,7 @@ class KE_Adaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        headers = dict()
+        headers = {}
         try:
             headers = {
                     'Knowledge-Base-Id': self.context['knowledgeBaseId'],
@@ -457,7 +458,7 @@ class KE_Adaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        payload = dict()
+        payload = {}
         try:
             req_id = data['handleRequestId']
             payload = {
@@ -479,19 +480,19 @@ class KE_Adaptor(Adaptor):
         :raises SyntaxWarning: warn if translation fails
         """
 
-        data_translated = list()
-        if "bindingSet" not in data.keys() or len(data["bindingSet"]) <= 0:
-            logging.debug("Missing content in data package")
+        data_translated = []
+        if "bindingSet" not in data or len(data["bindingSet"]) <= 0:
+            logger.debug("Missing content in data package")
             return data_translated
 
-        if "knowledgeInteractionId" not in data.keys():
-            logging.debug("Missing graph identifier in data package")
+        if "knowledgeInteractionId" not in data:
+            logger.debug("Missing graph identifier in data package")
             return data_translated
 
         ki_id = data['knowledgeInteractionId']  # type: str
-        if ki_id not in self.context['argumentGraphPatterns'].keys():
-            logging.debug("Unable to find argument graph pattern associated "
-                          + f"with knowledge interaction {ki_id}")
+        if ki_id not in self.context['argumentGraphPatterns']:
+            logger.debug("Unable to find argument graph pattern associated "
+                         + f"with knowledge interaction {ki_id}")
             return data_translated
 
         # stream identifier
@@ -509,7 +510,7 @@ class KE_Adaptor(Adaptor):
                 if ki_node_id_var.startswith('?'):
                     node_id = bset.get(ki_node_id_var[1:])  # omit '?'
 
-                graph = list()
+                graph = []
                 for s in self.instantiate_graph(statements_lst, bset):
                     match = re.fullmatch(STATEMENT, s)
                     if match is not None:
@@ -546,12 +547,12 @@ class KE_Adaptor(Adaptor):
 
             return f"<{node}>"
 
-        binding_set = list()
+        binding_set = []
 
         root = None
-        report = dict()
-        results = dict()
-        severities = dict()
+        report = {}
+        results = {}
+        severities = {}
         for statement in data:
             if statement.predicate == RDF + "type":
                 sbj = statement.subject
@@ -566,7 +567,7 @@ class KE_Adaptor(Adaptor):
                     continue
 
                 if statement.object == SHACL + "Severity":
-                    severities[sbj] = dict()
+                    severities[sbj] = {}
 
                     continue
 
@@ -592,7 +593,7 @@ class KE_Adaptor(Adaptor):
 
                         continue
 
-                if sbj in results.keys():
+                if sbj in results:
                     if statement.predicate == RDFS + "label":
                         results[sbj]["resultStatusMsg"] = statement.object
 
@@ -621,7 +622,7 @@ class KE_Adaptor(Adaptor):
 
                         continue
 
-                if sbj in severities.keys():
+                if sbj in severities:
                     if statement.predicate == RDFS + "label":
                         severities[sbj]["severityLabel"] = statement.object
 
@@ -634,7 +635,7 @@ class KE_Adaptor(Adaptor):
 
             # integrate dictionaries
             for result in results.values():
-                bindings = dict()
+                bindings = {}
                 for k, v in report[root].items():
                     bindings[k] = to_string(v)
 
@@ -643,7 +644,7 @@ class KE_Adaptor(Adaptor):
 
                 if "resultSeverity" in result.keys():
                     sev = result["resultSeverity"]
-                    if sev in severities.keys():
+                    if sev in severities:
                         for k, v in severities[sev].items():
                             bindings[k] = to_string(v)
 
@@ -658,7 +659,7 @@ class KE_Adaptor(Adaptor):
         :param prefixes: [TODO:description]
         :return: [TODO:description]
         """
-        out = list()
+        out = []
         for s in pattern.splitlines():
             s = s.strip()
             if len(s) <= 0:
@@ -671,7 +672,7 @@ class KE_Adaptor(Adaptor):
             i = 0
             in_prefix = False
             in_iri = False
-            s_lst = list()
+            s_lst = []
             for j in range(len(s)):
                 char = s[j]
                 if char == '"':
@@ -731,7 +732,7 @@ class KE_Adaptor(Adaptor):
         :return: the instantiated triples as strings
         """
 
-        out = list()
+        out = []
         for s in statements_str:
             if len(s) <= 0:
                 continue
@@ -743,7 +744,7 @@ class KE_Adaptor(Adaptor):
 
             i = 0
             flag = False
-            s_lst = list()
+            s_lst = []
             for j in range(len(s)):
                 char = s[j]
                 if char == '"':
@@ -765,7 +766,7 @@ class KE_Adaptor(Adaptor):
 
                 if flag and char.isspace():  # end of variable
                     var = s[i+1:j]
-                    if var in bindings.keys():
+                    if var in bindings:
                         if len(s_lst) <= 0 and i > 0:
                             # add chars in front
                             s_lst.append(s[:i])

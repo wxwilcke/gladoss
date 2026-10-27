@@ -1,18 +1,24 @@
 #! /usr/bin/env python
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
 
+from gladoss.core.report import (
+    BECAUSE,
+    ELEMOF,
+    EMDASH,
+    PM,
+    QED,
+    StreamValidationReport,
+    ValidationReport,
+)
 from gladoss.core.stats import nonparametric_prediction_interval
 from gladoss.core.stores import MemoryStore
-from gladoss.core.report import (ValidationReport, StreamValidationReport,
-                                 BECAUSE, EMDASH, QED, PM, ELEMOF)
 from gladoss.modules.stream.info_elem import StreamInfoElement
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +37,8 @@ def validate_stream(store: MemoryStore, node_id: str, stream_id,
     :param rtime: [TODO:description]
     :return: [TODO:description]
     """
-    cache_dct = dict()
-    status_msg_lst = list()
+    cache_dct = {}
+    status_msg_lst = []
 
     if stream_id not in store.nodes:
         # historical data not available for this message stream
@@ -128,8 +134,8 @@ def validate_message_reception_interval(store: MemoryStore,
     :param tolerance: [TODO:description]
     :return: [TODO:description]
     """
-    cache_dct = dict()
-    status_msg_lst = list()
+    cache_dct = {}
+    status_msg_lst = []
 
     data_lst = store.get(stream_id, StreamInfoElement.RINTERVAL)
     rtime_prev = store.most_recent(stream_id, StreamInfoElement.RTIME)

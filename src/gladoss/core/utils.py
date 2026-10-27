@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 
 import ast
-from collections import Counter
 import importlib
 import logging
-from pathlib import Path
 import sys
-from typing import Collection, Optional
 import uuid
+from collections import Counter
+from collections.abc import Collection
+from pathlib import Path
 
 import numpy as np
-from gladoss.adaptors.adaptor import Adaptor
-
 from rdf import IRIRef, Statement
 from rdf.namespaces import RDF, RDFS
+
+from gladoss.adaptors.adaptor import Adaptor
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def create_pattern_map(graph: Collection[Statement],
                                        ar_pairs)
 
     # find pairs for assertion patterns under consideration
-    assertion_uc_pairs = list()
+    assertion_uc_pairs = []
     if len(pattern._under_consideration) > 0:
         pattern_components = list(pattern._under_consideration.values())
         assertion_uc_pairs, unmatched\
@@ -79,12 +79,12 @@ def match_assertions_to_patterns(
 
     # match assertions to their pattern
     remainder = set()
-    assertion_ap_pairs = list()
-    assertion_ap_conflicts = list()
+    assertion_ap_pairs = []
+    assertion_ap_conflicts = []
     for assertion in graph:
         ar_pair = ar_pairs[assertion]
 
-        matches = list()
+        matches = []
         if ar_count[ar_pair] == 2:
             # unambiguous match
             anchor, relation = ar_pair
@@ -120,7 +120,7 @@ def match_assertions_to_patterns(
     return assertion_ap_pairs, remainder
 
 
-def init_rng(seed: Optional[int] = None) -> np.random.Generator:
+def init_rng(seed: int | None = None) -> np.random.Generator:
     """ Initiate random state by specified seed. Use in
         scipy instances S with S.random_state = rng.
 
@@ -211,7 +211,7 @@ def list_classes(paths: list[Path]) -> dict[str, list[str, str]]:
     :param path: [TODO:description]
     :return: [TODO:description]
     """
-    out = dict()
+    out = {}
     for path in paths:
         for p in path.glob('*.py'):
             name = p.stem
