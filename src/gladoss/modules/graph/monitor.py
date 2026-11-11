@@ -1,9 +1,8 @@
 #! /usr/bin/env python
 
-import hashlib
 import logging
 import threading
-from collections.abc import Callable, Collection
+from collections.abc import Collection
 from datetime import datetime
 from queue import Queue
 from types import SimpleNamespace
@@ -12,7 +11,6 @@ import numpy as np
 from rdf.graph import Statement
 
 from gladoss.core.report import GraphValidationReport, ValidationReport
-from gladoss.core.stores import PatternVault
 from gladoss.core.utils import create_pattern_map
 from gladoss.modules.graph.pattern import (
     AssertionPattern,
@@ -20,133 +18,141 @@ from gladoss.modules.graph.pattern import (
     create_graph_pattern,
     update_graph_pattern,
 )
+from gladoss.modules.graph.store import PatternVault
 from gladoss.modules.graph.validator import validate_state_graph
+from gladoss.modules.processor import MessageProcessor
 
 logger = logging.getLogger(__name__)
 
 
-def create_validation_report(rng: np.random.Generator,
-                             node_id: str,
-                             stream_id: str,
-                             graph_id: str,
-                             pattern: GraphPattern,
-                             graph: Collection[Statement],
-                             pattern_map: tuple[list[tuple[Statement,
-                                                           AssertionPattern]],
-                                                list[tuple[Statement,
-                                                           AssertionPattern]],
-                                                set[Statement]],
-                             rtime: datetime,
-                             econf: SimpleNamespace) -> GraphValidationReport:
-    """ Generate a validation report for the observed state graph given
-        the associated graph pattern. This will start the validation
-        procedure.
+class GraphProcessor(MessageProcessor):
+    def __init__(self,
+                 q_out: Queue,
+                 q_shed: Queue,
+                 rng: np.random.Generator,
+                 cfg: SimpleNamespace):
+        super().__init__(q_out=q_out, q_shed=q_shed, rng=rng, cfg=cfg)
 
-    :param pattern: [TODO:description]
-    :param graph: [TODO:description]
-    :param econf: [TODO:description]
-    :return: [TODO:description]
-    """
-    try:
-        if pattern._t >= econf.grace_period:
-            logger.info(f"Creating graph validation report (GID '{graph_id}')")
+        # initiate store which will manage and track patterns over time
+        self.store = PatternVault(threading.RLock())
+
+    def process(self,
+                endpoint: str,
+                node_id: str,
+                stream_id: str,
+                graph_id: str,
+                graph_data: Collection[Statement],
+                graph_label: int | list[int] | None,
+                rtime: datetime):
+        """ Process an incoming message by finding the associated graph
+            pattern, then evaluating the message with respect to this
+            pattern, and, if OK, use the message to update the pattern.
+            A new pattern is created if the message identifier is unknown,
+            and a validation report is created and returned upon completion.
+
+        :param pv: [TODO:description]
+        :param graph: [TODO:description]
+        :param stream_id: [TODO:description]
+        :param config: [TODO:description]
+        """
+        thread_id = threading.current_thread().name
+        logger.info(f"Processing graph (GID '{graph_id}')")
+
+        pattern = self.store.find_associated_graph_pattern(graph_id)
+        if pattern is None:
+            logger.debug(f"Associated pattern not found (GID '{graph_id}')")
+            pattern = create_graph_pattern(
+                    mkid=self.gen_id, graph=graph_data,
+                    graph_id=graph_id,
+                    threshold=self.cfg.pattern_threshold,
+                    decay=self.cfg.pattern_decay)
+
+            logger.debug(f"Registering new graph pattern (GID '{graph_id}')")
+            self.store.add_graph_pattern(pattern)
+
+            return  # no need to evaluate a graph on first sight
+
+        logger.debug(f"Associated pattern found (GID '{graph_id}') "
+                     f"[epoch {pattern._t}]")
+
+        pattern_map = create_pattern_map(graph_data, pattern)
+        report = self.create_validation_report(node_id, stream_id,
+                                               graph_id, pattern, graph_data,
+                                               pattern_map, rtime)
+        if report.status_code in [ValidationReport.StatusCode.NOMINAL,
+                                  ValidationReport.StatusCode.NODATA,
+                                  ValidationReport.StatusCode.SUSPICIOUS]:
+            # update parameters if non-critical (to allow natural drift)
+            if pattern._t >= self.cfg.grace_period:
+                logger.info(f"Graph passed validation (GID '{graph_id}')")
+
+            # either the state graph passed the validation check
+            # or a non-critical deviation has been detected
+            gpattern_upd = update_graph_pattern(self.gen_id, pattern,
+                                                graph_data, pattern_map,
+                                                self.cfg)
+            self.store.update_graph_pattern(gpattern_upd, rtime)
         else:
-            logger.info("Within grace period: skipping graph validation "
-                        f"(GID '{graph_id}')")
-        report = validate_state_graph(rng, node_id, stream_id, graph_id,
-                                      pattern, graph, pattern_map, rtime,
-                                      econf)
-    except Exception as err:
-        logger.error(f"Exception during graph validation: {err}")
+            logger.info(f"Graph failed validation (GID '{graph_id}')")
 
-        # convert to simpler form for validation report
-        assertion_ap_pairs, _, _ = pattern_map
-        apa_map = {ap._id: a for a, ap in assertion_ap_pairs}
+        self.q_out.put(thread_id, (report, graph_label))
 
-        # create validation report without technical detaiks (which are logged)
-        status_msg = "Validation Malfunction"
-        status_msg_long = "An exception occurred during the evaluation of "\
-                          f"the observed state graph (GID '{graph_id})'."
-        status_code = ValidationReport.StatusCode.ERROR
-        violation_type = ValidationReport.ViolationType.ERR
-        report = GraphValidationReport(node_id=node_id,
-                                       stream_id=stream_id,
-                                       graph_id=graph_id,
-                                       pattern=pattern, graph=graph,
-                                       timestamp=rtime,
-                                       apa_map=apa_map,
-                                       status_code=status_code,
-                                       status_msg_lst=[(status_msg,
-                                                        status_msg_long,
-                                                        status_code,
-                                                        violation_type)])
+    def create_validation_report(
+            self,
+            node_id: str,
+            stream_id: str,
+            graph_id: str,
+            pattern: GraphPattern,
+            graph: Collection[Statement],
+            pattern_map: tuple[list[tuple[Statement,
+                                          AssertionPattern]],
+                               list[tuple[Statement,
+                                          AssertionPattern]],
+                               set[Statement]],
+            rtime: datetime) -> GraphValidationReport:
+        """ Generate a validation report for the observed state graph given
+            the associated graph pattern. This will start the validation
+            procedure.
 
-    return report
+        :param pattern: [TODO:description]
+        :param graph: [TODO:description]
+        :param econf: [TODO:description]
+        :return: [TODO:description]
+        """
+        try:
+            if pattern._t >= self.cfg.grace_period:
+                logger.info("Creating graph validation report "
+                            f"(GID '{graph_id}')")
+            else:
+                logger.info("Within grace period: skipping graph validation "
+                            f"(GID '{graph_id}')")
+            report = validate_state_graph(self.rng, node_id, stream_id,
+                                          graph_id, pattern, graph,
+                                          pattern_map, rtime, self.cfg)
+        except Exception as err:
+            logger.error(f"Exception during graph validation: {err}")
 
+            # convert to simpler form for validation report
+            assertion_ap_pairs, _, _ = pattern_map
+            apa_map = {ap._id: a for a, ap in assertion_ap_pairs}
 
-def process_graph(rng: np.random.Generator, mkid: Callable,
-                  pv: PatternVault, graph: Collection[Statement],
-                  node_id: str, stream_id: str,
-                  graph_label: int | list[int] | None,
-                  rtime: datetime,
-                  pconf: SimpleNamespace, econf: SimpleNamespace,
-                  q_rpt: Queue) -> None:
-    """ Process an incoming message by finding the associated graph
-        pattern, then evaluating the message with respect to this
-        pattern, and, if OK, use the message to update the pattern.
-        A new pattern is created if the message identifier is unknown,
-        and a validation report is created and returned upon completion.
+            # create validation report without technical details
+            status_msg = "Validation Malfunction"
+            status_msg_long = ("An exception occurred during the evaluation "
+                               "of the observed state graph "
+                               "(GID '{graph_id})'.")
+            status_code = ValidationReport.StatusCode.ERROR
+            violation_type = ValidationReport.ViolationType.ERR
+            report = GraphValidationReport(node_id=node_id,
+                                           stream_id=stream_id,
+                                           graph_id=graph_id,
+                                           pattern=pattern, graph=graph,
+                                           timestamp=rtime,
+                                           apa_map=apa_map,
+                                           status_code=status_code,
+                                           status_msg_lst=[(status_msg,
+                                                            status_msg_long,
+                                                            status_code,
+                                                            violation_type)])
 
-    :param pv: [TODO:description]
-    :param graph: [TODO:description]
-    :param stream_id: [TODO:description]
-    :param config: [TODO:description]
-    """
-    thread_id = threading.current_thread().name
-    logger.info(f"Processing graph (SID '{stream_id}')")
-    logger.debug("GRAPH {{\n{}\n\t}}".format(
-        "\n ".join([str(s) for s in graph]))
-     )
-
-    # TODO: each stream is currently associated with exactly one graph. In
-    # reality, one stream can produce multiple graphs. Also, a single graph can
-    # diverge into two or more patterns (e.g., weekdays and weekends) which
-    # would necessitate different identifiers (instead of a single stream ID).
-    graph_id = hashlib.md5(stream_id.encode("UTF-8")).hexdigest()
-
-    pattern = pv.find_associated_graph_pattern(graph_id)
-    if pattern is None:
-        logger.debug(f"Associated pattern not found (GID '{graph_id}')")
-        pattern = create_graph_pattern(mkid=mkid, graph=graph,
-                                       graph_id=graph_id,
-                                       threshold=pconf.pattern_threshold,
-                                       decay=pconf.pattern_decay)
-
-        logger.debug(f"Registering new graph pattern (GID '{graph_id}')")
-        pv.add_graph_pattern(pattern)
-
-        return  # no need to evaluate a graph on first sight
-
-    logger.debug(f"Associated pattern found (GID '{graph_id}') "
-                 f"[epoch {pattern._t}]")
-
-    pattern_map = create_pattern_map(graph, pattern)
-    report = create_validation_report(rng, node_id, stream_id, graph_id,
-                                      pattern, graph, pattern_map, rtime,
-                                      econf)
-    if report.status_code in [ValidationReport.StatusCode.NOMINAL,
-                              ValidationReport.StatusCode.NODATA,
-                              ValidationReport.StatusCode.SUSPICIOUS]:
-        # update parameters if non-critical (to allow natural drift)
-        if pattern._t >= econf.grace_period:
-            logger.info(f"Graph passed validation (GID '{graph_id}')")
-
-        # either the state graph passed the validation check
-        # or a non-critical deviation has been detected
-        gpattern_upd = update_graph_pattern(mkid, pattern, graph,
-                                            pattern_map, pconf)
-        pv.update_graph_pattern(gpattern_upd, rtime)
-    else:
-        logger.info(f"Graph failed validation (GID '{graph_id}')")
-
-    q_rpt.put((thread_id, (report, graph_label)))
+        return report

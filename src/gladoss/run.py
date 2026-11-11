@@ -2,6 +2,7 @@
 
 import argparse
 import functools
+import hashlib
 import logging
 import os
 import signal
@@ -10,20 +11,25 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
-from threading import Event, RLock
+from threading import Event
 from types import SimpleNamespace
 
 import numpy as np
 
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.core.connector import Connector
-from gladoss.core.report import ReportScheduler, ValidationReport
-from gladoss.core.stores import MemoryStore, PatternVault
+from gladoss.core.report import (
+        GraphValidationReport,
+        ReportScheduler,
+        ValidationReport
+)
 from gladoss.core.utils import gen_id, import_class, init_rng, list_classes
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, pathArg, timeSpanArg
-from gladoss.modules.graph.monitor import process_graph
-from gladoss.modules.stream.monitor import process_stream
+from gladoss.modules.graph.monitor import GraphProcessor
+from gladoss.modules.node.monitor import NodeProcessor
+from gladoss.modules.processor import MessageProcessor
+from gladoss.modules.stream.monitor import StreamProcessor
 
 logger = logging.getLogger(__name__)
 ROOT_PATH = Path(__file__).parent
@@ -61,7 +67,7 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     logger.debug(f"Preparing publication of validation report "
                  f"(SID '{report.stream_id}')")
     report_graph = report.to_graph(namespace, mkid)
-    logger.debug("REPORT {{\n{}\n\t}}".format(
+    logger.debug("REPORT {{\n {}\n }}".format(
         "\n ".join([str(s) for s in report_graph]))
      )
 
@@ -73,10 +79,32 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     return success
 
 
-def process_message(rng: np.random.Generator, mkid: Callable,
-                    sc_store: MemoryStore, gp_store: PatternVault,
-                    pconf: SimpleNamespace, econf: SimpleNamespace,
-                    q_obs: Queue, q_rpt: Queue, q_rpts: Queue) -> None:
+def process_validation_report(prmn_proc: NodeProcessor,
+                              report: GraphValidationReport,
+                              workers: list[threading.Thread])\
+                                      -> threading.Thread:
+    """ Process produced validation reports in a new thread that
+        assesses and updates node health status. This is only used
+        by the predictive maintenance module.
+
+    :param prmn_proc: [TODO:description]
+    :param report: [TODO:description]
+    :param workers: [TODO:description]
+    :return: [TODO:description]
+    """
+    thread_id = f"{len(workers)+1}"
+    thread = threading.Thread(target=prmn_proc.process,
+                              name=thread_id,
+                              args=(report))
+    thread.start()
+
+    workers = [worker for worker in workers if worker.is_alive()]
+
+    return thread
+
+
+def process_message(q_msg: Queue, msg_proc_lst: list[MessageProcessor])\
+        -> None:
     """ Process incoming messages by spawning a new thread on demand. This
         procedure should only be called by the manager, which itself should
         run on a thread different from the main thread to avoid blocking
@@ -92,42 +120,55 @@ def process_message(rng: np.random.Generator, mkid: Callable,
     :param r: [TODO:description]
     """
     logger.info("Manager is awaiting new messages")
-    jobs_active = []
+    workers_active = []
     while True:
-        job = q_obs.get()
-        if job is None:
+        msg = q_msg.get()
+        if msg is None:
             # wait until all workers have terminated
-            for worker in jobs_active:
+            for worker in workers_active:
                 worker.join()
 
             break
 
-        (node_id, stream_id, graph_data, graph_label), endpoint, rtime = job
+        (node_id, stream_id, graph_data, graph_label), endpoint, rtime = msg
+        # TODO: each stream is currently associated with exactly one graph. In
+        # reality, one stream can produce multiple graphs. Also, a single graph
+        # can diverge into two or more patterns (e.g., weekdays and weekends)
+        # which would necessitate different identifiers (instead of a single
+        # stream ID).
+        graph_id = hashlib.md5(stream_id.encode("UTF-8")).hexdigest()
         logger.info(f"Received new message from node '{node_id}' via "
                     f"endpoint '{endpoint}' in stream '{stream_id}'.")
 
-        # process stream info in parallel
-        thread_id = f"worker-{len(jobs_active)+1}"
-        thread = threading.Thread(target=process_stream, name=thread_id,
-                                  args=(sc_store, node_id, stream_id, endpoint,
-                                        rtime, econf, q_rpt, q_rpts))
-        thread.start()
-        jobs_active.append(thread)
+        graph_str = " {{\n  {}\n }}".format(
+                "\n  ".join([str(s) for s in graph_data]))
+        logger.debug(f"""INCOMING TRANSMISSION
+        BEGIN
+         timestamp:\t{rtime.isoformat()}
+         endpoint:\t'{endpoint}'
+         node:\t '{node_id}'
+         stream:\t'{stream_id}'
+         graph:\t'{graph_id}'
+         data:\t {graph_str}
+        END
+        """)
 
-        # process new graphs in parallel
-        thread_id = f"worker-{len(jobs_active)+1}"
-        thread = threading.Thread(target=process_graph, name=thread_id,
-                                  args=(rng, mkid, gp_store, graph_data,
-                                        node_id, stream_id, graph_label,
-                                        rtime, pconf, econf, q_rpt))
-        thread.start()
-        jobs_active.append(thread)
+        # push data to appropriate message processor in new thread
+        for proc in msg_proc_lst:
+            thread_id = f"worker-{len(workers_active)+1}"
+            thread = threading.Thread(target=proc.process, name=thread_id,
+                                      args=(endpoint, node_id, stream_id,
+                                            graph_id, graph_data, graph_label,
+                                            rtime))
+            thread.start()
+            workers_active.append(thread)
 
-        # remove terminated jobs from tracker
-        jobs_active = [job for job in jobs_active if job.is_alive()]
+        # remove terminated workers from tracker
+        workers_active = [worker for worker in workers_active
+                          if worker.is_alive()]
 
 
-def listener(connector: Connector, q_obs: Queue, q_rpt: Queue)\
+def listener(connector: Connector, q_msg: Queue, q_rpt: Queue)\
         -> None:
     """ Listen on an endpoint for new messages. Queue
         these upon arrival. This operation is thread safe.
@@ -140,15 +181,16 @@ def listener(connector: Connector, q_obs: Queue, q_rpt: Queue)\
         rtime = datetime.now()  # reception time
 
         # new observation
-        q_obs.put((package, endpoint, rtime))
+        q_msg.put((package, endpoint, rtime))
 
     # let the main thread know the worker is terminating
     q_rpt.put((thread_id, (None, None)))
 
 
 def main(rng: np.random.Generator, adaptor_cls: Adaptor,
-         flags: argparse.Namespace, cconf: SimpleNamespace,
-         pconf: SimpleNamespace, econf: SimpleNamespace) -> None:
+         flags: argparse.Namespace, conn_cfg: SimpleNamespace,
+         grph_cfg: SimpleNamespace, strm_cfg: SimpleNamespace,
+         prmn_cfg: SimpleNamespace) -> None:
     """ Initalise adaptor and one or more connections, the pattern vault,
         and backup manager, and start several parallel jobs which are to
         listen for new incoming messages from the connection(s). Once such
@@ -172,15 +214,15 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     mkid = functools.partial(gen_id, rng)
 
     # setup adaptor to manage communication and to translate incoming messages
-    for i in range(cconf.retries + 1):
+    for i in range(conn_cfg.retries + 1):
         try:
             adaptor = adaptor_cls(controller=controller,  # type: ignore
-                                  config=cconf)
+                                  config=conn_cfg)
         except Exception as e:
             logger.error(e)
-            if i < cconf.retries or cconf.continuous:
+            if i < conn_cfg.retries or conn_cfg.continuous:
                 logger.info("Adaptor initialization failed. Retrying...")
-                if controller.wait(cconf.retry_delay):
+                if controller.wait(conn_cfg.retry_delay):
                     # termination signal received during wait
                     break
 
@@ -190,60 +232,71 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
 
         break
 
-    # initiate store to track stream characteristics; lock for multithreading
-    sc_store = MemoryStore(sc_lock := RLock(), pconf.pattern_decay)
+    # use queues to communicate between threads
+    q_msg = Queue()  # queue incoming messages here
+    q_rpt = Queue()  # queue outgoing reports here
+    q_rpts = Queue()  # queue scheduled reports here
 
-    # initiate pattern vault which will manage and track patterns over time
-    gp_store = PatternVault(gp_lock := RLock())
+    # initiate message processors
+    strm_proc = StreamProcessor(q_out=q_rpt, q_shed=q_rpts,
+                                rng=rng, cfg=strm_cfg)
+    grph_proc = GraphProcessor(q_out=q_rpt, q_shed=q_rpts,
+                               rng=rng, cfg=grph_cfg)
+
+    prmn_proc = None
+    if prmn_cfg.predictive_maintenance_enabled:
+        prmn_proc = NodeProcessor(q_out=q_rpt, q_shed=Queue(),
+                                  rng=rng, cfg=prmn_cfg)
 
     # restore saved states
     if flags.backup_restore is not None:
         bck_stores = BackupManager.restore_backup(flags.backup_restore)
         for store_name, store_obj in bck_stores:
-            if store_name == "sc_store":
-                sc_store = store_obj
-                sc_store._lock = sc_lock
+            if store_name == "strm_store":
+                strm_lock = strm_proc.store._lock
+
+                strm_proc.store = store_obj
+                strm_proc.store._lock = strm_lock
 
                 continue
-            if store_name == "gp_store":
-                gp_store = store_obj
-                gp_store._lock = gp_lock
+            if store_name == "grph_store":
+                grph_lock = grph_proc.store._lock
+
+                grph_proc.store = store_obj
+                grph_proc.store._lock = grph_lock
 
                 continue
 
         logger.info("Backup restored")
 
-    # setup backup manager to periodically write the pattern vault to disk
+    # setup backup manager to periodically write the stores to disk
     bckmgr = BackupManager(location=flags.backup_path,
-                           stores=[("gp_store", gp_store),
-                                   ("sc_store", sc_store)],
+                           stores=[("grph_store", grph_proc.store),
+                                   ("strm_store", strm_proc.store)],
                            interval=flags.backup_interval)
     bckmgr.enable_auto_backup()
-
-    # use queues to communicate between threads
-    q_obs = Queue()  # queue observation here
-    q_rpt = Queue()  # queue reports here
-    q_rpts = Queue()  # queue scheduled reports here
 
     # listen to all endpoints in parallel
     listening_jobs = []
     for i, connector in enumerate(adaptor.connectors, 1):
         thread_id = f"listner-{i}"
         thread = threading.Thread(target=listener, name=thread_id,
-                                  args=(connector, q_obs, q_rpt))
+                                  args=(connector, q_msg, q_rpt))
         thread.start()
         listening_jobs.append(thread)
 
     # start a manager which spawns new threads as new observations arrive
     manager = threading.Thread(target=process_message, name="manager",
-                               args=(rng, mkid, sc_store, gp_store,
-                                     pconf, econf, q_obs, q_rpt, q_rpts))
+                               args=(q_msg, [grph_proc, strm_proc]))
     manager.start()
 
     # start report scheduler if requested
     report_sheduler = ReportScheduler(q_rpts, q_rpt)
-    if econf.proactive_notification:
+    if flags.proactive_notification:
         report_sheduler.enable()
+
+    # keep track of predictive maintenance threads
+    pm_workers = []
 
     # loop until all connections have been terminated
     while len(listening_jobs) > 0:
@@ -272,17 +325,26 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
             logger.debug("Processing validation report with status "
                          f"{report.status_code.name} "
                          f"(SID '{report.stream_id}')")
-            if (report.status_code >= econf.report_level and
+            if (report.status_code >= flags.report_level and
                 not publish_validation_report(adaptor, report, label,
                                               flags.namespace, mkid)):
                 logger.info("Unable to publish validation report "
                             f"(SID '{report.stream_id}')")
+
+            if prmn_cfg.predictive_maintenance_enabled\
+                    and isinstance(report, GraphValidationReport):
+                # spawn new thread to evaluate node health
+                pm_workers.append(
+                    process_validation_report(prmn_proc, report, pm_workers))
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 
     # tell workers to terminate
-    logger.info("Manager telling workers to terminate")
-    q_obs.put(None)
+    logger.info("Telling workers to terminate")
+    q_msg.put(None)
+    for pm_worker in pm_workers:
+        # wait for predictive maintenance threads to terminate
+        pm_worker.join()
 
     # wait until manager is terminated
     manager.join()
@@ -291,9 +353,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     # tell scheduler to terminate
     report_sheduler.disable()
 
-    # starting emergency backup
+    # # starting emergency backup
     bckmgr.disable_auto_backup()
-    if len(gp_store) > 0:  # sc_store is tied to gp_store
+    if len(grph_proc.store) > 0:  # strm_store is tied to grph_store
         bckmgr.create_backup()  # emergency backup
 
     logger.info("Waiting on connections to close...")
@@ -481,30 +543,43 @@ def __main__():
     assert 0. <= flags.pi_tolerance <= 1.
     assert 0 <= flags.report_level <= 5
 
-    # create subsets per function
-    cconf = create_namespace_subset(flags, ['adaptor', 'endpoint',
-                                            'continuous', 'retries',
-                                            'retry_delay', 'request_delay',
-                                            'return_receipt'])
-    pconf = create_namespace_subset(flags, ['pattern_decay',
-                                            'pattern_threshold',
-                                            'pattern_resolution'])
-    econf = create_namespace_subset(flags, ['alpha_critical',
-                                            'alpha_suspicious',
-                                            'evaluate_structure',
-                                            'evaluate_data',
-                                            'evaluate_stream',
-                                            'evaluate_timestamps',
-                                            'grace_period',
-                                            'noise_ratio',
-                                            'samplesize',
-                                            'samplegap',
-                                            'match_cwa',
-                                            'match_exact',
-                                            'pi_right_sided',
-                                            'pi_tolerance',
-                                            'proactive_notification',
-                                            'report_level'])
+    # flags for connectors
+    conn_cfg = create_namespace_subset(flags, ['adaptor',
+                                               'endpoint',
+                                               'continuous',
+                                               'retries',
+                                               'retry_delay',
+                                               'request_delay',
+                                               'return_receipt'])
+    # flags for stream processor
+    strm_cfg = create_namespace_subset(flags, ['pattern_decay',
+                                               'evaluate_stream',
+                                               'proactive_notification',
+                                               'grace_period',
+                                               'alpha_critical',
+                                               'alpha_suspicious',
+                                               'pi_right_sided',
+                                               'pi_tolerance'])
+
+    # flags for graph processor
+    grph_cfg = create_namespace_subset(flags, ['pattern_decay',
+                                               'pattern_threshold',
+                                               'pattern_resolution',
+                                               'grace_period',
+                                               'match_cwa',
+                                               'match_exact',
+                                               'alpha_critical',
+                                               'alpha_suspicious',
+                                               'evaluate_timestamps',
+                                               'samplesize',
+                                               'samplegap',
+                                               'pi_tolerance',
+                                               'noise_ratio',
+                                               'evaluate_structure',
+                                               'evaluate_data'])
+
+    # flags for predictive maintenance
+    prmn_cfg = create_namespace_subset(flags, [])
 
     # set log level
     log_level = logging.NOTSET
@@ -547,7 +622,7 @@ def __main__():
         flags.backup_restore = flags.backup_path / flags.backup_restore
 
     # start main loop
-    main(rng, adaptor, flags, cconf, pconf, econf)
+    main(rng, adaptor, flags, conn_cfg, grph_cfg, strm_cfg, prmn_cfg)
 
 
 if __name__ == "__main__":

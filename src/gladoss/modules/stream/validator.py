@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def validate_stream(store: MemoryStore, node_id: str, stream_id,
-                    endpoint: str, rtime: datetime, econf: SimpleNamespace)\
+                    endpoint: str, rtime: datetime, cfg: SimpleNamespace)\
         -> tuple[StreamValidationReport, dict[StreamInfoElement, Any]]:
     """ Validate the characteristics of a stream associated with a node
         and endpoint against historical data points. Returns a report
@@ -65,7 +65,7 @@ def validate_stream(store: MemoryStore, node_id: str, stream_id,
                 cache_dct)
 
     # determine length of historical data points
-    if len(store.get(stream_id, StreamInfoElement.RTIME)) < econf.grace_period:
+    if len(store.get(stream_id, StreamInfoElement.RTIME)) < cfg.grace_period:
         logger.info("Within grace period: skipping stream validation "
                     f"(SID '{stream_id}').")
     else:
@@ -74,11 +74,11 @@ def validate_stream(store: MemoryStore, node_id: str, stream_id,
     # validate stream characteristics
     status_msg_upd, cache_upd\
         = validate_message_reception_interval(store, stream_id, rtime,
-                                              econf.alpha_critical,
-                                              econf.alpha_suspicious,
-                                              econf.pi_tolerance,
-                                              econf.pi_right_sided,
-                                              econf.grace_period)
+                                              cfg.alpha_critical,
+                                              cfg.alpha_suspicious,
+                                              cfg.pi_tolerance,
+                                              cfg.pi_right_sided,
+                                              cfg.grace_period)
     status_msg_lst.extend(status_msg_upd)
     cache_dct.update(cache_upd)
 
