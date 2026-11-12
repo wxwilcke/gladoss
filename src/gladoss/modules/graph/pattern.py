@@ -5,10 +5,11 @@ from __future__ import annotations
 import logging
 import sys
 from collections import Counter
-from collections.abc import Callable, Collection
+from collections.abc import Collection
 from copy import deepcopy
 from datetime import datetime
 from types import SimpleNamespace
+from uuid import uuid4
 
 from rdf.graph import Statement
 from rdf.namespaces import OWL, RDF, SHACL, XSD
@@ -33,8 +34,7 @@ logger = logging.getLogger(__name__)
 DCT = IRIRef("http://purl.org/dc/terms/")
 
 
-def create_assertion_pattern(mkid: Callable,
-                             assertion: Statement,
+def create_assertion_pattern(assertion: Statement,
                              anchor: IRIRef)\
         -> AssertionPattern:
     """ Return a new assertion pattern that belongs to the
@@ -46,12 +46,14 @@ def create_assertion_pattern(mkid: Callable,
     :param assertion: [TODO:description]
     :return: [TODO:description]
     """
-    return AssertionPattern.create_from(mkid(), assertion=assertion,
+    ident = str(uuid4())
+
+    return AssertionPattern.create_from(identifier=ident,
+                                        assertion=assertion,
                                         anchor=anchor)
 
 
-def create_graph_pattern(mkid: Callable,
-                         graph: Collection[Statement],
+def create_graph_pattern(graph: Collection[Statement],
                          graph_id: str,
                          threshold: int = -1,
                          decay: int = -1) -> GraphPattern:
@@ -78,7 +80,7 @@ def create_graph_pattern(mkid: Callable,
                     f"(GID '{graph_id}')")
 
         anchor = infer_class(assertion.subject, graph)
-        ap = create_assertion_pattern(mkid, assertion, anchor)
+        ap = create_assertion_pattern(assertion, anchor)
 
         structure[ap._id] = ap
 
@@ -86,7 +88,7 @@ def create_graph_pattern(mkid: Callable,
                         threshold=threshold, decay=decay)
 
 
-def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
+def update_graph_pattern(gPattern: GraphPattern,
                          graph: Collection[Statement],
                          pattern_map: tuple[list[tuple[Statement,
                                                        AssertionPattern]],
@@ -119,7 +121,7 @@ def update_graph_pattern(mkid: Callable, gPattern: GraphPattern,
     ap_new = set()
     for assertion in unmatched:
         anchor = infer_class(assertion.subject, graph)
-        ap_new.add(AssertionPattern.create_from(mkid(), assertion, anchor))
+        ap_new.add(create_assertion_pattern(assertion, anchor))
 
     # update graph pattern with updated and new assertion patterns
     gp_upd = gPattern.update_from(ap_upd | uc_upd | ap_new)
@@ -476,8 +478,7 @@ class GraphPattern:
             # clean up decay tracker
             del self._decay_tracker[self._t]
 
-    def to_graph(self, mkid: Callable,
-                 timestamp: datetime,
+    def to_graph(self, timestamp: datetime,
                  namespace: str | None) -> list[Statement]:
         """ Convert graph pattern object to RDF graph in N-Triple format that
             conforms to the SHACL specification for shape graphs. Each
@@ -503,7 +504,7 @@ class GraphPattern:
             namespace = IRIRef(namespace)
 
         # define graph and metadata
-        root = mknode(namespace, mkid)
+        root = mknode(namespace)
         graph = [
             Statement(root, RDF + 'type', OWL + 'Ontology'),
             Statement(root, DCT + 'date', Literal(timestamp.isoformat(),
@@ -529,7 +530,7 @@ class GraphPattern:
                 Statement(shape, SHACL + 'targetSubjectsOf', ap.relation)
                 ])
 
-            pshape = mknode(namespace, mkid)
+            pshape = mknode(namespace)
             graph.extend([
                 Statement(shape, SHACL + 'property', pshape),
                 Statement(pshape, SHACL + 'path', ap.relation)
@@ -542,7 +543,7 @@ class GraphPattern:
                     graph.append(Statement(pshape, SHACL + 'nodeKind',
                                            SHACL + 'Literal'))
                     if ap.value.language is not None:
-                        lst = mknode(namespace, mkid)
+                        lst = mknode(namespace)
                         graph.extend([
                             Statement(pshape, SHACL + 'languageIn', lst),
                             Statement(lst, RDF + 'type', RDF + 'List'),
@@ -580,7 +581,7 @@ class GraphPattern:
                         ])
                 else:
                     # create an RDF list with all unique values
-                    lst = mknode(namespace, mkid)
+                    lst = mknode(namespace)
                     graph.extend([
                         Statement(pshape, SHACL + 'in', lst),
                         Statement(lst, RDF + 'type', RDF + 'List')
@@ -593,7 +594,7 @@ class GraphPattern:
 
                         lst_rest = RDF + 'nil'
                         if i < len(data_uniq):
-                            lst_rest = mknode(namespace, mkid)
+                            lst_rest = mknode(namespace)
                         graph.extend(
                                 [Statement(lst, RDF + 'first', v),
                                  Statement(lst, RDF + 'rest', lst_rest)

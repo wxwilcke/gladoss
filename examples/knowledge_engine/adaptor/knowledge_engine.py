@@ -642,7 +642,7 @@ class KE_Adaptor(Adaptor):
                 for k, v in result.items():
                     bindings[k] = to_string(v)
 
-                if "resultSeverity" in result.keys():
+                if "resultSeverity" in result:
                     sev = result["resultSeverity"]
                     if sev in severities:
                         for k, v in severities[sev].items():

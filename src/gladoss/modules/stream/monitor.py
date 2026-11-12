@@ -77,7 +77,7 @@ class StreamProcessor(MessageProcessor):
                                                       endpoint, rtime)
         if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                                   ValidationReport.StatusCode.NODATA,
-                                  ValidationReport.StatusCode.SUSPICIOUS]:
+                                  ValidationReport.StatusCode.NONCRITICAL]:
             # update parameters if non-critical (to allow natural drift)
             if not self.update_stream_characteristics(
                     node_id, stream_id, endpoint, rtime, cache):

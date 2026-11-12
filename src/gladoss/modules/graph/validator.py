@@ -622,7 +622,7 @@ def validate_graph_data_numerical(assertion: Statement,
                 f" {PM} {pi_tol:0.3g} "\
                 f"{EMDASH} "\
                 f"OBSERVED: '{assertion.object}' {QED}"
-            status_code = ValidationReport.StatusCode.SUSPICIOUS
+            status_code = ValidationReport.StatusCode.NONCRITICAL
 
             status_msg_lst.extend([(status_msg, status_msg_long, status_code,
                                     ValidationReport.ViolationType.GVV2)])
@@ -719,7 +719,7 @@ def validate_graph_data_distribution_fit(rng: np.random.Generator,
             f"{EMDASH} "\
             f"OBSERVED: Prob = {p_value:0.2f} {QED}"
 
-        status_code = ValidationReport.StatusCode.SUSPICIOUS
+        status_code = ValidationReport.StatusCode.NONCRITICAL
 
         status_msg_lst.append((status_msg, status_msg_long, status_code,
                                ValidationReport.ViolationType.GVV2))

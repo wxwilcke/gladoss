@@ -6,11 +6,11 @@ import sys
 import termios
 import tty
 from argparse import Namespace
-from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 from rdf.terms import BNode, IRIRef, Literal
 
@@ -176,14 +176,14 @@ def jsonpath_deref(root: dict | list, jsonpath: list[Any]) -> Any:
     return traverse(root, path_lst)
 
 
-def mknode(namespace: IRIRef | None, mkid: Callable) -> BNode | IRIRef:
+def mknode(namespace: IRIRef | None) -> BNode | IRIRef:
     """ Create a new blank node or an IRI if a namespace is provided.
 
     :param namespace: [TODO:description]
     :param mkid: [TODO:description]
     :return: [TODO:description]
     """
-    rand_id = mkid()
+    rand_id = str(uuid4())
 
     return BNode(rand_id) if namespace is None else namespace + rand_id
 

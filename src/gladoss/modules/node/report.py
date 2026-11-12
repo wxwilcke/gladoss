@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from enum import IntEnum
-from functools import total_ordering
 
-from gladoss_pm.data.utils import mknode, string_to_node
 from rdf.graph import Statement
 from rdf.namespaces import RDF, RDFS, XSD
 from rdf.terms import IRIRef, Literal
+
+from gladoss.core.report import ValidationReport
+from gladoss.data.utils import mknode, string_to_node
 
 logger = logging.getLogger(__name__)
 
@@ -19,73 +19,18 @@ DCT = IRIRef("http://purl.org/dc/terms/")
 IOF = IRIRef("https://spec.industrialontologies.org/ontology/construct/")
 
 
-class MaintenanceReport:
-    @total_ordering
-    class StatusCode(IntEnum):
-        NOMINAL = 0, "Nominal Health"
-        ERROR = 1, "Generic Error"
-        NODATA = 2, "Insufficient Data"
-        NONCRITIAL = 3, "Non-Critical Health Deterioration"
-        CRITICAL = 4, "Critical Health Deterioration"
-
-        def __new__(cls, *args, **kwds):
-            obj = int.__new__(cls)
-            obj._value_ = args[0]
-            return obj
-
-        # ignore the first param since it's already set by __new__
-        def __init__(self, _: int, description: str):
-            self._description_ = description
-
-        def __eq__(self, other):
-            if isinstance(other, MaintenanceReport.StatusCode):
-                return self.value == other.value
-            elif isinstance(other, int):
-                return self.value == other
-            else:
-                raise TypeError()
-
-        def __lt__(self, other):
-            if isinstance(other, MaintenanceReport.StatusCode):
-                return self.value < other.value
-            elif isinstance(other, int):
-                return self.value < other
-            else:
-                raise TypeError()
-
-        def __gt__(self, other):
-            if isinstance(other, MaintenanceReport.StatusCode):
-                return self.value > other.value
-            elif isinstance(other, int):
-                return self.value > other
-            else:
-                raise TypeError()
-
-        def __le__(self, other):
-            if isinstance(other, MaintenanceReport.StatusCode):
-                return self.value <= other.value
-            elif isinstance(other, int):
-                return self.value <= other
-            else:
-                raise TypeError()
-
-        def __ge__(self, other):
-            if isinstance(other, MaintenanceReport.StatusCode):
-                return self.value >= other.value
-            elif isinstance(other, int):
-                return self.value >= other
-            else:
-                raise TypeError()
-
-        # this makes sure that the description is read-only
-        @property
-        def description(self):
-            return self._description_
-
-    def __init__(self, node_id: str, stream_id: str,
+class MaintenanceReport(ValidationReport):
+    def __init__(self,
+                 node_id: str,
+                 stream_id: str,
                  timestamp: datetime,
-                 status_code: MaintenanceReport.StatusCode,
-                 status_msg: str):
+                 status_code: ValidationReport.StatusCode,
+                 status_msg_lst: list[tuple[str,
+                                            str,
+                                            ValidationReport.StatusCode,
+                                            ValidationReport.ViolationType
+                                            ]
+                                      ]):
         """ Report about the maintenance status of a registered node, together
             with the status code and message, and the timestamp.
 
@@ -94,11 +39,13 @@ class MaintenanceReport:
         :param status_msg_lst: [TODO:description]
         :param status_msg_lst_map: [TODO:description]
         """
-        self.node_id = node_id
-        self.stream_id = stream_id
-        self.timestamp = timestamp
-        self.status_code = status_code
-        self.status_msg = status_msg
+        super().__init__(
+                type=ValidationReport.ReportType.NODE_VALIDATION_REPORT,
+                node_id=node_id,
+                stream_id=stream_id,
+                timestamp=timestamp,
+                status_code=status_code,
+                status_msg_lst=status_msg_lst)
 
     def to_graph(self, namespace: str | None) -> list[Statement]:
         """ Convert a maintenance report object to RDF graph in N-Triples
@@ -119,6 +66,7 @@ class MaintenanceReport:
             >    dct:issued { date } ;
             >    bfo:BFO_0000054 [  # realized by
             >                     rdf:type iof-constr:UndesireableDisposition ;
+            >                     dct:type ?resultViolationType ;
             >                     iof-constr:describedBy [
             >                       rdf:type iof-constr:FailureModeCode ;
             >                       dct:description { ... } .
@@ -132,6 +80,7 @@ class MaintenanceReport:
             >    dct:issued { date } ;
             >    bfo:BFO_0000054 [  # realized by
             >                     rdf:type iof-constr:UndesireableDisposition ;
+            >                     dct:type ?resultViolationType ;
             >                     iof-constr:describedBy [
             >                       rdf:type iof-constr:FailureModeCode ;
             >                       dct:description { ... } .
@@ -167,23 +116,29 @@ class MaintenanceReport:
                       string_to_node(self.node_id)),
             ]
 
-        if self.status_code in [MaintenanceReport.StatusCode.NONCRITIAL,
-                                MaintenanceReport.StatusCode.CRITICAL]:
-            graph.extend([
-                Statement(root, BFO + 'BFO_0000054', disp_node := mknode()),
-                Statement(disp_node, RDF + 'type',
-                          IOF + 'UndesireableDisposition'),
-                Statement(disp_node, IOF + 'describedBy',
-                          desc_node := mknode()),
-                Statement(desc_node, RDF + 'type', IOF + 'FailureModeCode'),
-                Statement(desc_node, DCT + 'description',
-                          Literal(self.status_msg, language='en'))
-                ])
+        if self.status_code in [ValidationReport.StatusCode.NONCRITICAL,
+                                ValidationReport.StatusCode.CRITICAL]:
+            for status_msg_lst in self.status_msg_lst:
+                _, status_msg_long, _, violation_type = status_msg_lst
+                graph.extend([
+                    Statement(root, BFO + 'BFO_0000054',
+                              disp_node := mknode()),
+                    Statement(disp_node, RDF + 'type',
+                              IOF + 'UndesireableDisposition'),
+                    Statement(disp_node, DCT + 'type',
+                              Literal(violation_type.name)),
+                    Statement(disp_node, IOF + 'describedBy',
+                              desc_node := mknode()),
+                    Statement(desc_node, RDF + 'type',
+                              IOF + 'FailureModeCode'),
+                    Statement(desc_node, DCT + 'description',
+                              Literal(status_msg_long, language='en'))
+                    ])
 
-            if self.status_code is MaintenanceReport.StatusCode.NONCRITIAL:
+            if self.status_code is ValidationReport.StatusCode.NONCRITICAL:
                 graph.append(
                         Statement(root, RDF + 'type', IOF + 'DegradedState'))
-            elif self.status_code is MaintenanceReport.StatusCode.CRITICAL:
+            elif self.status_code is ValidationReport.StatusCode.CRITICAL:
                 graph.append(
                         Statement(root, RDF + 'type', IOF + 'FailureState'))
         else:

@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-import functools
 import hashlib
 import logging
 import os
 import signal
 import threading
-from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
@@ -23,7 +21,7 @@ from gladoss.core.report import (
         ReportScheduler,
         ValidationReport
 )
-from gladoss.core.utils import gen_id, import_class, init_rng, list_classes
+from gladoss.core.utils import import_class, init_rng, list_classes
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, pathArg, timeSpanArg
 from gladoss.modules.graph.monitor import GraphProcessor
@@ -53,8 +51,7 @@ def signal_handler(signum, frame):
 
 def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
                               label: int | list[int] | None,
-                              namespace: str | None,
-                              mkid: Callable) -> bool:
+                              namespace: str | None) -> bool:
     """ Convert the validation report to RDF graph format and publish
         the result via the adaptor.
 
@@ -66,7 +63,7 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     # represent validation report
     logger.debug(f"Preparing publication of validation report "
                  f"(SID '{report.stream_id}')")
-    report_graph = report.to_graph(namespace, mkid)
+    report_graph = report.to_graph(namespace)
     logger.debug("REPORT {{\n {}\n }}".format(
         "\n ".join([str(s) for s in report_graph]))
      )
@@ -210,9 +207,6 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     """
     logger.info("Initiating Program")
 
-    # create callable to avoid importing numpy everywhere
-    mkid = functools.partial(gen_id, rng)
-
     # setup adaptor to manage communication and to translate incoming messages
     for i in range(conn_cfg.retries + 1):
         try:
@@ -327,7 +321,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                          f"(SID '{report.stream_id}')")
             if (report.status_code >= flags.report_level and
                 not publish_validation_report(adaptor, report, label,
-                                              flags.namespace, mkid)):
+                                              flags.namespace)):
                 logger.info("Unable to publish validation report "
                             f"(SID '{report.stream_id}')")
 
@@ -519,9 +513,58 @@ def __main__():
                              "and higher will be published to the endpoint: "
                              "NOMINAL behaviour (0), generic ERRORS (1), "
                              "INSUFFICIENT DATA (2), INCONSISTENCIES (3), "
-                             "SUSPICIOUS warnings (4), and CRITICAL "
+                             "NON-CRITICAL warnings (4), and CRITICAL "
                              "warnings (5)",
                              type=int, default=3)
+
+    parser_pred = parser.add_argument_group('Predictive Maintenance Settings')
+    parser_pred.add_argument("--predictive-maintenance-enabled",
+                             help=("If enabled, monitor node health status "
+                                   "over time and report when health "
+                                   "degration exceeds set rate limits."),
+                             type=bool, default=False)
+    parser_pred.add_argument("--weight-decay-rate",
+                             help=("The value used to decay the weight of an "
+                                   "undesired state with over time. Higher "
+                                   "values translate to a stronger decay "
+                                   "rate."),
+                             type=float, default=0.2)
+    parser_pred.add_argument("--weight-decay-interval",
+                             help=("The interval in seconds between decay "
+                                   "events of an undesired state associated "
+                                   "with a node. Higher values translate to "
+                                   "faster decay."),
+                             type=float, default=60)
+    parser_pred.add_argument("--weight-multiplier-noncritical",
+                             help=("The value to multiply the weight of an "
+                                   "undesired state with on observing a "
+                                   "non-critical validation failure. "
+                                   "Higher values translate to a stronger "
+                                   "increase of the undesired state."),
+                             type=float, default=1.2)
+    parser_pred.add_argument("--weight-multiplier-critical",
+                             help=("The value to multiply the weight of an "
+                                   "undesired state with on observing a "
+                                   "critical validation failure. "
+                                   "Higher values translate to a stronger "
+                                   "increase of the undesired state."),
+                             type=float, default=1.5)
+    parser_pred.add_argument("--weight-growth-rate-noncritical",
+                             help=("The growth rate of the weight of an "
+                                   "undesired state since the last "
+                                   "observation that will trigger the "
+                                   "publication of a non-critical "
+                                   "maintenance report. Higher values "
+                                   "translate to more liberal behaviour."),
+                             type=float, default=1.5)
+    parser_pred.add_argument("--weight-growth-rate-critical",
+                             help=("The growth rate of the weight of an "
+                                   "undesired state since the last "
+                                   "observation that will trigger the "
+                                   "publication of a non-critical "
+                                   "maintenance report. Higher values "
+                                   "translate to more liberal behaviour."),
+                             type=float, default=2.0)
 
     flags = parser.parse_args()
 
@@ -543,43 +586,58 @@ def __main__():
     assert 0. <= flags.pi_tolerance <= 1.
     assert 0 <= flags.report_level <= 5
 
+    assert 0. <= flags.weight_decay_rate <= 1.0
+    assert 1.0 <= flags.weight_multiplier_noncritical
+    assert 1.0 <= flags.weight_multiplier_critical
+    assert 1.0 <= flags.weight_growth_rate_noncritical
+    assert 1.0 <= flags.weight_growth_rate_critical
+
     # flags for connectors
-    conn_cfg = create_namespace_subset(flags, ['adaptor',
-                                               'endpoint',
-                                               'continuous',
-                                               'retries',
-                                               'retry_delay',
-                                               'request_delay',
-                                               'return_receipt'])
+    conn_cfg = create_namespace_subset(flags,
+                                       ['adaptor',
+                                        'endpoint',
+                                        'continuous',
+                                        'retries',
+                                        'retry_delay',
+                                        'request_delay',
+                                        'return_receipt'])
     # flags for stream processor
-    strm_cfg = create_namespace_subset(flags, ['pattern_decay',
-                                               'evaluate_stream',
-                                               'proactive_notification',
-                                               'grace_period',
-                                               'alpha_critical',
-                                               'alpha_suspicious',
-                                               'pi_right_sided',
-                                               'pi_tolerance'])
+    strm_cfg = create_namespace_subset(flags,
+                                       ['pattern_decay',
+                                        'evaluate_stream',
+                                        'proactive_notification',
+                                        'grace_period',
+                                        'alpha_critical',
+                                        'alpha_suspicious',
+                                        'pi_right_sided',
+                                        'pi_tolerance'])
 
     # flags for graph processor
-    grph_cfg = create_namespace_subset(flags, ['pattern_decay',
-                                               'pattern_threshold',
-                                               'pattern_resolution',
-                                               'grace_period',
-                                               'match_cwa',
-                                               'match_exact',
-                                               'alpha_critical',
-                                               'alpha_suspicious',
-                                               'evaluate_timestamps',
-                                               'samplesize',
-                                               'samplegap',
-                                               'pi_tolerance',
-                                               'noise_ratio',
-                                               'evaluate_structure',
-                                               'evaluate_data'])
+    grph_cfg = create_namespace_subset(flags,
+                                       ['pattern_decay',
+                                        'pattern_threshold',
+                                        'pattern_resolution',
+                                        'grace_period',
+                                        'match_cwa',
+                                        'match_exact',
+                                        'alpha_critical',
+                                        'alpha_suspicious',
+                                        'evaluate_timestamps',
+                                        'samplesize',
+                                        'samplegap',
+                                        'pi_tolerance',
+                                        'noise_ratio',
+                                        'evaluate_structure',
+                                        'evaluate_data'])
 
     # flags for predictive maintenance
-    prmn_cfg = create_namespace_subset(flags, [])
+    prmn_cfg = create_namespace_subset(flags,
+                                       ['weight_decay_rate',
+                                        'weight_decay_interval',
+                                        'weight_multiplier_noncritical',
+                                        'weight_multiplier_critical',
+                                        'weight_growth_rate_noncritical',
+                                        'weight_growth_rate_critical'])
 
     # set log level
     log_level = logging.NOTSET

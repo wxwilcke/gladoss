@@ -7,7 +7,12 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from gladoss.core.report import MaintenanceReport, ValidationReport
+from gladoss.core.report import (
+    BECAUSE,
+    QED,
+    MaintenanceReport,
+    ValidationReport,
+)
 from gladoss.modules.node.store import WeightStore
 from gladoss.modules.processor import ReportProcessor
 
@@ -70,21 +75,49 @@ class NodeProcessor(ReportProcessor):
         weight_rog = 1. + (weight_new - weight_old) / weight_old
 
         # create maintenance report
+        status_msg_lst = []
         if weight_rog >= self.cfg.weight_growth_rate_critical:
             status_code = MaintenanceReport.StatusCode.CRITICAL
-            status_msg = f"Node health failure (x{weight_rog:.2f})"
+            status_msg = "Critical Node Health Degration"
+            status_msg_long = (
+                "Node health rate of degration exceeds critical level "
+                f"{BECAUSE} "
+                f"OBSERVED: rate = {weight_rog:.2f} "
+                f"EXPECTED: rate < {self.cfg.weight_growth_rate_critical} "
+                f"{QED}"
+                )
+            violation_type = ValidationReport.ViolationType.NHS1
         elif weight_rog >= self.cfg.weight_growth_rate_noncritical:
             status_code = MaintenanceReport.StatusCode.NONCRITICAL
-            status_msg = f"Node health degration (x{weight_rog:.2f})"
+            status_msg = "Non-Critical Node Health Degration"
+            status_msg_long = (
+                "Node health rate of degration exceeds non-critical level "
+                f"{BECAUSE} "
+                f"OBSERVED: rate = {weight_rog:.2f} "
+                f"EXPECTED: rate < {self.cfg.weight_growth_rate_noncritical} "
+                f"{QED}"
+                )
+            violation_type = ValidationReport.ViolationType.NHS2
         else:
             status_code = MaintenanceReport.StatusCode.NOMINAL
-            status_msg = f"Node health nominal (x{weight_rog:.2f})"
+            status_msg = "Node Health Nominal"
+            status_msg_long = (
+                "Node health rate of degration within acceptable levels "
+                f"{BECAUSE} "
+                f"OBSERVED: rate = {weight_rog:.2f} "
+                f"EXPECTED: rate < {self.cfg.weight_growth_rate_noncritical} "
+                f"{QED}"
+                )
+            violation_type = None
 
-            report = MaintenanceReport(node_id=node_id,
-                                       stream_id=report.stream_id,
-                                       timestamp=report.timestamp,
-                                       status_code=status_code,
-                                       status_msg=status_msg)
+        status_msg_lst.append((status_msg, status_msg_long,
+                               status_code, violation_type))
+
+        report = MaintenanceReport(node_id=node_id,
+                                   stream_id=report.stream_id,
+                                   timestamp=report.timestamp,
+                                   status_code=status_code,
+                                   status_msg_lst=status_msg_lst)
 
         self.q_out.put(thread_id, report)
 
@@ -112,7 +145,7 @@ def computeWeightMultiplier(report: ValidationReport,
     weight_multiplier = 1.
     if report.status_code == ValidationReport.StatusCode.CRITICAL:
         weight_multiplier *= conf.weight_muliplier_critical
-    elif report.status_code == ValidationReport.StatusCode.SUSPICIOUS:
+    elif report.status_code == ValidationReport.StatusCode.NONCRITICAL:
         weight_multiplier *= conf.weight_muliplier_noncritical
 
     return weight_multiplier

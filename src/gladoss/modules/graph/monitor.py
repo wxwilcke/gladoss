@@ -81,7 +81,7 @@ class GraphProcessor(MessageProcessor):
                                                pattern_map, rtime)
         if report.status_code in [ValidationReport.StatusCode.NOMINAL,
                                   ValidationReport.StatusCode.NODATA,
-                                  ValidationReport.StatusCode.SUSPICIOUS]:
+                                  ValidationReport.StatusCode.NONCRITICAL]:
             # update parameters if non-critical (to allow natural drift)
             if pattern._t >= self.cfg.grace_period:
                 logger.info(f"Graph passed validation (GID '{graph_id}')")

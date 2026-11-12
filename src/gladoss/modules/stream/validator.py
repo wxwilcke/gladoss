@@ -238,7 +238,7 @@ def validate_message_reception_interval(store: MemoryStore,
                 f" {PM} {pi_tol:0.3g} seconds "\
                 f"{EMDASH} "\
                 f"OBSERVED: {rinterval_new:0.3g} seconds {QED}"
-            status_code = ValidationReport.StatusCode.SUSPICIOUS
+            status_code = ValidationReport.StatusCode.NONCRITICAL
             violation_type = ValidationReport.ViolationType.SHV2
 
             status_msg_lst.extend([(status_msg, status_msg_long,
