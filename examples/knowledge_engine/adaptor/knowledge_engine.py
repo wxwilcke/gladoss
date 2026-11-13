@@ -54,7 +54,7 @@ REPORT_GRAPH_PATTERN_GRAPH = """
 """
 REPORT_GRAPH_PATTERN_STREAM = """
 ?report rdf:type sh:ValidationReport .
-?report dct:date ?reportDate .
+?report dct:issued ?reportDate .
 ?report dct:subject ?reportSubject .
 ?report dct:conformsTo ?reportLanguage .
 ?report sh:conforms ?validationPassed .
@@ -70,6 +70,20 @@ REPORT_GRAPH_PATTERN_STREAM = """
 ?resultSeverity rdfs:label ?severityLabel .
 ?resultSeverity rdfs:comment ?severityDescription .
 """
+REPORT_GRAPH_PATTERN_NODE = """
+?report rdf:type iof:MaintenanceState .
+?report dct:issued ?reportDate .
+?report rdfs:label ?reportLabel .
+?report iof:maintenanceStateOf ?reportSubject .
+?report bfo:BFO_0000054 ?nodeState .
+
+?nodeState rdf:type iof:UndesireableDisposition .
+?nodeState iof:describedBy ?nodeStateDescription .
+
+?nodeStateDescription rdf:type iof:FailureModeCode .
+?nodeStateDescription dct:type ?nodeStateDescriptionCode .
+?nodeStateDescription dct:description ?nodeStateDescriptionText .
+"""
 REPORT_PREFIXES_GRAPH = {
         "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
         "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
@@ -77,6 +91,13 @@ REPORT_PREFIXES_GRAPH = {
         "sh": "http://www.w3.org/ns/shacl#"
         }
 REPORT_PREFIXES_STREAM = REPORT_PREFIXES_GRAPH
+REPORT_PREFIXES_NODE = {
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "bfo": "http://purl.obolibrary.org/obo/",
+        "dct": "http://purl.org/dc/terms/",
+        "iof": "https://spec.industrialontologies.org/ontology/construct/"
+        }
 DCT = IRIRef("http://purl.org/dc/terms/")
 
 
@@ -259,7 +280,7 @@ class KE_Adaptor(Adaptor):
             self.context['postKnowledgeInteractions'][rtype]\
                 = registered_post_ki
 
-            # nominal graph reports and stream health reports
+            # stream health reports
             registered_post_ki\
                 = self.register_report_publications(
                         "StreamReportPublication",
@@ -267,6 +288,17 @@ class KE_Adaptor(Adaptor):
                         REPORT_PREFIXES_STREAM)
 
             rtype = ValidationReport.ReportType.STREAM_VALIDATION_REPORT
+            self.context['postKnowledgeInteractions'][rtype]\
+                = registered_post_ki
+
+            # node health reports
+            registered_post_ki\
+                = self.register_report_publications(
+                        "NodeReportPublication",
+                        REPORT_GRAPH_PATTERN_NODE,
+                        )
+
+            rtype = ValidationReport.ReportType.NODE_VALIDATION_REPORT
             self.context['postKnowledgeInteractions'][rtype]\
                 = registered_post_ki
         except Exception:

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import numpy as np
 from rdf.graph import Statement
 
-from gladoss.core.report import GraphValidationReport, ValidationReport
+from gladoss.core.report import ValidationReport
 from gladoss.core.utils import create_pattern_map
 from gladoss.modules.graph.pattern import (
     AssertionPattern,
@@ -18,6 +18,7 @@ from gladoss.modules.graph.pattern import (
     create_graph_pattern,
     update_graph_pattern,
 )
+from gladoss.modules.graph.report import GraphValidationReport
 from gladoss.modules.graph.store import PatternVault
 from gladoss.modules.graph.validator import validate_state_graph
 from gladoss.modules.processor import MessageProcessor

@@ -11,9 +11,10 @@ from typing import Any
 import numpy as np
 from rdf.graph import Statement
 
-from gladoss.core.report import StreamValidationReport, ValidationReport
+from gladoss.core.report import ValidationReport
 from gladoss.modules.processor import MessageProcessor
 from gladoss.modules.stream.info_elem import StreamInfoElement
+from gladoss.modules.stream.report import StreamValidationReport
 from gladoss.modules.stream.store import MemoryStore
 from gladoss.modules.stream.validator import validate_stream
 

@@ -10,9 +10,9 @@ import numpy as np
 from gladoss.core.report import (
     BECAUSE,
     QED,
-    MaintenanceReport,
     ValidationReport,
 )
+from gladoss.modules.node.report import MaintenanceReport
 from gladoss.modules.node.store import WeightStore
 from gladoss.modules.processor import ReportProcessor
 

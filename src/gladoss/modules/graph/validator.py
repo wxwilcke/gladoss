@@ -19,7 +19,6 @@ from gladoss.core.report import (
     EMDASH,
     PM,
     QED,
-    GraphValidationReport,
     ValidationReport,
 )
 from gladoss.core.stats import (
@@ -39,6 +38,7 @@ from gladoss.modules.graph.datatypes import (
     infer_datatype,
 )
 from gladoss.modules.graph.pattern import AssertionPattern, GraphPattern
+from gladoss.modules.graph.report import GraphValidationReport
 
 logger = logging.getLogger(__name__)
 

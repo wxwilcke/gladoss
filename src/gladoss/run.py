@@ -16,15 +16,12 @@ import numpy as np
 
 from gladoss.adaptors.adaptor import Adaptor
 from gladoss.core.connector import Connector
-from gladoss.core.report import (
-        GraphValidationReport,
-        ReportScheduler,
-        ValidationReport
-)
+from gladoss.core.report import ReportScheduler, ValidationReport
 from gladoss.core.utils import import_class, init_rng, list_classes
 from gladoss.data.backup import BackupManager
 from gladoss.data.utils import create_namespace_subset, pathArg, timeSpanArg
 from gladoss.modules.graph.monitor import GraphProcessor
+from gladoss.modules.graph.report import GraphValidationReport
 from gladoss.modules.node.monitor import NodeProcessor
 from gladoss.modules.processor import MessageProcessor
 from gladoss.modules.stream.monitor import StreamProcessor
@@ -64,9 +61,19 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     logger.debug(f"Preparing publication of validation report "
                  f"(SID '{report.stream_id}')")
     report_graph = report.to_graph(namespace)
-    logger.debug("REPORT {{\n {}\n }}".format(
-        "\n ".join([str(s) for s in report_graph]))
-     )
+
+    graph_id_str = ("\n graph:\t'" + report.graph_id + "'"
+                    if report.graph_id is not None else '')
+    graph_str = " {{\n  {}\n }}".format(
+            "\n  ".join([str(s) for s in report_graph]))
+    logger.debug(f"""OUTGOING TRANSMISSION
+    BEGIN
+     timestamp:\t{report.timestamp.isoformat()}
+     node:\t '{report.node_id}'
+     stream:\t'{report.stream_id}'{graph_id_str}
+     data:\t {graph_str}
+    END
+    """)
 
     # publish report to endpoint
     logger.info(f"Publishing validation report (SID '{report.stream_id}')")
@@ -76,13 +83,14 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     return success
 
 
-def process_validation_report(prmn_proc: NodeProcessor,
-                              report: GraphValidationReport,
-                              workers: list[threading.Thread])\
-                                      -> threading.Thread:
+def _start_predictive_maintenance_worker(prmn_proc: NodeProcessor,
+                                         report: GraphValidationReport,
+                                         workers: list[threading.Thread])\
+        -> list[threading.Thread]:
     """ Process produced validation reports in a new thread that
         assesses and updates node health status. This is only used
-        by the predictive maintenance module.
+        by the predictive maintenance module. Returns an updated list
+        of active threads.
 
     :param prmn_proc: [TODO:description]
     :param report: [TODO:description]
@@ -95,9 +103,10 @@ def process_validation_report(prmn_proc: NodeProcessor,
                               args=(report))
     thread.start()
 
+    workers.append(thread)
     workers = [worker for worker in workers if worker.is_alive()]
 
-    return thread
+    return workers
 
 
 def process_message(q_msg: Queue, msg_proc_lst: list[MessageProcessor])\
@@ -184,7 +193,79 @@ def listener(connector: Connector, q_msg: Queue, q_rpt: Queue)\
     q_rpt.put((thread_id, (None, None)))
 
 
-def main(rng: np.random.Generator, adaptor_cls: Adaptor,
+def _init_adaptor(adaptor_cls: type[Adaptor], conn_cfg: SimpleNamespace)\
+        -> Adaptor | None:
+    adaptor = None
+    for i in range(conn_cfg.retries + 1):
+        try:
+            adaptor = adaptor_cls(controller=controller,  # type: ignore
+                                  config=conn_cfg)
+        except Exception as e:
+            logger.error(e)
+            if i < conn_cfg.retries or conn_cfg.continuous:
+                logger.info("Adaptor initialization failed. Retrying...")
+                if controller.wait(conn_cfg.retry_delay):
+                    # termination signal received during wait
+                    break
+
+                continue
+
+            raise
+
+        break
+
+    return adaptor
+
+
+def _spawn_connector_workers(adaptor: Adaptor, q_msg: Queue, q_rpt: Queue)\
+        -> list[threading.Thread]:
+    listening_jobs = []
+    for i, connector in enumerate(adaptor.connectors, 1):
+        thread_id = f"listner-{i}"
+        thread = threading.Thread(target=listener, name=thread_id,
+                                  args=(connector, q_msg, q_rpt))
+        thread.start()
+        listening_jobs.append(thread)
+
+    return listening_jobs
+
+
+def _rmv_connector_workers(jobs: list[threading.Thread], connector_id: str)\
+        -> list[threading.Thread]:
+    jobs_new = []
+    for listner in jobs:
+        if listner.name == connector_id:
+            listner.join()
+
+            continue
+
+        jobs_new.append(listner)
+
+    return jobs_new
+
+
+def _restore_backup(strm_proc: StreamProcessor,
+                    grph_proc: GraphProcessor,
+                    flags: argparse.Namespace):
+    bck_stores = BackupManager.restore_backup(flags.backup_restore)
+    for store_name, store_obj in bck_stores:
+        if store_name == "strm_store":
+            strm_lock = strm_proc.store._lock
+
+            strm_proc.store = store_obj
+            strm_proc.store._lock = strm_lock
+
+            continue
+        if store_name == "grph_store":
+            grph_lock = grph_proc.store._lock
+
+            grph_proc.store = store_obj
+            grph_proc.store._lock = grph_lock
+
+            continue
+
+
+def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
          flags: argparse.Namespace, conn_cfg: SimpleNamespace,
          grph_cfg: SimpleNamespace, strm_cfg: SimpleNamespace,
          prmn_cfg: SimpleNamespace) -> None:
@@ -208,23 +289,9 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     logger.info("Initiating Program")
 
     # setup adaptor to manage communication and to translate incoming messages
-    for i in range(conn_cfg.retries + 1):
-        try:
-            adaptor = adaptor_cls(controller=controller,  # type: ignore
-                                  config=conn_cfg)
-        except Exception as e:
-            logger.error(e)
-            if i < conn_cfg.retries or conn_cfg.continuous:
-                logger.info("Adaptor initialization failed. Retrying...")
-                if controller.wait(conn_cfg.retry_delay):
-                    # termination signal received during wait
-                    break
-
-                continue
-
-            raise
-
-        break
+    adaptor = _init_adaptor(adaptor_cls, conn_cfg)
+    if adaptor is None:
+        return
 
     # use queues to communicate between threads
     q_msg = Queue()  # queue incoming messages here
@@ -238,29 +305,13 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                                rng=rng, cfg=grph_cfg)
 
     prmn_proc = None
-    if prmn_cfg.predictive_maintenance_enabled:
+    if flags.predictive_maintenance_enabled:
         prmn_proc = NodeProcessor(q_out=q_rpt, q_shed=Queue(),
                                   rng=rng, cfg=prmn_cfg)
 
     # restore saved states
     if flags.backup_restore is not None:
-        bck_stores = BackupManager.restore_backup(flags.backup_restore)
-        for store_name, store_obj in bck_stores:
-            if store_name == "strm_store":
-                strm_lock = strm_proc.store._lock
-
-                strm_proc.store = store_obj
-                strm_proc.store._lock = strm_lock
-
-                continue
-            if store_name == "grph_store":
-                grph_lock = grph_proc.store._lock
-
-                grph_proc.store = store_obj
-                grph_proc.store._lock = grph_lock
-
-                continue
-
+        _restore_backup(strm_proc, grph_proc, flags)
         logger.info("Backup restored")
 
     # setup backup manager to periodically write the stores to disk
@@ -271,13 +322,7 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
     bckmgr.enable_auto_backup()
 
     # listen to all endpoints in parallel
-    listening_jobs = []
-    for i, connector in enumerate(adaptor.connectors, 1):
-        thread_id = f"listner-{i}"
-        thread = threading.Thread(target=listener, name=thread_id,
-                                  args=(connector, q_msg, q_rpt))
-        thread.start()
-        listening_jobs.append(thread)
+    listening_jobs = _spawn_connector_workers(adaptor, q_msg, q_rpt)
 
     # start a manager which spawns new threads as new observations arrive
     manager = threading.Thread(target=process_message, name="manager",
@@ -301,16 +346,8 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                 logger.info(f"Listner {thread_id} has terminated")
 
                 # terminate and remove listner from tracker
-                listening_jobs_new = []
-                for listner in listening_jobs:
-                    if listner.name == thread_id:
-                        listner.join()
-
-                        continue
-
-                    listening_jobs_new.append(listner)
-
-                listening_jobs = listening_jobs_new
+                listening_jobs = _rmv_connector_workers(listening_jobs,
+                                                        thread_id)
 
                 continue
 
@@ -325,11 +362,12 @@ def main(rng: np.random.Generator, adaptor_cls: Adaptor,
                 logger.info("Unable to publish validation report "
                             f"(SID '{report.stream_id}')")
 
-            if prmn_cfg.predictive_maintenance_enabled\
+            if flags.predictive_maintenance_enabled\
                     and isinstance(report, GraphValidationReport):
-                # spawn new thread to evaluate node health
-                pm_workers.append(
-                    process_validation_report(prmn_proc, report, pm_workers))
+                # spawn new thread to evaluate node health and update list
+                pm_workers = _start_predictive_maintenance_worker(prmn_proc,
+                                                                  report,
+                                                                  pm_workers)
         except Exception as e:
             logger.error(f"Job execution raised execption: {e}")
 
@@ -656,8 +694,8 @@ def __main__():
                         format=log_format)
 
     logger.debug(
-        "Using following configuration options\n-"
-        + "\n-".join([f"{k}: {v}" for k, v in flags._get_kwargs()]))
+        "Using following configuration options\n - "
+        + "\n - ".join([f"{k}: {v}" for k, v in flags._get_kwargs()]))
 
     # register SIGINT signal handler
     global controller

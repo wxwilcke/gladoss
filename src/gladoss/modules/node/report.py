@@ -53,39 +53,23 @@ class MaintenanceReport(ValidationReport):
 
             The output is of the following form:
 
-            > :i rdf:type iof-constr:MaintenanceState ,
-            >             iof-constr:OperatingState ;
+            > :i rdf:type iof-constr:MaintenanceState ;
             >    iof-constr:maintenanceStateOf :j ;
             >    rdfs:label { status code } ;
             >    dct:issued { date } .
 
-            > :i rdf:type iof-constr:MaintenanceState ,
-            >             iof-constr:DegradedState ;
+            > :i rdf:type iof-constr:MaintenanceState ;
             >    iof-constr:maintenanceStateOf :j ;
             >    rdfs:label { status code } ;
             >    dct:issued { date } ;
             >    bfo:BFO_0000054 [  # realized by
-            >                     rdf:type iof-constr:UndesireableDisposition ;
-            >                     dct:type ?resultViolationType ;
-            >                     iof-constr:describedBy [
-            >                       rdf:type iof-constr:FailureModeCode ;
-            >                       dct:description { ... } .
-            >                      ]
-            >                    ]
-
-            > :i rdf:type iof-constr:MaintenanceState ,
-            >             iof-constr:FailureState ;
-            >    iof-constr:maintenanceStateOf :j ;
-            >    rdfs:label { status code } ;
-            >    dct:issued { date } ;
-            >    bfo:BFO_0000054 [  # realized by
-            >                     rdf:type iof-constr:UndesireableDisposition ;
-            >                     dct:type ?resultViolationType ;
-            >                     iof-constr:describedBy [
-            >                       rdf:type iof-constr:FailureModeCode ;
-            >                       dct:description { ... } .
-            >                      ]
-            >                    ]
+            >                 rdf:type iof-constr:UndesireableDisposition ;
+            >                 iof-constr:describedBy [
+            >                   rdf:type iof-constr:FailureModeCode ;
+            >                   dct:type ?descriptionCode { violation type } ;
+            >                   dct:description { ... } .
+            >                  ]
+            >                ]
 
             > :j rdf:type iof-constr:MaintainableMaterialItem .  # device
 
@@ -125,24 +109,24 @@ class MaintenanceReport(ValidationReport):
                               disp_node := mknode()),
                     Statement(disp_node, RDF + 'type',
                               IOF + 'UndesireableDisposition'),
-                    Statement(disp_node, DCT + 'type',
-                              Literal(violation_type.name)),
                     Statement(disp_node, IOF + 'describedBy',
                               desc_node := mknode()),
                     Statement(desc_node, RDF + 'type',
                               IOF + 'FailureModeCode'),
+                    Statement(desc_node, DCT + 'type',
+                              Literal(violation_type.name)),
                     Statement(desc_node, DCT + 'description',
                               Literal(status_msg_long, language='en'))
                     ])
 
-            if self.status_code is ValidationReport.StatusCode.NONCRITICAL:
-                graph.append(
-                        Statement(root, RDF + 'type', IOF + 'DegradedState'))
-            elif self.status_code is ValidationReport.StatusCode.CRITICAL:
-                graph.append(
-                        Statement(root, RDF + 'type', IOF + 'FailureState'))
-        else:
-            graph.append(Statement(root, RDF + 'type', IOF + 'OperatingState'))
+        #     if self.status_code is ValidationReport.StatusCode.NONCRITICAL:
+        #         graph.append(
+        #                 Statement(root, RDF + 'type', IOF + 'DegradedState'))
+        #     elif self.status_code is ValidationReport.StatusCode.CRITICAL:
+        #         graph.append(
+        #                 Statement(root, RDF + 'type', IOF + 'FailureState'))
+        # else:
+        #     graph.append(Statement(root, RDF + 'type', IOF + 'OperatingState'))
 
         return graph
 

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Thread
 
-from gladoss.core.stores import Store
+from gladoss.core.store import Store
 
 TIME_FORMAT = "%Y%m%dT%H%M%S"
 

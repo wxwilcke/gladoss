@@ -13,12 +13,12 @@ from gladoss.core.report import (
     EMDASH,
     PM,
     QED,
-    StreamValidationReport,
     ValidationReport,
 )
 from gladoss.core.stats import nonparametric_prediction_interval
-from gladoss.core.stores import MemoryStore
 from gladoss.modules.stream.info_elem import StreamInfoElement
+from gladoss.modules.stream.report import StreamValidationReport
+from gladoss.modules.stream.store import MemoryStore
 
 logger = logging.getLogger(__name__)
 
