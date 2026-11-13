@@ -133,7 +133,8 @@ class AssertionPattern:
     def __init__(self,  anchor: IRIRef,
                  relation: IRIRef,
                  value: IRIRef | Literal | Distribution,
-                 identifier: str, _t: int | None = None) -> None:
+                 identifier: str,
+                 _t: int | None = None) -> None:
         """ Initialize a new AssertionPattern.
 
         :param anchor: the class of resource at the head position

@@ -56,8 +56,8 @@ class NodeProcessor(ReportProcessor):
         # device type.  A less complex solution might be to allow these values
         # to be set per device (type) using a config file.
         self.q_shed.put((node_id,
-                         self.cfg.weight_decay_rate,
-                         self.cfg.weight_decay_interval))
+                         float(self.cfg.weight_decay_rate),
+                         float(self.cfg.weight_decay_interval)))
 
         # compute weight multiplier based on validation report
         weight_multiplier = computeWeightMultiplier(report, self.cfg)
@@ -119,7 +119,7 @@ class NodeProcessor(ReportProcessor):
                                    status_code=status_code,
                                    status_msg_lst=status_msg_lst)
 
-        self.q_out.put(thread_id, report)
+        self.q_out.put((thread_id, (report, None)))
 
 
 def computeWeightMultiplier(report: ValidationReport,

@@ -148,7 +148,7 @@ class RESTfulAdaptor(Adaptor):
         report_str_lst.append("--- END %s %s ---"
                               % (type_str, identifier))
 
-        stdout.write('\n'.join(report_str_lst))
+        stdout.write('\n'.join(report_str_lst) + '\n')
 
         return True
 

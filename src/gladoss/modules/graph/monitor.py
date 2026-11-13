@@ -63,7 +63,7 @@ class GraphProcessor(MessageProcessor):
         if pattern is None:
             logger.debug(f"Associated pattern not found (GID '{graph_id}')")
             pattern = create_graph_pattern(
-                    mkid=self.gen_id, graph=graph_data,
+                    graph=graph_data,
                     graph_id=graph_id,
                     threshold=self.cfg.pattern_threshold,
                     decay=self.cfg.pattern_decay)
@@ -89,14 +89,15 @@ class GraphProcessor(MessageProcessor):
 
             # either the state graph passed the validation check
             # or a non-critical deviation has been detected
-            gpattern_upd = update_graph_pattern(self.gen_id, pattern,
-                                                graph_data, pattern_map,
+            gpattern_upd = update_graph_pattern(pattern,
+                                                graph_data,
+                                                pattern_map,
                                                 self.cfg)
             self.store.update_graph_pattern(gpattern_upd, rtime)
         else:
             logger.info(f"Graph failed validation (GID '{graph_id}')")
 
-        self.q_out.put(thread_id, (report, graph_label))
+        self.q_out.put((thread_id, (report, graph_label)))
 
     def create_validation_report(
             self,

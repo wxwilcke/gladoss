@@ -62,17 +62,17 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
                  f"(SID '{report.stream_id}')")
     report_graph = report.to_graph(namespace)
 
-    graph_id_str = ("\n graph:\t'" + report.graph_id + "'"
+    graph_id_str = ("\n graph:\t\t'" + report.graph_id + "'"
                     if report.graph_id is not None else '')
-    graph_str = " {{\n  {}\n }}".format(
+    graph_str = "\n  {}".format(
             "\n  ".join([str(s) for s in report_graph]))
     logger.debug(f"""OUTGOING TRANSMISSION
-    BEGIN
-     timestamp:\t{report.timestamp.isoformat()}
-     node:\t '{report.node_id}'
-     stream:\t'{report.stream_id}'{graph_id_str}
-     data:\t {graph_str}
-    END
+BEGIN
+ timestamp:\t{report.timestamp.isoformat()}
+ node:\t\t'{report.node_id}'
+ stream:\t'{report.stream_id}'{graph_id_str}
+ data: {graph_str}
+END
     """)
 
     # publish report to endpoint
@@ -97,10 +97,10 @@ def _start_predictive_maintenance_worker(prmn_proc: NodeProcessor,
     :param workers: [TODO:description]
     :return: [TODO:description]
     """
-    thread_id = f"{len(workers)+1}"
+    thread_id = f"worker_pm-{len(workers)+1}"
     thread = threading.Thread(target=prmn_proc.process,
                               name=thread_id,
-                              args=(report))
+                              args=(report,))
     thread.start()
 
     workers.append(thread)
@@ -146,17 +146,17 @@ def process_message(q_msg: Queue, msg_proc_lst: list[MessageProcessor])\
         logger.info(f"Received new message from node '{node_id}' via "
                     f"endpoint '{endpoint}' in stream '{stream_id}'.")
 
-        graph_str = " {{\n  {}\n }}".format(
+        graph_str = "\n  {}".format(
                 "\n  ".join([str(s) for s in graph_data]))
         logger.debug(f"""INCOMING TRANSMISSION
-        BEGIN
-         timestamp:\t{rtime.isoformat()}
-         endpoint:\t'{endpoint}'
-         node:\t '{node_id}'
-         stream:\t'{stream_id}'
-         graph:\t'{graph_id}'
-         data:\t {graph_str}
-        END
+BEGIN
+ timestamp:\t{rtime.isoformat()}
+ endpoint:\t'{endpoint}'
+ node:\t\t'{node_id}'
+ stream:\t'{stream_id}'
+ graph:\t\t'{graph_id}'
+ data: {graph_str}
+END
         """)
 
         # push data to appropriate message processor in new thread
@@ -305,7 +305,7 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
                                rng=rng, cfg=grph_cfg)
 
     prmn_proc = None
-    if flags.predictive_maintenance_enabled:
+    if flags.predictive_maintenance:
         prmn_proc = NodeProcessor(q_out=q_rpt, q_shed=Queue(),
                                   rng=rng, cfg=prmn_cfg)
 
@@ -362,7 +362,7 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
                 logger.info("Unable to publish validation report "
                             f"(SID '{report.stream_id}')")
 
-            if flags.predictive_maintenance_enabled\
+            if flags.predictive_maintenance\
                     and isinstance(report, GraphValidationReport):
                 # spawn new thread to evaluate node health and update list
                 pm_workers = _start_predictive_maintenance_worker(prmn_proc,
@@ -556,11 +556,12 @@ def __main__():
                              type=int, default=3)
 
     parser_pred = parser.add_argument_group('Predictive Maintenance Settings')
-    parser_pred.add_argument("--predictive-maintenance-enabled",
+    parser_pred.add_argument("--predictive-maintenance",
                              help=("If enabled, monitor node health status "
                                    "over time and report when health "
                                    "degration exceeds set rate limits."),
-                             type=bool, default=False)
+                             action=argparse.BooleanOptionalAction,
+                             default=False)
     parser_pred.add_argument("--weight-decay-rate",
                              help=("The value used to decay the weight of an "
                                    "undesired state with over time. Higher "
@@ -572,7 +573,7 @@ def __main__():
                                    "events of an undesired state associated "
                                    "with a node. Higher values translate to "
                                    "faster decay."),
-                             type=float, default=60)
+                             type=float, default=60.0)
     parser_pred.add_argument("--weight-multiplier-noncritical",
                              help=("The value to multiply the weight of an "
                                    "undesired state with on observing a "
