@@ -296,7 +296,7 @@ class KE_Adaptor(Adaptor):
                 = self.register_report_publications(
                         "NodeReportPublication",
                         REPORT_GRAPH_PATTERN_NODE,
-                        )
+                        REPORT_PREFIXES_NODE)
 
             rtype = ValidationReport.ReportType.NODE_VALIDATION_REPORT
             self.context['postKnowledgeInteractions'][rtype]\

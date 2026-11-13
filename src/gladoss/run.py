@@ -62,14 +62,14 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
                  f"(SID '{report.stream_id}')")
     report_graph = report.to_graph(namespace)
 
-    graph_id_str = ("\n graph:\t\t'" + report.graph_id + "'"
+    graph_id_str = ("\n graph:\t'" + report.graph_id + "'"
                     if report.graph_id is not None else '')
     graph_str = "\n  {}".format(
             "\n  ".join([str(s) for s in report_graph]))
     logger.debug(f"""OUTGOING TRANSMISSION
 BEGIN
  timestamp:\t{report.timestamp.isoformat()}
- node:\t\t'{report.node_id}'
+ node:\t'{report.node_id}'
  stream:\t'{report.stream_id}'{graph_id_str}
  data: {graph_str}
 END
@@ -152,9 +152,9 @@ def process_message(q_msg: Queue, msg_proc_lst: list[MessageProcessor])\
 BEGIN
  timestamp:\t{rtime.isoformat()}
  endpoint:\t'{endpoint}'
- node:\t\t'{node_id}'
+ node:\t'{node_id}'
  stream:\t'{stream_id}'
- graph:\t\t'{graph_id}'
+ graph:\t'{graph_id}'
  data: {graph_str}
 END
         """)
