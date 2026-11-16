@@ -26,7 +26,8 @@ class StreamProcessor(MessageProcessor):
                  q_out: Queue,
                  q_shed: Queue,
                  rng: np.random.Generator,
-                 cfg: SimpleNamespace):
+                 cfg: SimpleNamespace,
+                 **kwargs: dict | None):
         super().__init__(q_out=q_out, q_shed=q_shed, rng=rng, cfg=cfg)
 
         # initiate store which will manage and track stream characterictics
@@ -59,16 +60,17 @@ class StreamProcessor(MessageProcessor):
         logger.info(f"Processing transmssion stream (SID '{stream_id}')")
 
         # register stream by identifier if needed
-        if stream_id not in self.store.nodes:
-            logger.debug("Associated transmssion stream not found "
-                         f"(SID '{stream_id}')")
-            logger.info("Registering new transmission stream "
-                        f"(SID '{stream_id}')")
-            if not self.store.register_node(stream_id):
-                logger.error("Unable to register or access transmission "
-                             f"stream (SID '{stream_id}')")
+        with self.store._lock:
+            if stream_id not in self.store.nodes:
+                logger.debug("Associated transmssion stream not found "
+                             f"(SID '{stream_id}')")
+                logger.info("Registering new transmission stream "
+                            f"(SID '{stream_id}')")
+                if not self.store.register_node(stream_id):
+                    logger.error("Unable to register or access transmission "
+                                 f"stream (SID '{stream_id}')")
 
-            return  # no need to evaluate the stream on first sight
+                return  # no need to evaluate the stream on first sight
 
         logger.debug("Associated transmission stream found "
                      f"(SID '{stream_id}')")

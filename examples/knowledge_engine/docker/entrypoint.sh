@@ -9,6 +9,7 @@ gladoss-run -v -v \
     --continuous \
     --no-evaluate-structure \
     --evaluate-stream \
+    --predictive-maintenance \
     --proactive-notification \
     --pi-right-sided \
     --pattern-decay=120 \

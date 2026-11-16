@@ -15,6 +15,7 @@ from gladoss.core.report import (
 from gladoss.modules.node.report import MaintenanceReport
 from gladoss.modules.node.store import WeightStore
 from gladoss.modules.processor import ReportProcessor
+from gladoss.modules.stream.info_elem import StreamInfoElement
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,16 @@ class NodeProcessor(ReportProcessor):
                  q_out: Queue,
                  q_shed: Queue,
                  rng: np.random.Generator,
-                 cfg: SimpleNamespace):
-        super().__init__(q_out=q_out, q_shed=q_shed, rng=rng, cfg=cfg)
+                 cfg: SimpleNamespace,
+                 **kwargs: dict | None):
+        super().__init__(q_out=q_out, q_shed=q_shed,
+                         rng=rng, cfg=cfg, kwargs=kwargs)
 
-        # initiate store which will manage and track patterns over time
+        # initiate store which will manage and track node health over time
         self.store = WeightStore(threading.RLock())
+
+        # reception interval data
+        self.strm_store = self.kwargs.get("strm_store", None)
 
         self.wd_scheduler = WeightDecayScheduler(self.store, self.q_shed)
         self.wd_scheduler.enable()
@@ -36,33 +42,89 @@ class NodeProcessor(ReportProcessor):
     def __del__(self):
         self.wd_scheduler.disable()
 
+    def _compute_decay_interval(self, stream_id: str, rinterval_window: int)\
+            -> float:
+        """ Compute the weight decay interval by taking the average of the
+            last n observed reception intervals from the given stream. Use
+            a preset value if the reception interval is not available.
+
+        :param stream_id: [TODO:description]
+        :param rinterval_window: [TODO:description]
+        :return: [TODO:description]
+        """
+        wd_interval = self.cfg.weight_decay_interval
+        if self.strm_store is not None:
+            wd_interval_lst = []
+            with self.strm_store._lock:
+                if stream_id in self.strm_store.nodes:
+                    wd_interval_lst \
+                        = self.strm_store.get(stream_id,
+                                              StreamInfoElement.RINTERVAL,
+                                              rinterval_window)
+
+            if len(wd_interval_lst) > 0:
+                wd_interval = sum(wd_interval_lst) / len(wd_interval_lst)
+
+        return float(wd_interval)
+
     def process(self, report: ValidationReport):
+        """ Assess node health by tracking violations through published
+            validation reports about steams from that node.
+
+            Upon receiving a report from an unknown node, a new node health
+            state is registered and associated with that node through its
+            identifier. Further violations (obtained from future reports about
+            this node) will negatively affect the associated health state,
+            whereas the absence of such violations will possitively affect this
+            state (via a timed decay of negative state). A maintenance-request
+            report will be send if the node state deteriorates too fast.
+
+        :param report: [TODO:description]
+        """
         thread_id = threading.current_thread().name
 
         node_id = report.node_id
+        logger.info(f"Processing node (NID '{node_id}')")
+
         # register node if unknown
         with self.store._lock:
             if node_id not in self.store.nodes:
-                logger.info(f"Registering new node ('{node_id}')")
+                logger.info(f"Registering new node (NID '{node_id}')")
                 if not self.store.register_node(node_id):
                     # unable to register node
                     return
+        logger.debug(f"Associated node state found (NID '{node_id}')")
+
+        # compute weight decay interval
+        # NOTE: this is computed for each stream; if a node holds multiple
+        # streams this is thus computed multiple times for the same node.
+        # This is usually not necessary. A solution is to keep track of
+        # all streams of a node, but this requires assumptions on the streams'
+        # characteristics. For now, we defer the problem to the scheduler, by
+        # allowing only a single timer per node.
+        rinterval_window = 4  # use average of past n events; arbitrary choice
+        weight_decay_interval = self._compute_decay_interval(
+                report.stream_id,
+                rinterval_window)
 
         # schedule decay event
-        # NOTE: this uses a preset decay rate and interval, which may be too
+        # NOTE: this uses a preset decay rate, which may be too
         # simplistic when monitoring a heterogeneous set of devices. A better
-        # solution would be to let the interval depend on the publication
-        # interval of the devices being monitored, and the decay rate on the
+        # solution would be to let the decay rate be determined by eg the
         # device type.  A less complex solution might be to allow these values
         # to be set per device (type) using a config file.
+        logger.debug("Scheduling node health state update event "
+                     f"(NID '{node_id}')")
         self.q_shed.put((node_id,
                          float(self.cfg.weight_decay_rate),
-                         float(self.cfg.weight_decay_interval)))
+                         weight_decay_interval))
 
         # compute weight multiplier based on validation report
         weight_multiplier = computeWeightMultiplier(report, self.cfg)
 
         # calculate new weight and update node state
+        logger.debug("Updating node health state from report "
+                     f"(NID '{node_id}')")
         weight_old = weight_new = 1.
         with self.store._lock:
             _, weight_old = self.store.get(node_id)
@@ -109,6 +171,12 @@ class NodeProcessor(ReportProcessor):
                 f"{QED}"
                 )
             violation_type = None
+
+        if violation_type is None:
+            logger.debug(status_msg.capitalize() + f" (NID '{node_id}')")
+        else:
+            logger.info(status_msg.capitalize()
+                        + f" detected (NID '{node_id}')")
 
         status_msg_lst.append((status_msg, status_msg_long,
                                status_code, violation_type))
@@ -182,7 +250,7 @@ class WeightDecayScheduler:
 
             if decay_rate is None or decay_interval is None:
                 # this was a cancel request
-                logger.debug("Cancelled scheduled weight decay "
+                logger.debug("Cancelled scheduled node weight decay "
                              f"({node_id})")
 
                 continue
@@ -239,6 +307,18 @@ class WeightDecayScheduler:
     def decay_weight(self, node_id: str, store: WeightStore,
                      decay_rate: float, decay_interval: float,
                      q_scheduler: Queue):
+        """ Decay a registered node state weight and schedule
+            a future decay event if the weight is positive.
+            Otherwise, the node is deemed healthy and deregistered.
+
+        :param node_id: [TODO:description]
+        :param store: [TODO:description]
+        :param decay_rate: [TODO:description]
+        :param decay_interval: [TODO:description]
+        :param q_scheduler: [TODO:description]
+        """
+        logger.debug("Running decay event for node health weight "
+                     f"(NID '{node_id}')")
         weight_new = 0.
         with store._lock:
             rtime, weight_old = store.get(node_id)

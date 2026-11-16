@@ -2,6 +2,8 @@
 
 # Script to test the basic functionaly of the knowledge engine adaptor
 
+INTERVAL="$1"
+
 register_kb() {
     OUT=$(curl -s http://127.0.0.1:8280/rest/sc \
          -X POST \
@@ -90,6 +92,12 @@ fi
 sleep 1
 echo "Attempting to post sensor data"
 
+sleep_time=1
+if [ -n "$INTERVAL" ]
+then
+    sleep_time="$INTERVAL"
+fi
+
 i=1
 while true
 do
@@ -118,7 +126,12 @@ do
     fi
 
     ((i=i+1))
-    sleep 1
+    read -s -n 1 -t "$sleep_time"
+    if [ $? -eq 0 ]
+    then
+        echo "Paused. Press any key to continue."
+        read -s -n 1  # unpause on next key press
+    fi
 done
 
 echo 0

@@ -22,13 +22,15 @@ class MessageProcessor(ABC):
                  q_out: Queue,
                  q_shed: Queue,
                  rng: np.random.Generator,
-                 cfg: SimpleNamespace):
+                 cfg: SimpleNamespace,
+                 **kwargs: dict | None):
         self.q_out = q_out
         self.q_shed = q_shed
         self.rng = rng
         self.cfg = cfg
 
         self.store = None
+        self.kwargs = kwargs
 
         # create callable to avoid importing numpy everywhere
         self.gen_id = partial(gen_id, self.rng)
@@ -52,13 +54,15 @@ class ReportProcessor(ABC):
                  q_out: Queue,
                  q_shed: Queue,
                  rng: np.random.Generator,
-                 cfg: SimpleNamespace):
+                 cfg: SimpleNamespace,
+                 **kwargs: dict | None):
         self.q_out = q_out
         self.q_shed = q_shed
         self.rng = rng
         self.cfg = cfg
 
         self.store = None
+        self.kwargs = kwargs
 
         # create callable to avoid importing numpy everywhere
         self.gen_id = partial(gen_id, self.rng)

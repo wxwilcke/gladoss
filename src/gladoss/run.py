@@ -195,6 +195,15 @@ def listener(connector: Connector, q_msg: Queue, q_rpt: Queue)\
 
 def _init_adaptor(adaptor_cls: type[Adaptor], conn_cfg: SimpleNamespace)\
         -> Adaptor | None:
+    """ Initiate adaptor from provided adaptor class, using provided
+        configuration settings and with an event-based controller to monitor
+        key presses.
+
+    :param adaptor_cls: [TODO:description]
+    :param conn_cfg: [TODO:description]
+    :return: [TODO:description]
+    :raises [TODO:name]: [TODO:description]
+    """
     adaptor = None
     for i in range(conn_cfg.retries + 1):
         try:
@@ -219,6 +228,15 @@ def _init_adaptor(adaptor_cls: type[Adaptor], conn_cfg: SimpleNamespace)\
 
 def _spawn_connector_workers(adaptor: Adaptor, q_msg: Queue, q_rpt: Queue)\
         -> list[threading.Thread]:
+    """ Spawn a thread for each connection to an endpoint, which will listen
+        for incoming messages and add these to a queue. Return a list of
+        spawned listner threads.
+
+    :param adaptor: [TODO:description]
+    :param q_msg: [TODO:description]
+    :param q_rpt: [TODO:description]
+    :return: [TODO:description]
+    """
     listening_jobs = []
     for i, connector in enumerate(adaptor.connectors, 1):
         thread_id = f"listner-{i}"
@@ -232,6 +250,13 @@ def _spawn_connector_workers(adaptor: Adaptor, q_msg: Queue, q_rpt: Queue)\
 
 def _rmv_connector_workers(jobs: list[threading.Thread], connector_id: str)\
         -> list[threading.Thread]:
+    """ Remove a listner thread from the list of active workers if the
+        identifier matches the thread name. Return the updated list.
+
+    :param jobs: [TODO:description]
+    :param connector_id: [TODO:description]
+    :return: [TODO:description]
+    """
     jobs_new = []
     for listner in jobs:
         if listner.name == connector_id:
@@ -247,6 +272,13 @@ def _rmv_connector_workers(jobs: list[threading.Thread], connector_id: str)\
 def _restore_backup(strm_proc: StreamProcessor,
                     grph_proc: GraphProcessor,
                     flags: argparse.Namespace):
+    """ Load backup file and replace the empty stores by their backuped
+        counterparts. Repurpose the new locks for the restored stores.
+
+    :param strm_proc: [TODO:description]
+    :param grph_proc: [TODO:description]
+    :param flags: [TODO:description]
+    """
     bck_stores = BackupManager.restore_backup(flags.backup_restore)
     for store_name, store_obj in bck_stores:
         if store_name == "strm_store":
@@ -307,7 +339,8 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
     prmn_proc = None
     if flags.predictive_maintenance:
         prmn_proc = NodeProcessor(q_out=q_rpt, q_shed=Queue(),
-                                  rng=rng, cfg=prmn_cfg)
+                                  rng=rng, cfg=prmn_cfg,
+                                  kwargs={"strm_store": strm_proc.store})
 
     # restore saved states
     if flags.backup_restore is not None:

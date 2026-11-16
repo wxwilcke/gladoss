@@ -31,7 +31,8 @@ class GraphProcessor(MessageProcessor):
                  q_out: Queue,
                  q_shed: Queue,
                  rng: np.random.Generator,
-                 cfg: SimpleNamespace):
+                 cfg: SimpleNamespace,
+                 **kwargs: dict | None):
         super().__init__(q_out=q_out, q_shed=q_shed, rng=rng, cfg=cfg)
 
         # initiate store which will manage and track patterns over time
