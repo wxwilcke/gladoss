@@ -173,10 +173,13 @@ class NodeProcessor(ReportProcessor):
             violation_type = None
 
         if violation_type is None:
-            logger.debug(status_msg.capitalize() + f" (NID '{node_id}')")
+            logger.debug(status_msg.capitalize()
+                         + f" - RoG: x{weight_rog:.2f} "
+                         + f"(NID '{node_id}')")
         else:
             logger.info(status_msg.capitalize()
-                        + f" detected (NID '{node_id}')")
+                        + f" detected - RoG: x{weight_rog:.2f} "
+                        + f"(NID '{node_id}')")
 
         status_msg_lst.append((status_msg, status_msg_long,
                                status_code, violation_type))
@@ -212,9 +215,9 @@ def computeWeightMultiplier(report: ValidationReport,
     # calculate weight multiplier
     weight_multiplier = 1.
     if report.status_code == ValidationReport.StatusCode.CRITICAL:
-        weight_multiplier *= conf.weight_muliplier_critical
+        weight_multiplier *= conf.weight_multiplier_critical
     elif report.status_code == ValidationReport.StatusCode.NONCRITICAL:
-        weight_multiplier *= conf.weight_muliplier_noncritical
+        weight_multiplier *= conf.weight_multiplier_noncritical
 
     return weight_multiplier
 
