@@ -396,7 +396,11 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
                             f"(SID '{report.stream_id}')")
 
             if flags.predictive_maintenance\
-                    and isinstance(report, GraphValidationReport):
+                    and isinstance(report, GraphValidationReport)\
+                    and report.status_code in [
+                            ValidationReport.StatusCode.NONCRITICAL,
+                            ValidationReport.StatusCode.CRITICAL
+                            ]:
                 # spawn new thread to evaluate node health and update list
                 pm_workers = _start_predictive_maintenance_worker(prmn_proc,
                                                                   report,

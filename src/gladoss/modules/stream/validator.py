@@ -137,7 +137,8 @@ def validate_message_reception_interval(store: MemoryStore,
     cache_dct = {}
     status_msg_lst = []
 
-    data_lst = store.get(stream_id, StreamInfoElement.RINTERVAL)
+    # consider last 100 recorded intervals to support natural drift
+    data_lst = store.get(stream_id, StreamInfoElement.RINTERVAL, 100)
     rtime_prev = store.most_recent(stream_id, StreamInfoElement.RTIME)
     if rtime_prev is None or len(data_lst) < grace_period:
         logger.debug("Within grace period "
