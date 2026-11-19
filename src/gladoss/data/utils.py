@@ -176,7 +176,7 @@ def jsonpath_deref(root: dict | list, jsonpath: list[Any]) -> Any:
     return traverse(root, path_lst)
 
 
-def mknode(namespace: IRIRef | None) -> BNode | IRIRef:
+def mknode(namespace: IRIRef | None = None) -> BNode | IRIRef:
     """ Create a new blank node or an IRI if a namespace is provided.
 
     :param namespace: [TODO:description]

@@ -28,7 +28,7 @@ class NodeProcessor(ReportProcessor):
                  cfg: SimpleNamespace,
                  **kwargs: dict | None):
         super().__init__(q_out=q_out, q_shed=q_shed,
-                         rng=rng, cfg=cfg, kwargs=kwargs)
+                         rng=rng, cfg=cfg, **kwargs)
 
         # initiate store which will manage and track node health over time
         self.store = WeightStore(threading.RLock())
@@ -39,7 +39,7 @@ class NodeProcessor(ReportProcessor):
         self.wd_scheduler = WeightDecayScheduler(self.store, self.q_shed)
         self.wd_scheduler.enable()
 
-    def __del__(self):
+    def terminate(self):
         self.wd_scheduler.disable()
 
     def _compute_decay_interval(self, stream_id: str, rinterval_window: int)\
@@ -87,13 +87,17 @@ class NodeProcessor(ReportProcessor):
         logger.info(f"Processing node (NID '{node_id}')")
 
         # register node if unknown
+        registered_node = False
         with self.store._lock:
             if node_id not in self.store.nodes:
                 logger.info(f"Registering new node (NID '{node_id}')")
                 if not self.store.register_node(node_id):
                     # unable to register node
                     return
-        logger.debug(f"Associated node state found (NID '{node_id}')")
+            else:
+                registered_node = True
+        if registered_node:
+            logger.debug(f"Associated node state found (NID '{node_id}')")
 
         # compute weight decay interval
         # NOTE: this is computed for each stream; if a node holds multiple
@@ -113,7 +117,8 @@ class NodeProcessor(ReportProcessor):
         # solution would be to let the decay rate be determined by eg the
         # device type.  A less complex solution might be to allow these values
         # to be set per device (type) using a config file.
-        logger.debug("Scheduling node health state update event "
+        logger.debug("Scheduled node health state update event for "
+                     f"+{weight_decay_interval:0.3g}s "
                      f"(NID '{node_id}')")
         self.q_shed.put((node_id,
                          float(self.cfg.weight_decay_rate),
@@ -133,52 +138,67 @@ class NodeProcessor(ReportProcessor):
                 # unable to update node state
                 return
 
-        # calculate rate of growth
-        weight_rog = 1. + (weight_new - weight_old) / weight_old
-
         # create maintenance report
         status_msg_lst = []
-        if weight_rog >= self.cfg.weight_growth_rate_critical:
-            status_code = MaintenanceReport.StatusCode.CRITICAL
-            status_msg = "Critical Node Health Degration"
-            status_msg_long = (
-                "Node health rate of degration exceeds critical level "
-                f"{BECAUSE} "
-                f"OBSERVED: rate = {weight_rog:.2f} "
-                f"EXPECTED: rate < {self.cfg.weight_growth_rate_critical} "
-                f"{QED}"
-                )
-            violation_type = ValidationReport.ViolationType.NHS1
-        elif weight_rog >= self.cfg.weight_growth_rate_noncritical:
-            status_code = MaintenanceReport.StatusCode.NONCRITICAL
-            status_msg = "Non-Critical Node Health Degration"
-            status_msg_long = (
-                "Node health rate of degration exceeds non-critical level "
-                f"{BECAUSE} "
-                f"OBSERVED: rate = {weight_rog:.2f} "
-                f"EXPECTED: rate < {self.cfg.weight_growth_rate_noncritical} "
-                f"{QED}"
-                )
-            violation_type = ValidationReport.ViolationType.NHS2
-        else:
+        if weight_new > weight_old or not self.cfg.quiet:
+            if weight_new >= self.cfg.weight_upper_bound_critical:
+                degradation = min(1.0, weight_new /
+                                  self.cfg.weight_upper_bound_critical)
+                status_code = MaintenanceReport.StatusCode.CRITICAL
+                status_msg = "Critical Node Health Degradation"
+                status_msg_long = (
+                    "Node health degradation exceeds critical level "
+                    f"{BECAUSE} "
+                    f"OBSERVED: degradation = {degradation*100:.2f}% "
+                    "EXPECTED: degradation < 100%"
+                    f"{QED}"
+                    )
+                violation_type = ValidationReport.ViolationType.NHS1
+            elif weight_new >= self.cfg.weight_upper_bound_noncritical:
+                degradation = weight_new / self.cfg.weight_upper_bound_critical
+                degradation_upper = (self.cfg.weight_upper_bound_noncritical /
+                                     self.cfg.weight_upper_bound_critical)
+                status_code = MaintenanceReport.StatusCode.NONCRITICAL
+                status_msg = "Non-Critical Node Health Degradation"
+                status_msg_long = (
+                    "Node health degradation exceeds non-critical level "
+                    f"{BECAUSE} "
+                    f"OBSERVED: degradation = {degradation*100:.2f}% "
+                    f"EXPECTED: degradation < {degradation_upper*100:.2f}% "
+                    f"{QED}"
+                    )
+                violation_type = ValidationReport.ViolationType.NHS2
+        if ((not self.cfg.quiet
+             and weight_new < self.cfg.weight_upper_bound_noncritical)
+            or (self.cfg.quiet
+                and weight_old >= self.cfg.weight_upper_bound_noncritical
+                and weight_new < self.cfg.weight_upper_bound_noncritical)
+            or (not registered_node
+                and weight_new < self.cfg.weight_upper_bound_noncritical)):
+            # create report on 1) every update, 2) only after a (series of)
+            # degradation reports, or 3) when first seeing the (healthy) node
+            degradation = min(1.0, weight_new /
+                              self.cfg.weight_upper_bound_critical)
+            degradation_upper = (self.cfg.weight_upper_bound_noncritical /
+                                 self.cfg.weight_upper_bound_critical)
             status_code = MaintenanceReport.StatusCode.NOMINAL
             status_msg = "Node Health Nominal"
             status_msg_long = (
-                "Node health rate of degration within acceptable levels "
+                "Node health within acceptable levels "
                 f"{BECAUSE} "
-                f"OBSERVED: rate = {weight_rog:.2f} "
-                f"EXPECTED: rate < {self.cfg.weight_growth_rate_noncritical} "
+                f"OBSERVED: degradation = {degradation*100:.2f}% "
+                f"EXPECTED: degradation < {degradation_upper*100:2f}% "
                 f"{QED}"
                 )
             violation_type = None
 
         if violation_type is None:
             logger.debug(status_msg.capitalize()
-                         + f" - RoG: x{weight_rog:.2f} "
+                         + f" :: degradation at {weight_new:.2f} "
                          + f"(NID '{node_id}')")
         else:
             logger.info(status_msg.capitalize()
-                        + f" detected - RoG: x{weight_rog:.2f} "
+                        + f" detected :: degradation at {weight_new:.2f} "
                         + f"(NID '{node_id}')")
 
         status_msg_lst.append((status_msg, status_msg_long,
@@ -215,9 +235,9 @@ def computeWeightMultiplier(report: ValidationReport,
     # calculate weight multiplier
     weight_multiplier = 1.
     if report.status_code == ValidationReport.StatusCode.CRITICAL:
-        weight_multiplier *= conf.weight_multiplier_critical
+        weight_multiplier = conf.weight_multiplier_critical
     elif report.status_code == ValidationReport.StatusCode.NONCRITICAL:
-        weight_multiplier *= conf.weight_multiplier_noncritical
+        weight_multiplier = conf.weight_multiplier_noncritical
 
     return weight_multiplier
 
@@ -284,7 +304,7 @@ class WeightDecayScheduler:
 
         logger.debug("Starting weight decay scheduling daemon")
         self._thread = threading.Thread(target=self._schedule,
-                                        name="weight_decay_scheduler")
+                                        name="WeightDecayScheduler")
         self._thread.start()
 
         self.enabled = True
@@ -320,9 +340,7 @@ class WeightDecayScheduler:
         :param decay_interval: [TODO:description]
         :param q_scheduler: [TODO:description]
         """
-        logger.debug("Running decay event for node health weight "
-                     f"(NID '{node_id}')")
-        weight_new = 0.
+        weight_old, weight_new = 0., 0.
         with store._lock:
             rtime, weight_old = store.get(node_id)
 
@@ -334,5 +352,8 @@ class WeightDecayScheduler:
                     # unable to update node state
                     return
 
-        if weight_new > 0:
+        logger.debug("Decay event for node health weight :: "
+                     f"{weight_old:.2f} -> {weight_new:.2f} (NID '{node_id}')")
+
+        if self.enabled and weight_new > 0.01:
             q_scheduler.put((node_id, decay_rate, decay_interval))

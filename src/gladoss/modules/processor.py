@@ -48,6 +48,10 @@ class MessageProcessor(ABC):
                             ]):
         pass
 
+    @abstractmethod
+    def terminate(self):
+        pass
+
 
 class ReportProcessor(ABC):
     def __init__(self,
@@ -70,4 +74,8 @@ class ReportProcessor(ABC):
     @abstractmethod
     def process(self,
                 report: ValidationReport):
+        pass
+
+    @abstractmethod
+    def terminate(self):
         pass

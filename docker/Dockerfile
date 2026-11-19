@@ -38,17 +38,19 @@ RUN mkdir -p $ADAPTORDIR \
 # create a working directory
 RUN mkdir -p $WORKDIR \
  && chown root:$GROUP $WORKDIR
+WORKDIR $WORKDIR
+
+# install the application dependencies
+COPY --from=base requirements.txt $WORKDIR/
+RUN pip install --user --no-cache-dir -r requirements.txt
 
 # copy the application to the image
 COPY --from=base src/ $WORKDIR/src/
-COPY --from=base pyproject.toml requirements.txt $WORKDIR/
+COPY --from=base pyproject.toml $WORKDIR/
 RUN chown -R root:$GROUP $WORKDIR
 
-WORKDIR $WORKDIR
-
-# install the application dependencies and the application itself
+# install the application itself
 RUN export PYTHONUSERBASE
-RUN pip install --user --no-cache-dir -r requirements.txt
 RUN pip install --user .
 
 # create shortcuts

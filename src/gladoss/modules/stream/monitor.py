@@ -28,10 +28,14 @@ class StreamProcessor(MessageProcessor):
                  rng: np.random.Generator,
                  cfg: SimpleNamespace,
                  **kwargs: dict | None):
-        super().__init__(q_out=q_out, q_shed=q_shed, rng=rng, cfg=cfg)
+        super().__init__(q_out=q_out, q_shed=q_shed, rng=rng, cfg=cfg,
+                         **kwargs)
 
         # initiate store which will manage and track stream characterictics
         self.store = MemoryStore(threading.RLock(), self.cfg.pattern_decay)
+
+    def terminate(self):
+        pass
 
     def process(self,
                 endpoint: str,

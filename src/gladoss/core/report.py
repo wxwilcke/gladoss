@@ -239,7 +239,7 @@ class ReportScheduler:
 
         logger.debug("Starting report scheduling daemon")
         self._thread = threading.Thread(target=self._schedule,
-                                        name="scheduler")
+                                        name="ReportScheduler")
         self._thread.start()
 
         self.enabled = True

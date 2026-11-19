@@ -99,6 +99,7 @@ REPORT_PREFIXES_NODE = {
         "iof": "https://spec.industrialontologies.org/ontology/construct/"
         }
 DCT = IRIRef("http://purl.org/dc/terms/")
+IOF = IRIRef("https://spec.industrialontologies.org/ontology/construct/")
 
 
 class KE_Adaptor(Adaptor):
@@ -373,7 +374,7 @@ class KE_Adaptor(Adaptor):
         success = False
         try:
             package_headers = self.set_report_headers(identifier, rtype)
-            package_payload = self.set_report_payload(identifier, data)
+            package_payload = self.set_report_payload(identifier, data, rtype)
 
             ki_endpoint\
                 = self.context['reactKnowledgeInteractionsInv'][identifier]
@@ -450,7 +451,8 @@ class KE_Adaptor(Adaptor):
         return headers
 
     def set_report_payload(self: Self, identifier: str,
-                           data: Collection[Statement])\
+                           data: Collection[Statement],
+                           rtype: ValidationReport.ReportType)\
             -> list[Any] | dict[str, Any]:
         """ Returns payload for publishing the validation report
             to the endpoint, by converting the provided shape graph
@@ -459,7 +461,12 @@ class KE_Adaptor(Adaptor):
         :param self: [TODO:description]
         :return: [TODO:description]
         """
-        payload = self.translate_inv(data)
+        payload = []
+        if rtype in [ValidationReport.ReportType.GRAPH_VALIDATION_REPORT,
+                     ValidationReport.ReportType.STREAM_VALIDATION_REPORT]:
+            payload = self.translate_inv_validation_report(data)
+        elif rtype == ValidationReport.ReportType.NODE_VALIDATION_REPORT:
+            payload = self.translate_inv_maintenance_report(data)
 
         return payload
 
@@ -556,7 +563,27 @@ class KE_Adaptor(Adaptor):
 
         return data_translated
 
-    def translate_inv(self: Self, data: Collection[Statement])\
+    def node_to_string(self, node: IRIRef | Literal) -> str:
+        """ Convert internal RDF node to appropriate string representation.
+
+        :param node: [TODO:description]
+        :return: [TODO:description]
+        """
+        if isinstance(node, Literal):
+            node_str = f"\"{node}\""
+            if node.datatype is not None:
+                node_str += f"^^{self.node_to_string(node.datatype)}"
+            elif node.language is not None:
+                node_str += f"@{node.language}"
+
+            return node_str
+        elif isinstance(node, BNode):
+            return f"_:{node.value}"
+
+        return f"<{node}>"
+
+    def translate_inv_validation_report(self: Self,
+                                        data: Collection[Statement])\
             -> list[dict[str, str]]:
         """ Translates a validation report into a binding set with as many
             entries as there are results. Returns an empty binding set if
@@ -565,20 +592,6 @@ class KE_Adaptor(Adaptor):
         :param data:
         :return: [TODO:description]
         """
-        def to_string(node: IRIRef | Literal) -> str:
-            if isinstance(node, Literal):
-                node_str = f"\"{node}\""
-                if node.datatype is not None:
-                    node_str += f"^^{to_string(node.datatype)}"
-                elif node.language is not None:
-                    node_str += f"@{node.language}"
-
-                return node_str
-            elif isinstance(node, BNode):
-                return f"_:{node.value}"
-
-            return f"<{node}>"
-
         binding_set = []
 
         root = None
@@ -669,18 +682,77 @@ class KE_Adaptor(Adaptor):
             for result in results.values():
                 bindings = {}
                 for k, v in report[root].items():
-                    bindings[k] = to_string(v)
+                    bindings[k] = self.node_to_string(v)
 
                 for k, v in result.items():
-                    bindings[k] = to_string(v)
+                    bindings[k] = self.node_to_string(v)
 
                 if "resultSeverity" in result:
                     sev = result["resultSeverity"]
                     if sev in severities:
                         for k, v in severities[sev].items():
-                            bindings[k] = to_string(v)
+                            bindings[k] = self.node_to_string(v)
 
                 binding_set.append(bindings)
+
+        return binding_set
+
+    def translate_inv_maintenance_report(self: Self,
+                                         data: Collection[Statement])\
+            -> list[dict[str, str]]:
+        """ Translates a maintenance report into a binding set. Returns
+            an empty binding set if no results are to be reported.
+
+        :param data:
+        :return: [TODO:description]
+        """
+        binding_set = []
+
+        bindings = {}
+        for statement in data:
+            if statement.predicate == RDF + "type":
+                if statement.object == IOF + "MaintenanceState":
+                    bindings["report"] = statement.subject
+
+                    continue
+                if statement.object == IOF + "UndesireableDisposition":
+                    bindings["nodeState"] = statement.subject
+
+                    continue
+                if statement.object == IOF + "FailureModeCode":
+                    bindings["nodeStateDescription"] = statement.subject
+
+                    continue
+
+        for statement in data:
+            if statement.subject == bindings.get("report", ''):
+                if statement.predicate == DCT + "issued":
+                    bindings["reportDate"] = statement.object
+
+                    continue
+                if statement.predicate == RDFS + "label":
+                    bindings["reportLabel"] = statement.object
+
+                    continue
+                if statement.predicate == IOF + "maintenanceStateOf":
+                    bindings["reportSubject"] = statement.object
+
+                    continue
+            if statement.subject == bindings.get("nodeStateDescription", ''):
+                if statement.predicate == DCT + "type":
+                    bindings["nodeStateDescriptionCode"] = statement.object
+
+                    continue
+                if statement.predicate == DCT + "description":
+                    bindings["nodeStateDescriptionText"] = statement.object
+
+                    continue
+
+        for k, v in bindings.items():
+            bindings[k] = self.node_to_string(v)
+
+        if len(bindings) > 0:
+            binding_set.append(bindings)
 
         return binding_set
 

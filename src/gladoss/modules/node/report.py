@@ -92,7 +92,8 @@ class MaintenanceReport(ValidationReport):
         graph = [
             Statement(root, RDF + 'type', IOF + 'MaintenanceState'),
             Statement(root, RDFS + 'label',
-                      Literal(f"{self.status_code!s} Maintenance Report")),
+                      Literal(f"{self.status_code.name.title()} "
+                              "Maintenance Report")),
             Statement(root, DCT + 'issued',
                       Literal(self.timestamp.isoformat(),
                               datatype=XSD + 'dateTime')),

@@ -58,7 +58,7 @@ def publish_validation_report(adaptor: Adaptor, report: ValidationReport,
     :return: [TODO:description]
     """
     # represent validation report
-    logger.debug(f"Preparing publication of validation report "
+    logger.debug(f"Preparing publication of report "
                  f"(SID '{report.stream_id}')")
     report_graph = report.to_graph(namespace)
 
@@ -76,7 +76,7 @@ END
     """)
 
     # publish report to endpoint
-    logger.info(f"Publishing validation report (SID '{report.stream_id}')")
+    logger.info(f"Publishing report (SID '{report.stream_id}')")
     success = adaptor.publish_report(report.type, report.stream_id,
                                      report_graph, label)
 
@@ -97,7 +97,7 @@ def _start_predictive_maintenance_worker(prmn_proc: NodeProcessor,
     :param workers: [TODO:description]
     :return: [TODO:description]
     """
-    thread_id = f"worker_pm-{len(workers)+1}"
+    thread_id = f"WorkerPM-{len(workers)+1}"
     thread = threading.Thread(target=prmn_proc.process,
                               name=thread_id,
                               args=(report,))
@@ -161,7 +161,7 @@ END
 
         # push data to appropriate message processor in new thread
         for proc in msg_proc_lst:
-            thread_id = f"worker-{len(workers_active)+1}"
+            thread_id = f"Worker-{len(workers_active)+1}"
             thread = threading.Thread(target=proc.process, name=thread_id,
                                       args=(endpoint, node_id, stream_id,
                                             graph_id, graph_data, graph_label,
@@ -239,7 +239,7 @@ def _spawn_connector_workers(adaptor: Adaptor, q_msg: Queue, q_rpt: Queue)\
     """
     listening_jobs = []
     for i, connector in enumerate(adaptor.connectors, 1):
-        thread_id = f"listner-{i}"
+        thread_id = f"Listner-{i}"
         thread = threading.Thread(target=listener, name=thread_id,
                                   args=(connector, q_msg, q_rpt))
         thread.start()
@@ -336,16 +336,16 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
     grph_proc = GraphProcessor(q_out=q_rpt, q_shed=q_rpts,
                                rng=rng, cfg=grph_cfg)
 
-    prmn_proc = None
-    if flags.predictive_maintenance:
-        prmn_proc = NodeProcessor(q_out=q_rpt, q_shed=Queue(),
-                                  rng=rng, cfg=prmn_cfg,
-                                  kwargs={"strm_store": strm_proc.store})
-
     # restore saved states
     if flags.backup_restore is not None:
         _restore_backup(strm_proc, grph_proc, flags)
         logger.info("Backup restored")
+
+    prmn_proc = None
+    if flags.predictive_maintenance:
+        prmn_proc = NodeProcessor(q_out=q_rpt, q_shed=Queue(),
+                                  rng=rng, cfg=prmn_cfg,
+                                  strm_store=strm_proc.store)
 
     # setup backup manager to periodically write the stores to disk
     bckmgr = BackupManager(location=flags.backup_path,
@@ -358,7 +358,7 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
     listening_jobs = _spawn_connector_workers(adaptor, q_msg, q_rpt)
 
     # start a manager which spawns new threads as new observations arrive
-    manager = threading.Thread(target=process_message, name="manager",
+    manager = threading.Thread(target=process_message, name="Manager",
                                args=(q_msg, [grph_proc, strm_proc]))
     manager.start()
 
@@ -386,7 +386,8 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
 
             # publish report if requested by the report level
             assert isinstance(report, ValidationReport)
-            logger.debug("Processing validation report with status "
+            rtype = report.type.name.replace('_', ' ').capitalize()
+            logger.debug(f"Processing {rtype} with status "
                          f"{report.status_code.name} "
                          f"(SID '{report.stream_id}')")
             if (report.status_code >= flags.report_level and
@@ -414,6 +415,8 @@ def main(rng: np.random.Generator, adaptor_cls: type[Adaptor],
     for pm_worker in pm_workers:
         # wait for predictive maintenance threads to terminate
         pm_worker.join()
+    if prmn_proc is not None:
+        prmn_proc.terminate()  # stop active timers
 
     # wait until manager is terminated
     manager.join()
@@ -467,6 +470,10 @@ def __main__():
                         + "(optional)", type=int, default=None)
     parser.add_argument("--verbose", "-v", help="Show debug messages in "
                         + "console.", action='count', default=0)
+    parser.add_argument("--quiet", help="If enabled, limits the number of "
+                        "published reports to changes in state only.",
+                        action=argparse.BooleanOptionalAction,
+                        default=False)
 
     parser_comm = parser.add_argument_group('Communication Settings')
     parser_comm.add_argument("adaptor", help="Adaptor appropriate for "
@@ -625,22 +632,22 @@ def __main__():
                                    "Higher values translate to a stronger "
                                    "increase of the undesired state."),
                              type=float, default=1.5)
-    parser_pred.add_argument("--weight-growth-rate-noncritical",
-                             help=("The growth rate of the weight of an "
+    parser_pred.add_argument("--weight-upper-bound-noncritical",
+                             help=("The upper bound of the weight of an "
                                    "undesired state since the last "
                                    "observation that will trigger the "
                                    "publication of a non-critical "
                                    "maintenance report. Higher values "
                                    "translate to more liberal behaviour."),
-                             type=float, default=1.5)
-    parser_pred.add_argument("--weight-growth-rate-critical",
-                             help=("The growth rate of the weight of an "
+                             type=float, default=1.0)
+    parser_pred.add_argument("--weight-upper-bound-critical",
+                             help=("The upper bound of the weight of an "
                                    "undesired state since the last "
                                    "observation that will trigger the "
                                    "publication of a non-critical "
                                    "maintenance report. Higher values "
                                    "translate to more liberal behaviour."),
-                             type=float, default=2.0)
+                             type=float, default=3.0)
 
     flags = parser.parse_args()
 
@@ -665,8 +672,8 @@ def __main__():
     assert 0. <= flags.weight_decay_rate <= 1.0
     assert 1.0 <= flags.weight_multiplier_noncritical
     assert 1.0 <= flags.weight_multiplier_critical
-    assert 1.0 <= flags.weight_growth_rate_noncritical
-    assert 1.0 <= flags.weight_growth_rate_critical
+    assert 1.0 <= flags.weight_upper_bound_noncritical
+    assert 1.0 <= flags.weight_upper_bound_critical
 
     # flags for connectors
     conn_cfg = create_namespace_subset(flags,
@@ -708,12 +715,13 @@ def __main__():
 
     # flags for predictive maintenance
     prmn_cfg = create_namespace_subset(flags,
-                                       ['weight_decay_rate',
+                                       ['quiet',
+                                        'weight_decay_rate',
                                         'weight_decay_interval',
                                         'weight_multiplier_noncritical',
                                         'weight_multiplier_critical',
-                                        'weight_growth_rate_noncritical',
-                                        'weight_growth_rate_critical'])
+                                        'weight_upper_bound_noncritical',
+                                        'weight_upper_bound_critical'])
 
     # set log level
     log_level = logging.NOTSET

@@ -91,6 +91,7 @@ fi
 
 sleep 1
 echo "Attempting to post sensor data"
+echo " Press 'p' to pause and 'i' to inject a faulty measurement"
 
 sleep_time=1
 if [ -n "$INTERVAL" ]
@@ -99,12 +100,14 @@ then
 fi
 
 i=1
+anomaly=false
 while true
 do
-    if [ $(($i % 120)) -eq 0 ]
+    if [ "$anomaly" = true ]
     then
         VALUE=999
         echo " $i - Publishing sensor reading: $VALUE °C (simulating faulty sensor)"
+        anomaly=false
     else
         VALUE=$((15 + $RANDOM % 10)).$(($RANDOM % 10))
         echo " $i - Publishing sensor reading: $VALUE °C"
@@ -119,11 +122,18 @@ do
     fi
 
     ((i=i+1))
-    read -s -n 1 -t "$sleep_time"
+    read -s -n 1 -t "$sleep_time" char
     if [ $? -eq 0 ]
     then
-        echo "Paused. Press any key to continue."
-        read -s -n 1  # unpause on next key press
+        if [ "$char" = "p" ]
+        then
+            echo "Paused. Press any key to continue."
+            read -s -n 1  # unpause on next key press
+        fi
+        if [ "$char" = "i" ]
+        then
+            anomaly=true
+        fi
     fi
 done
 
